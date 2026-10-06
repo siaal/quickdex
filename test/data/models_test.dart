@@ -1,0 +1,39 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:quickdex/data/models.dart';
+
+Pokedex realDex() => Pokedex.parse(
+  File('assets/data/pokedex.json').readAsStringSync(),
+  File('assets/data/types.json').readAsStringSync(),
+);
+
+void main() {
+  late Pokedex dex;
+  setUpAll(() => dex = realDex());
+
+  test('parses real data and invariants hold', () {
+    expect(dex.entries.length, greaterThan(1025));
+    dex.assertInvariants();
+  });
+
+  test('lookup by id', () {
+    expect(dex[25].name, 'Pikachu');
+    expect(dex[25].dexLabel, '#025');
+    expect(dex[10100].name, 'Raichu (Alolan)');
+    expect(dex[10100].chipLabel, 'Alolan');
+    expect(dex[26].chipLabel, 'Raichu');
+  });
+
+  test('precomputed defense equals chart computation for every entry', () {
+    for (final e in dex.entries) {
+      expect(e.defense, dex.types.defenseFor(e.types), reason: e.name);
+    }
+  });
+
+  test('chainFor returns null for non-evolving species', () {
+    final tauros = dex.entries.firstWhere((e) => e.name == 'Tauros');
+    expect(dex.chainFor(tauros), isNull);
+    expect(dex.chainFor(dex[133])!.from(133).length, 8);
+  });
+}
