@@ -43,6 +43,11 @@ def test_ability_only_duplicate_form_dropped(by_name, by_id):
     assert 10118 not in by_id  # zygarde-10-power-construct: same types+stats as 10181
 
 
+def test_label_overrides(by_id):
+    assert by_id[10177].name == "Darmanitan (Galarian)"
+    assert by_id[10136].name == "Minior (Core)"
+
+
 def test_display_names_unique(built):
     names = [e.name for e in built.entries]
     assert len(names) == len(set(names))

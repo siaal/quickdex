@@ -9,6 +9,8 @@ log = logging.getLogger("quickdex.entries")
 
 DROP_SUBSTRINGS = ("-mega", "-gmax", "-primal", "-totem", "-eternamax")
 STAT_IDS = ("1", "2", "3", "4", "5", "6")  # hp, atk, def, spa, spd, spe
+# Labels PokéAPI's English names render awkwardly once the other forms are dropped.
+LABEL_OVERRIDES = {"darmanitan-galar-standard": "Galarian", "minior-red": "Core"}
 
 
 @dataclass
@@ -123,7 +125,10 @@ def build_entries(db: CsvDb) -> EntryBuild:
         species = species_names[sid]
         fn = form_names.get(form["id"], {})
         label = form_label(fn.get("pokemon_name", ""), fn.get("form_name", ""), species)
-        if not is_default and label is None:
+        if ident in LABEL_OVERRIDES:
+            label = LABEL_OVERRIDES[ident]
+            log.debug("entries.build.label_override %s -> %s", ident, label)
+        elif not is_default and label is None:
             suffix = ident.removeprefix(species_rows[sid]["identifier"] + "-")
             label = suffix.replace("-", " ").title()
             log.debug("entries.build.label_from_identifier %s -> %s", ident, label)
