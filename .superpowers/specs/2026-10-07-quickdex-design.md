@@ -1,0 +1,297 @@
+# QuickDex — Design
+
+**Status:** approved design, pending spec review
+**Date:** 2026-10-07
+
+## Purpose
+
+An Android app (Pixel 7, pushed via adb) for **low-latency** Pokémon lookups while
+playing Pokémon Scarlet. It is fully offline: all data and artwork are bundled in the APK.
+It has two screens: a Pokémon lookup with frecency-ranked live search, and a type matchup chart.
+
+Speed is the main design goal. The user could get this information by hand; the app exists
+because it is faster.
+
+## Scope decisions
+
+| Decision | Choice |
+|---|---|
+| Stack | Flutter, pinned via fvm to 3.41.8, Android only |
+| App id / name | `app.quickdex` / QuickDex |
+| Data generation | Gen 9 (Scarlet): current values, 18-type chart |
+| Pokémon set | Whole National Dex with Gen 9 data |
+| Forms | Type/stat-relevant alternate forms included as their own entries; **Mega, Gigantamax, and cosmetic-only forms excluded** |
+| Data source | PokéAPI CSV dump + PokéAPI sprites repo; Bulbapedia only to fill reported gaps |
+| Portrait | Official (Sugimori) artwork |
+| Runtime data | Bundled JSON parsed once into in-memory lookup tables (no SQLite) |
+
+**Out of scope:** abilities (Levitate, Flash Fire etc. alter matchups), Tera types, moves,
+locations/encounters, typo-tolerant fuzzy search, iOS.
+
+## Verified sources
+
+Checked against the live repos on 2026-10-07:
+
+- `PokeAPI/pokeapi` → `data/v2/csv/` (187 files), including `pokemon.csv`,
+  `pokemon_forms.csv`, `pokemon_types.csv`, `pokemon_stats.csv`,
+  `pokemon_species.csv`, `pokemon_species_names.csv`, `pokemon_form_names.csv`,
+  `pokemon_evolution.csv`, `evolution_chains.csv`, `evolution_triggers.csv`,
+  `items.csv`, `item_names.csv`, `type_efficacy.csv`, `types.csv`. Current values
+  live in the base files; `*_past.csv` hold older-generation values and are ignored.
+- `PokeAPI/sprites` (default branch `master`, ~10 GB) →
+  `sprites/pokemon/other/official-artwork/<pokemon_id>.png`. Alternate forms use
+  ids ≥ 10001.
+- Tooling present: `uv`, `cwebp` (`/opt/homebrew/bin`). Pixel 7 density is 420 dpi
+  (2.625×).
+
+## Architecture
+
+```
+tool/build_data.py ──► assets/data/pokedex.json ─┐
+  (PokéAPI CSV +        assets/data/types.json   ├─► Flutter app (bundled assets)
+   sprites, cwebp)      assets/art/full/*.webp    │     └─ parsed once at startup
+                        assets/art/thumb/*.webp  ─┘        into in-memory LUTs
+tool/bulbapedia_fill.py ─► patches gaps only (gaps report non-empty)
+```
+
+### 1. Data pipeline (`tool/`, Python via uv)
+
+`make data` runs `tool/build_data.py`, which:
+
+1. **Fetches sources into `.cache/` (gitignored).** Shallow clone of `PokeAPI/pokeapi`.
+   Blobless partial clone + sparse checkout of only
+   `sprites/pokemon/other/official-artwork/` from `PokeAPI/sprites`. If the clones
+   already exist it pulls instead.
+2. **Joins CSVs** into one entry per `pokemon.csv` row. It keeps default forms and
+   alternate forms that change type or stats. Megas and Gigantamax are dropped via the
+   `pokemon_forms.csv` flags (`is_mega`, `is_battle_only`) plus a name filter
+   (`-mega`, `-gmax`), and cosmetic-only forms are dropped too. Each entry holds:
+   - `id` (PokéAPI pokemon id), `dex` (species national dex #)
+   - `name` (display, e.g. `Raichu`, `Raichu (Alolan)`), `form` label (e.g. `Alolan`, or null)
+   - `types` (1–2), `stats` (hp, atk, def, spa, spd, spe; total derived)
+   - `forms`: sibling entry ids (same species, including itself), in display order
+   - `chain`: evolution chain id
+   - `defense`: precomputed map of 18 attacking types to multiplier (0, ¼, ½, 1, 2, 4)
+3. **Builds evolution trees** keyed by chain id. Each edge carries a short method string
+   rendered from `pokemon_evolution.csv`: `Lv. 16`, `Thunder Stone`,
+   `Trade w/ Metal Coat`, `High friendship, day`, etc. Regional evolution variants
+   point at the correct form entry where the data allows.
+4. **Converts artwork** with `cwebp` into two sizes per entry:
+   - `assets/art/full/<id>.webp`, 256 px (Pokémon page)
+   - `assets/art/thumb/<id>.webp`, 128 px (search rows and the evolution sheet; a 48 dp
+     avatar at 2.625× is about 126 px)
+5. **Writes** `assets/data/pokedex.json` (entries + chains) and `assets/data/types.json`
+   (18×18 chart).
+6. **Writes a gaps report** (`.cache/gaps.json` + console summary): entries without
+   artwork, edges whose method couldn't be rendered, and total asset sizes.
+
+`make fill-gaps` runs `tool/bulbapedia_fill.py`, which handles **only** items in the gaps
+report. It is a polite MediaWiki API client:
+- ≥ 1 s between requests (serial, never parallel), and `maxlag=5` honoured with backoff
+- a descriptive User-Agent with contact info
+- an on-disk response cache under `.cache/bulbapedia/`, so no URL is fetched twice
+- resumable; it runs in a terminalcp session so it can run in the background for as long
+  as it takes
+- a no-op when the gaps report is empty
+
+The generated `assets/` are committed, so app builds never need the network.
+
+### 2. App structure (Flutter)
+
+**Startup:** load `pokedex.json` and `types.json` once and build the LUTs:
+`Map<int, Entry> byId`, the ordered entry list, the precomputed normalised search keys,
+and the chains map. Load time is measured and logged. Nothing is computed at
+page-render time.
+
+**Shell:** a bottom nav with **Lookup** (default) and **Type Chart**. The theme follows
+system light/dark, and type badges use the standard type colours.
+
+**Lookup tab:** the search field sits at the top, autofocused, with the keyboard up on
+launch. Live suggestions are listed below it, each row showing a thumbnail, name, #dex
+and type badges. Tapping a row opens the Pokémon page. Back returns to search with the
+query cleared and the field refocused.
+
+**Pokémon page,** top to bottom (ordered by how often each part is checked):
+1. **Header:** portrait, then `Row(Expanded(name + #dex, wraps), EvoButton)`. The Evo
+   button is pinned to the right edge of the page and takes no extra vertical space;
+   long names wrap instead of pushing it. Type badges follow.
+2. **Form chips,** only when the entry has sibling forms (e.g. `[Raichu] [Alolan]`).
+   Tapping one swaps the displayed entry **in place** (no new route), so back still
+   returns to search.
+3. **Base stats:** six labelled bars with values, plus the total.
+4. **Type defences,** in the Bulbapedia layout:
+   - Weak to: 4×, 2×
+   - Damaged normally by: 1×
+   - Resistant to: ½×, ¼×
+   - Immune to: 0×
+   Each row is a wrap of type badges, read directly from the precomputed `defense` map.
+5. **Evo button** opens a bottom sheet with the chain tree (branches supported, e.g.
+   Eevee). Each node shows a thumbnail + name, and each edge shows its method. Tapping
+   a node swaps the page to that entry in place.
+
+**Type Chart tab,** with two sub-tabs:
+- **Focus:** an **Attacker / Defender toggle** at the top, then 18 type chips; select
+  exactly one type.
+  - Attacker mode: what type X hits, grouped as Super effective (2×),
+    Not very effective (½×), No effect (0×).
+  - Defender mode: how type X takes hits, grouped as Weak to (2×), Resistant to (½×),
+    Immune to (0×).
+  - No dual-type selection. Dual-type defence is what the Pokémon page is for.
+- **Grid:** the full 18×18 chart. The attacker column and defender header row are
+  frozen. Pinch to zoom and pan. Tapping a cell highlights its row and column.
+
+### 3. Search & frecency
+
+**Normalisation** (applied to both names and the query): lowercase, accents stripped
+(`é→e`), and **all punctuation and spaces removed**. So `Mr. Mime`, `mr mime` and
+`mrmime` all normalise to `mrmime`, `Farfetch'd` to `farfetchd`, and `Nidoran♀` to
+`nidoranf`.
+
+**Matching:** a query matches the normalised name, the form label (`alolan`), or the dex
+number (`25`, `025`). Match tiers, best first:
+1. name prefix
+2. word prefix (e.g. `mime` → Mr. Mime; word boundaries come from the un-normalised name)
+3. substring
+
+**Ranking:**
+1. Frecent matches (score > 0), by score descending.
+2. Non-frecent matches, by match tier, then dex order.
+
+An empty query matches everything, so it shows the frecent list followed by the full dex
+in order. The same rule covers both cases.
+
+**Frecency model:** a per-entry `(score, lastUpdated)`. When read, the score is
+`score × 0.5^(age / halfLife)` with `halfLife = 3 days` (a constant). A visit decays the
+stored score to now and adds 1. Storage is O(1) per entry, persisted as a small map in
+`shared_preferences`. The clock is injected for tests.
+
+**Visit attribution:** a visit is credited to the entry **on screen when the user leaves
+the page** (back, tab switch, or app paused). So Raichu → [Alolan] → back credits Alolan
+Raichu only.
+
+**Swipe to dismiss:** only frecent rows can be swiped. Swiping deletes that entry's
+frecency record, and an Undo snackbar restores the previous `(score, lastUpdated)`.
+
+**Image latency:** row thumbnails are 128 px. Thumbnails for the top frecent results are
+precached at startup so suggestions never pop in.
+
+### 4. Error handling
+
+- The pipeline fails loudly (non-zero exit) on schema surprises: missing CSV columns,
+  an entry with no types, or a chain referencing an unknown id. Missing artwork or an
+  unrenderable method is **not** fatal; it goes to the gaps report.
+- The app asserts LUT invariants after load: every `forms` id and every chain node
+  resolves in `byId`, and every `defense` map has 18 keys. Bundled data is
+  build-generated, so a violation is a build bug, not a runtime condition to recover from.
+- If the frecency store is corrupt, it is reset to empty, with a trace log.
+- Tracing uses `dart:developer` `log()` with stable trace IDs (e.g.
+  `search.rank.frecent_hit`, `frecency.visit.credit`, `startup.load.done`) at branch
+  points. There is no user-facing logging.
+
+### 5. Project & tooling
+
+- `git init` in this directory. `.cache/` is gitignored. `assets/` (generated) is committed.
+- `.fvmrc` pins Flutter 3.41.8.
+- Makefile targets:
+  - `data`: run the pipeline
+  - `fill-gaps`: polite Bulbapedia fill
+  - `test`: pytest + flutter test
+  - `analyze`: flutter analyze (+ ruff for tool/)
+  - `run`: debug on device in a terminalcp session (hot reload)
+  - `install`: release APK + `adb install -r` (daily use; release is much faster than debug)
+
+### 6. Testing
+
+- **Pipeline (pytest, real CSVs):**
+  - Alolan Raichu is Electric/Psychic.
+  - There are no Mega/G-Max entries.
+  - Eevee has 8 branches, each with a method.
+  - Gyarados takes Electric 4×.
+  - Shedinja's defence profile is correct.
+  - Every entry has both art sizes at the right dimensions.
+- **Dart unit:**
+  - normalisation cases (`Mr. Mime`, `mrmime`, `Farfetch'd`, `Flabébé`, `Nidoran♀`)
+  - match tiers
+  - ranking order
+  - frecency decay and visit add (injected clock)
+  - grouping of defence rows
+- **Widget:**
+  - swipe-dismiss + Undo
+  - non-frecent rows aren't swipeable
+  - a form chip swaps the page in place
+  - the visit is credited to the final entry
+  - evo sheet navigation
+  - the Evo button stays pinned while a long name wraps
+- **On-device perf:** startup load time and per-keystroke search time are logged via
+  `dart:developer` in the release build on the Pixel 7, and the measured numbers are
+  reported.
+
+## Ideal State Criteria
+
+Pipeline
+1. `make data` exits 0 starting from an empty `.cache/`.
+2. `pokedex.json` contains no Mega entries.
+3. `pokedex.json` contains no Gigantamax entries.
+4. Raichu (Alolan) has types Electric/Psychic.
+5. Raichu and Raichu (Alolan) list each other as sibling forms.
+6. Eevee's chain has 8 evolutions.
+7. Each of Eevee's 8 evolution edges has a non-empty method string.
+8. Gyarados's defence map has Electric = 4.
+9. Every entry has `assets/art/full/<id>.webp` at 256 px.
+10. Every entry has `assets/art/thumb/<id>.webp` at 128 px.
+11. The gaps report lists any missing data.
+12. Bulbapedia is contacted only when the gaps report is non-empty.
+
+App: search
+13. On launch, the Lookup tab is shown.
+14. On launch, the search field is focused.
+15. Query `mrmime` returns Mr. Mime.
+16. Query `mr mime` returns Mr. Mime.
+17. Query `Mr. Mime` returns Mr. Mime.
+18. Query `025` returns Pikachu.
+19. A frecent match ranks above a non-frecent match that has a better match tier.
+20. Swiping a frecent row removes it from the frecent section.
+21. Undo after a swipe restores the entry's previous score.
+22. Non-frecent rows cannot be swiped.
+23. Opening Raichu, tapping [Alolan], then pressing back credits a visit to Alolan Raichu.
+24. The same sequence credits no visit to Raichu.
+25. Frecency persists across an app restart.
+
+App: Pokémon page
+26. The header shows the portrait.
+27. The header shows the name.
+28. The header shows the #dex.
+29. The header shows the type badges.
+30. The Evo button is pinned to the right edge of the name line.
+31. A long name wraps rather than moving the Evo button.
+32. Form chips appear for entries with sibling forms.
+33. Form chips do not appear for entries without sibling forms.
+34. Tapping a form chip swaps the page in place.
+35. Back after a form-chip swap returns to search.
+36. Gyarados's defence rows match Bulbapedia's groupings.
+37. Shedinja's defence rows match Bulbapedia's groupings.
+38. Tapping an evolution in the sheet opens that Pokémon.
+
+App: Type chart
+39. Focus in Attacker mode with a type selected shows its 2× / ½× / 0× offensive groups.
+40. Focus in Defender mode with a type selected shows its 2× / ½× / 0× defensive groups.
+41. Focus allows at most one selected type.
+42. The grid's attacker headers stay visible while panning.
+43. The grid's defender headers stay visible while panning.
+44. The grid's headers stay visible while zoomed in.
+45. Tapping a grid cell highlights its row.
+46. Tapping a grid cell highlights its column.
+
+Offline / perf
+47. The release APK works with airplane mode on.
+48. Data load is < 150 ms, measured on the Pixel 7 release build.
+49. Per-keystroke search is < 2 ms, measured on the Pixel 7 release build.
+50. `make test` passes.
+51. `make analyze` passes.
+
+## Documentation impact
+
+- Feature / user-facing docs introduced: `README.md` (what QuickDex is, make targets,
+  how to regenerate data); `AGENTS.md` (pipeline layout, data contract, conventions)
+- Materially amended existing docs: none (new project)
+- Derived / memory docs invalidated: none
