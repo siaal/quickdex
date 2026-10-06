@@ -21,7 +21,7 @@ because it is faster.
 | Data generation | Gen 9 (Scarlet): current values, 18-type chart |
 | Pokémon set | Whole National Dex with Gen 9 data |
 | Forms | Type/stat-relevant alternate forms included as their own entries; **Mega, Gigantamax, and cosmetic-only forms excluded** |
-| Data source | PokéAPI CSV dump + PokéAPI sprites repo; Bulbapedia only to fill reported gaps |
+| Data source | PokéAPI CSV dump + PokéAPI sprites repo only. Gaps are fixed by a committed overrides file. Bulbapedia is never contacted (see "Bulbapedia dropped") |
 | Portrait | Official (Sugimori) artwork |
 | Runtime data | Bundled JSON parsed once into in-memory lookup tables (no SQLite) |
 
@@ -51,7 +51,7 @@ tool/build_data.py ──► assets/data/pokedex.json ─┐
   (PokéAPI CSV +        assets/data/types.json   ├─► Flutter app (bundled assets)
    sprites, cwebp)      assets/art/full/*.webp    │     └─ parsed once at startup
                         assets/art/thumb/*.webp  ─┘        into in-memory LUTs
-tool/bulbapedia_fill.py ─► patches gaps only (gaps report non-empty)
+tool/overrides.json ───► hand-curated fixes for anything the gaps check reports
 ```
 
 ### 1. Data pipeline (`tool/`, Python via uv)
@@ -62,10 +62,16 @@ tool/bulbapedia_fill.py ─► patches gaps only (gaps report non-empty)
    Blobless partial clone + sparse checkout of only
    `sprites/pokemon/other/official-artwork/` from `PokeAPI/sprites`. If the clones
    already exist it pulls instead.
-2. **Joins CSVs** into one entry per `pokemon.csv` row. It keeps default forms and
-   alternate forms that change type or stats. Megas and Gigantamax are dropped via the
-   `pokemon_forms.csv` flags (`is_mega`, `is_battle_only`) plus a name filter
-   (`-mega`, `-gmax`), and cosmetic-only forms are dropped too. Each entry holds:
+2. **Joins CSVs** into one entry per kept `pokemon.csv` row. Cosmetic-only forms
+   (Vivillon, Unown, …) exist only in `pokemon_forms.csv`, not as `pokemon.csv` rows, so
+   they never appear. The rule for a non-default `pokemon.csv` row is:
+   - **Drop** it if its form has `is_mega=1`, or if its identifier contains `-mega`, `-gmax`,
+     `-primal`, `-totem` or `-eternamax`, or ends with `-starter`.
+   - **Drop** it if its types *and* base stats both equal the species' default row. This
+     removes Pikachu caps, ride modes, Rockruff Own Tempo, and similar.
+   - **Keep** everything else. That includes battle-only forms that change type/stats
+     (Zen Mode, Aegislash Blade); the user reviews the printed kept/dropped list once.
+   Each entry holds:
    - `id` (PokéAPI pokemon id), `dex` (species national dex #)
    - `name` (display, e.g. `Raichu`, `Raichu (Alolan)`), `form` label (e.g. `Alolan`, or null)
    - `types` (1–2), `stats` (hp, atk, def, spa, spd, spe; total derived)
@@ -82,17 +88,19 @@ tool/bulbapedia_fill.py ─► patches gaps only (gaps report non-empty)
      avatar at 2.625× is about 126 px)
 5. **Writes** `assets/data/pokedex.json` (entries + chains) and `assets/data/types.json`
    (18×18 chart).
-6. **Writes a gaps report** (`.cache/gaps.json` + console summary): entries without
-   artwork, edges whose method couldn't be rendered, and total asset sizes.
+6. **Checks for gaps**: entries without artwork, and evolution edges whose method
+   couldn't be rendered. It first applies `tool/overrides.json`, which has two maps: `art`
+   (entry id → id whose artwork to reuse) and `methods` (`"<from_id>-><to_id>"` →
+   method string). Any gap left after that makes `make data` **exit non-zero and print
+   the list**. On success it prints the kept/dropped form list and the total asset sizes.
 
-`make fill-gaps` runs `tool/bulbapedia_fill.py`, which handles **only** items in the gaps
-report. It is a polite MediaWiki API client:
-- ≥ 1 s between requests (serial, never parallel), and `maxlag=5` honoured with backoff
-- a descriptive User-Agent with contact info
-- an on-disk response cache under `.cache/bulbapedia/`, so no URL is fetched twice
-- resumable; it runs in a terminalcp session so it can run in the background for as long
-  as it takes
-- a no-op when the gaps report is empty
+**Bulbapedia dropped (recon, 2026-10-07).** One request to Bulbapedia's MediaWiki API
+with a descriptive User-Agent returned HTTP 403 with an HTML body. My guess is bot
+protection, but that's unconfirmed. Getting past it would mean impersonating a browser,
+which goes against the "polite scraper" requirement. Official artwork exists for every
+candidate row except four Koraidon/Miraidon ride modes, and the form rule drops those
+anyway. So gaps are resolved by hand in `tool/overrides.json`, and nothing scrapes
+Bulbapedia.
 
 The generated `assets/` are committed, so app builds never need the network.
 
@@ -178,15 +186,18 @@ precached at startup so suggestions never pop in.
 ### 4. Error handling
 
 - The pipeline fails loudly (non-zero exit) on schema surprises: missing CSV columns,
-  an entry with no types, or a chain referencing an unknown id. Missing artwork or an
-  unrenderable method is **not** fatal; it goes to the gaps report.
+  an entry with no types, or a chain referencing an unknown id. Gaps left after
+  overrides (missing artwork, unrenderable method) also fail the run, with the list printed.
 - The app asserts LUT invariants after load: every `forms` id and every chain node
   resolves in `byId`, and every `defense` map has 18 keys. Bundled data is
   build-generated, so a violation is a build bug, not a runtime condition to recover from.
 - If the frecency store is corrupt, it is reset to empty, with a trace log.
-- Tracing uses `dart:developer` `log()` with stable trace IDs (e.g.
+- Tracing goes through one `trace(id, data)` helper, with stable trace IDs (e.g.
   `search.rank.frecent_hit`, `frecency.visit.credit`, `startup.load.done`) at branch
-  points. There is no user-facing logging.
+  points. By default it calls `dart:developer` `log()`. When built with
+  `--dart-define=QUICKDEX_TRACE=true`, it uses `debugPrint` instead, so the lines reach
+  `adb logcat` in release builds, where `log()` output isn't visible. There is no
+  user-facing logging.
 
 ### 5. Project & tooling
 
@@ -194,7 +205,8 @@ precached at startup so suggestions never pop in.
 - `.fvmrc` pins Flutter 3.41.8.
 - Makefile targets:
   - `data`: run the pipeline
-  - `fill-gaps`: polite Bulbapedia fill
+  - `perf`: release build with `QUICKDEX_TRACE=true`, install, and print the
+    `startup.load.done` / `search.query.done` timings from logcat
   - `test`: pytest + flutter test
   - `analyze`: flutter analyze (+ ruff for tool/)
   - `run`: debug on device in a terminalcp session (hot reload)
@@ -222,9 +234,9 @@ precached at startup so suggestions never pop in.
   - the visit is credited to the final entry
   - evo sheet navigation
   - the Evo button stays pinned while a long name wraps
-- **On-device perf:** startup load time and per-keystroke search time are logged via
-  `dart:developer` in the release build on the Pixel 7, and the measured numbers are
-  reported.
+- **On-device perf:** `make perf` reports the startup load time and per-keystroke
+  search time from a traced release build on the Pixel 7. Keystrokes are driven by
+  `adb shell input text`. The measured numbers are reported.
 
 ## Ideal State Criteria
 
@@ -239,8 +251,8 @@ Pipeline
 8. Gyarados's defence map has Electric = 4.
 9. Every entry has `assets/art/full/<id>.webp` at 256 px.
 10. Every entry has `assets/art/thumb/<id>.webp` at 128 px.
-11. The gaps report lists any missing data.
-12. Bulbapedia is contacted only when the gaps report is non-empty.
+11. With an artwork gap and no override, `make data` exits non-zero and prints the missing id.
+12. No pipeline code contacts Bulbapedia.
 
 App: search
 13. On launch, the Lookup tab is shown.
