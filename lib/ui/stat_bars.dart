@@ -4,7 +4,11 @@ class StatBars extends StatelessWidget {
   const StatBars({super.key, required this.stats});
   final List<int> stats;
 
-  static const labels = ['HP', 'Atk', 'Def', 'SpA', 'SpD', 'Spe'];
+  /// Display order (offence above defence): HP, Atk, SpA, Def, SpD, Spe.
+  /// [stats] stays in PokéAPI order (hp, atk, def, spa, spd, spe); [order]
+  /// maps each display row to its index in [stats].
+  static const labels = ['HP', 'Atk', 'SpA', 'Def', 'SpD', 'Spe'];
+  static const order = [0, 1, 3, 2, 4, 5];
   static const maxStat = 255;
 
   Color _color(int v) => v < 60
@@ -20,12 +24,12 @@ class StatBars extends StatelessWidget {
     assert(stats.length == 6, 'expected 6 stats');
     return Column(
       children: [
-        for (var i = 0; i < 6; i++)
+        for (final (row, i) in order.indexed)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(
               children: [
-                SizedBox(width: 40, child: Text(labels[i])),
+                SizedBox(width: 40, child: Text(labels[row])),
                 SizedBox(
                   width: 36,
                   child: Text('${stats[i]}', textAlign: TextAlign.right),

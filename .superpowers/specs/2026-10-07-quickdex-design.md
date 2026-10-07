@@ -128,7 +128,8 @@ query cleared and the field refocused.
 2. **Form chips,** only when the entry has sibling forms (e.g. `[Raichu] [Alolan]`).
    Tapping one swaps the displayed entry **in place** (no new route), so back still
    returns to search.
-3. **Base stats:** six labelled bars with values, plus the total.
+3. **Base stats:** six labelled bars with values, plus the total. Display order is
+   HP, Atk, SpA, Def, SpD, Spe (offence above defence); the data keeps PokéAPI order.
 4. **Type defences,** in the Bulbapedia layout:
    - Weak to: 4×, 2×
    - Damaged normally by: 1×
