@@ -171,6 +171,10 @@ query cleared and the field refocused.
    entry under the thumb; releasing on another entry swaps to it, releasing off the
    list cancels. Its pan recognizer uses half the touch slop so it beats page scroll.
 
+**Type order** everywhere (Focus tiles, Grid axes, defence table) is alphabetical, from
+`TYPE_ORDER` via `types.json` (user choice; the conventional Normal, Fire, Water… order
+can't be scanned without memorising it).
+
 **Type Chart tab,** with two sub-tabs:
 - **Focus:** an **Attacker / Defender toggle** at the top, then 18 type tiles; select
   exactly one type. Tiles sit in their own fixed 3-column grid, all the same size,

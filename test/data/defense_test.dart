@@ -20,7 +20,7 @@ void main() {
       2.0: ['rock'],
     });
     expect(g['Resistant to'], {
-      0.5: ['fire', 'water', 'fighting', 'bug', 'steel'],
+      0.5: ['bug', 'fighting', 'fire', 'steel', 'water'],
     });
     expect(g['Immune to'], {
       0.0: ['ground'],
@@ -35,13 +35,13 @@ void main() {
     final shedinja = dex.entries.firstWhere((e) => e.name == 'Shedinja');
     final g = flatten(defenseGroups(shedinja.defense, dex.types.order));
     expect(g['Weak to'], {
-      2.0: ['fire', 'flying', 'rock', 'ghost', 'dark'],
+      2.0: ['dark', 'fire', 'flying', 'ghost', 'rock'],
     });
     expect(g['Resistant to'], {
-      0.5: ['grass', 'poison', 'ground', 'bug'],
+      0.5: ['bug', 'grass', 'ground', 'poison'],
     });
     expect(g['Immune to'], {
-      0.0: ['normal', 'fighting'],
+      0.0: ['fighting', 'normal'],
     });
   });
 

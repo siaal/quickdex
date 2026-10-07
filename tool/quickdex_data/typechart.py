@@ -4,9 +4,11 @@ from .csvdb import CsvDb, SchemaError
 
 log = logging.getLogger("quickdex.typechart")
 
+# Alphabetical (user choice): the conventional chart order can't be scanned without
+# memorising it. Drives the Focus tiles, both Grid axes and the defence table.
 TYPE_ORDER = [
-    "normal", "fire", "water", "electric", "grass", "ice", "fighting", "poison", "ground",
-    "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy",
+    "bug", "dark", "dragon", "electric", "fairy", "fighting", "fire", "flying", "ghost",
+    "grass", "ground", "ice", "normal", "poison", "psychic", "rock", "steel", "water",
 ]
 
 

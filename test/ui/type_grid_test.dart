@@ -81,7 +81,7 @@ void main() {
 
   testWidgets('tapping a cell highlights its row and column', (tester) async {
     await pump(tester);
-    await tester.tap(find.byKey(const Key('grid-cell-fire-water')));
+    await tester.tap(find.byKey(const Key('grid-cell-dark-dragon')));
     await tester.pump();
     BoxDecoration deco(String key) =>
         tester
@@ -96,13 +96,13 @@ void main() {
                 .decoration!
             as BoxDecoration;
     expect(
-      deco('grid-cell-fire-normal').border,
+      deco('grid-cell-dark-bug').border,
       gridHighlightBorder,
     ); // same row
     expect(
-      deco('grid-cell-normal-water').border,
+      deco('grid-cell-bug-dragon').border,
       gridHighlightBorder,
     ); // same column
-    expect(deco('grid-cell-normal-normal').border, isNot(gridHighlightBorder));
+    expect(deco('grid-cell-bug-bug').border, isNot(gridHighlightBorder));
   });
 }

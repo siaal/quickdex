@@ -70,7 +70,7 @@ void main() {
     expect(weak.buckets.expand((b) => b.$2), isNot(contains('ground')));
     final immune = groups.firstWhere((g) => g.label == 'Immune to');
     expect(immune.buckets.single.$1, 0.0);
-    expect(immune.buckets.single.$2, ['normal', 'fighting']);
+    expect(immune.buckets.single.$2, ['fighting', 'normal']);
     expect(immune.guard!.types, ['ground']);
   });
 
