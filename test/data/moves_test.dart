@@ -45,6 +45,20 @@ void main() {
     expect(named('Return').inScarlet, isFalse);
   });
 
+  test(
+    'learnsets: Scarlet unlabelled, evolution moves first, fallback labelled',
+    () {
+      final pika = moves.learnsets[25]!;
+      expect(pika.game, isNull);
+      expect(pika.moves, contains((level: 36, move: named('Thunderbolt').id)));
+      expect(moves.learnsets[700]!.moves.first, (
+        level: 0,
+        move: named('Disarming Voice').id,
+      ));
+      expect(moves.learnsets[63]!.game, 'Sword/Shield');
+    },
+  );
+
   test('search ignores punctuation and has no numeric matches', () {
     final index = SearchIndex(moves.moves);
     expect(index.search('uturn', _NoScores()).first.entry.name, 'U-turn');

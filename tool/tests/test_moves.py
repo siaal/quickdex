@@ -1,6 +1,6 @@
 import pytest
 
-from quickdex_data.moves import build_moves
+from quickdex_data.moves import build_learnsets, build_moves
 
 
 @pytest.fixture(scope="module")
@@ -87,3 +87,36 @@ def test_sorted_by_name_with_unique_ids(db):
     assert [m["name"] for m in ms] == sorted(m["name"] for m in ms)
     assert len({m["id"] for m in ms}) == len(ms)
     assert 840 < len(ms) < 860
+
+
+@pytest.fixture(scope="module")
+def learnsets(db, built):
+    ms = build_moves(db, {})
+    return build_learnsets(db, [e.id for e in built.entries], {m["id"] for m in ms})
+
+
+def test_every_entry_has_a_learnset(learnsets, built):
+    assert set(learnsets) == {str(e.id) for e in built.entries}
+    assert all(ls["moves"] for ls in learnsets.values())
+
+
+def test_scarlet_learnset_is_unlabelled_and_in_level_order(learnsets, db):
+    pika = learnsets["25"]
+    assert pika["game"] is None
+    levels = [lv for lv, _ in pika["moves"]]
+    assert levels == sorted(levels)
+    thunderbolt = next(m["id"] for m in build_moves(db, {}) if m["key"] == "thunderbolt")
+    assert [36, thunderbolt] in pika["moves"]
+
+
+def test_evolution_moves_are_level_zero_first(learnsets, db):
+    sylveon = learnsets["700"]["moves"]
+    kiss = next(m["id"] for m in build_moves(db, {}) if m["key"] == "disarming-voice")
+    assert sylveon[0] == [0, kiss]
+
+
+def test_not_in_scarlet_falls_back_to_latest_classic_game(learnsets):
+    assert learnsets["63"]["game"] == "Sword/Shield"  # Abra
+    assert learnsets["10"]["game"] == "Sword/Shield"  # Caterpie
+    games = {ls["game"] for ls in learnsets.values()}
+    assert "Legends: Arceus" not in games

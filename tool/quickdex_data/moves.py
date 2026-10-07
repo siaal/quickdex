@@ -99,3 +99,41 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str]) -> list[dict]:
         raise SchemaError(f"move description overrides match no move: {sorted(unused)}")
     out.sort(key=lambda m: m["name"])
     return out
+
+
+LEVEL_UP = "1"
+# Fallback games for Pokémon not in Scarlet, labelled on the page, most preferred
+# first: Sword/Shield's learnsets are what Scarlet's derive from, BDSP keeps Gen 4
+# ones. Legends games and Champions are left out: their move systems differ.
+FALLBACK_GAMES = {"20": "Sword/Shield", "23": "Brilliant Diamond/Shining Pearl",
+                  "18": "Ultra Sun/Ultra Moon", "17": "Sun/Moon", "19": "Let's Go"}
+_PREFERENCE = list(FALLBACK_GAMES)
+
+
+def build_learnsets(db: CsvDb, entry_ids: list[int], move_ids: set[int]) -> dict[str, dict]:
+    """Level-up learnset per entry id: `{"game": None | fallback label,
+    "moves": [[level, move id], ...]}`, level 0 = learned on evolution."""
+    wanted = {str(i) for i in entry_ids}
+    rows: dict[str, dict[str, list[tuple[int, int, int]]]] = defaultdict(lambda: defaultdict(list))
+    for r in db.rows("pokemon_moves", ("pokemon_id", "version_group_id", "move_id",
+                                       "pokemon_move_method_id", "level", "order")):
+        vg = r["version_group_id"]
+        if (r["pokemon_move_method_id"] != LEVEL_UP or r["pokemon_id"] not in wanted
+                or (vg != SV_VERSION_GROUP and vg not in FALLBACK_GAMES)):
+            continue
+        rows[r["pokemon_id"]][vg].append(
+            (int(r["level"]), int(r["order"] or 0), int(r["move_id"])))
+    out = {}
+    for pid in sorted(wanted, key=int):
+        by_game = rows.get(pid)
+        if not by_game:
+            raise SchemaError(f"pokemon {pid} has no level-up learnset in any supported game")
+        vg = SV_VERSION_GROUP if SV_VERSION_GROUP in by_game else min(by_game, key=_PREFERENCE.index)
+        if vg != SV_VERSION_GROUP:
+            log.debug("moves.learnset.fallback %s game=%s", pid, vg)
+        moves = [[lv, mid] for lv, _, mid in sorted(by_game[vg])]
+        unknown = {mid for _, mid in moves} - move_ids
+        if unknown:
+            raise SchemaError(f"pokemon {pid} learns moves not in moves.json: {unknown}")
+        out[pid] = {"game": FALLBACK_GAMES.get(vg), "moves": moves}
+    return out

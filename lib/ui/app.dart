@@ -107,6 +107,8 @@ class _HomeShellState extends State<HomeShell> {
               dex: widget.dex,
               frecency: widget.frecency,
               index: _index,
+              moves: widget.moves,
+              moveFrecency: widget.moveFrecency,
             ),
           ),
           if (_movesVisited)

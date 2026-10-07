@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/models.dart';
+import '../data/moves.dart';
 import '../frecency/frecency.dart';
 import '../trace.dart';
 import 'ability_line.dart';
@@ -8,6 +9,8 @@ import 'art.dart';
 import 'defense_table.dart';
 import 'evo_drag_menu.dart';
 import 'evolution_sheet.dart';
+import 'learnset_table.dart';
+import 'move_page.dart';
 import 'stat_bars.dart';
 import 'type_badge.dart';
 
@@ -17,10 +20,20 @@ class PokemonPage extends StatefulWidget {
     required this.dex,
     required this.frecency,
     required this.initialId,
-  });
+    this.moves,
+    this.moveFrecency,
+  }) : assert(
+         (moves == null) == (moveFrecency == null),
+         'moves and moveFrecency go together',
+       );
   final Pokedex dex;
   final FrecencyStore frecency;
   final int initialId;
+
+  /// Level-up table source; the table is left out when null (move data not
+  /// wired in) or until it has loaded.
+  final Future<MoveDex>? moves;
+  final FrecencyStore? moveFrecency;
 
   @override
   State<PokemonPage> createState() => _PokemonPageState();
@@ -43,6 +56,26 @@ class _PokemonPageState extends State<PokemonPage> {
     assert(widget.dex.byId.containsKey(id), 'unknown entry $id');
     trace('page.swap', {'from': _id, 'to': id, 'via': via});
     setState(() => _id = id);
+  }
+
+  Widget _learnset(MoveDex? moves, PokemonEntry e) {
+    final learnset = moves?.learnsets[e.id];
+    if (moves == null || learnset == null) {
+      trace('page.learnset.absent', {'id': e.id, 'loaded': moves != null});
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: LearnsetTable(
+        learnset: learnset,
+        moves: moves,
+        onOpen: (m) => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => MovePage(move: m, frecency: widget.moveFrecency!),
+          ),
+        ),
+      ),
+    );
   }
 
   void _openEvolutions() {
@@ -148,6 +181,11 @@ class _PokemonPageState extends State<PokemonPage> {
               order: widget.dex.types.order,
               guard: e.guard,
             ),
+            if (widget.moves case final moves?)
+              FutureBuilder<MoveDex>(
+                future: moves,
+                builder: (context, snap) => _learnset(snap.data, e),
+              ),
             const SizedBox(height: 16),
             Text(
               'Catch rate ${e.catchRate} · Weight ${e.weightKg} kg',

@@ -10,7 +10,7 @@ from quickdex_data.art import convert_art, copy_type_icons
 from quickdex_data.csvdb import CsvDb
 from quickdex_data.entries import build_entries
 from quickdex_data.evolutions import build_chains
-from quickdex_data.moves import build_moves
+from quickdex_data.moves import build_learnsets, build_moves
 from quickdex_data.sources import ensure_sources
 from quickdex_data.typechart import TYPE_ORDER, build_chart
 
@@ -52,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     chart = build_chart(db)
     abilities = build_abilities(db, build.entries)
     moves = build_moves(db, overrides["move_descriptions"])
+    learnsets = build_learnsets(db, [e.id for e in build.entries], {m["id"] for m in moves})
     chains, evo_gaps = build_chains(db, build.entries, overrides["methods"])
     art_gaps = convert_art(build.entries, art_dir, ROOT / "assets" / "art", overrides["art"])
     type_idents = {r["id"]: r["identifier"] for r in db.rows("types", ("id", "identifier"))
@@ -73,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
                 {"entries": [e.to_json() for e in build.entries], "chains": chains,
                  "abilities": abilities})
     _write_json(ROOT / "assets" / "data" / "types.json", {"order": TYPE_ORDER, "chart": chart})
-    _write_json(ROOT / "assets" / "data" / "moves.json", {"moves": moves})
+    _write_json(ROOT / "assets" / "data" / "moves.json", {"moves": moves, "learnsets": learnsets})
     print(f"\n{len(build.entries)} entries, {len(chains)} chains, {len(moves)} moves")
     print(f"data {_dir_size(ROOT / 'assets' / 'data') / 1e6:.2f} MB, "
           f"full art {_dir_size(ROOT / 'assets' / 'art' / 'full') / 1e6:.2f} MB, "

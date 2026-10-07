@@ -78,23 +78,57 @@ class Move implements Searchable {
   int? get number => null;
 }
 
-class MoveDex {
-  MoveDex(this.moves) : byId = {for (final m in moves) m.id: m};
+/// Level-up moves of one Pokémon entry, in level order; level 0 = on evolution.
+class Learnset {
+  const Learnset(this.game, this.moves);
 
-  factory MoveDex.parse(String json) => MoveDex([
-    for (final m in (jsonDecode(json) as Map<String, dynamic>)['moves'] as List)
-      Move.fromJson(m as Map<String, dynamic>),
-  ]);
+  factory Learnset.fromJson(Map<String, dynamic> j) =>
+      Learnset(j['game'] as String?, [
+        for (final m in (j['moves'] as List).cast<List<dynamic>>())
+          (level: m[0] as int, move: m[1] as int),
+      ]);
+
+  /// Null for Scarlet; otherwise the older game the data comes from.
+  final String? game;
+  final List<({int level, int move})> moves;
+}
+
+class MoveDex {
+  MoveDex(this.moves, [this.learnsets = const {}])
+    : byId = {for (final m in moves) m.id: m};
+
+  factory MoveDex.parse(String json) {
+    final j = jsonDecode(json) as Map<String, dynamic>;
+    return MoveDex(
+      [
+        for (final m in j['moves'] as List)
+          Move.fromJson(m as Map<String, dynamic>),
+      ],
+      {
+        for (final e in (j['learnsets'] as Map<String, dynamic>).entries)
+          int.parse(e.key): Learnset.fromJson(e.value as Map<String, dynamic>),
+      },
+    );
+  }
 
   /// Sorted by name.
   final List<Move> moves;
   final Map<int, Move> byId;
+
+  /// Keyed by Pokémon entry id.
+  final Map<int, Learnset> learnsets;
 
   void assertInvariants() {
     assert(byId.length == moves.length, 'duplicate move ids');
     assert(
       moves.every((m) => m.name.isNotEmpty && (m.pp == null || m.pp! > 0)),
       'move without a name or with 0 PP',
+    );
+    assert(
+      learnsets.values.every(
+        (l) => l.moves.every((m) => byId.containsKey(m.move)),
+      ),
+      'learnset refers to an unknown move',
     );
   }
 }

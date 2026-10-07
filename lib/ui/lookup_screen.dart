@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/models.dart';
+import '../data/moves.dart';
 import '../frecency/frecency.dart';
 import '../search/search_index.dart';
 import 'art.dart';
@@ -14,10 +15,14 @@ class LookupScreen extends StatelessWidget {
     required this.dex,
     required this.frecency,
     required this.index,
+    this.moves,
+    this.moveFrecency,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
   final SearchIndex<PokemonEntry> index;
+  final Future<MoveDex>? moves;
+  final FrecencyStore? moveFrecency;
 
   @override
   Widget build(BuildContext context) => SearchScreen<PokemonEntry>(
@@ -25,8 +30,13 @@ class LookupScreen extends StatelessWidget {
     frecency: frecency,
     hint: 'Search Pokémon',
     precacheImageFor: (e) => AssetImage(thumbPath(e.id)),
-    pageBuilder: (e) =>
-        PokemonPage(dex: dex, frecency: frecency, initialId: e.id),
+    pageBuilder: (e) => PokemonPage(
+      dex: dex,
+      frecency: frecency,
+      initialId: e.id,
+      moves: moves,
+      moveFrecency: moveFrecency,
+    ),
     tileBuilder: (e, onTap) => ListTile(
       leading: Image.asset(thumbPath(e.id), width: 48, height: 48),
       title: Text(e.name),

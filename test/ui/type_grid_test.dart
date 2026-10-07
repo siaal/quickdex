@@ -95,10 +95,7 @@ void main() {
                 )
                 .decoration!
             as BoxDecoration;
-    expect(
-      deco('grid-cell-dark-bug').border,
-      gridHighlightBorder,
-    ); // same row
+    expect(deco('grid-cell-dark-bug').border, gridHighlightBorder); // same row
     expect(
       deco('grid-cell-bug-dragon').border,
       gridHighlightBorder,

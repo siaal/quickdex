@@ -163,7 +163,14 @@ query cleared and the field refocused.
    type (Levitate, Volt/Water Absorb, Flash Fire, …; Wonder Guard blocks everything
    not super effective), those types move to Immune to with a `(Levitate)` tag.
    E.g. Gastly, Shedinja; not Koffing (Levitate is only one of its abilities).
-6. **Footer:** `Catch rate 45 · Weight 6.9 kg`, small and grey.
+6. **Level-up moves** (above the footer): Lv ("Evo" for level 0), type icon, move,
+   category, power; tapping opens the move page in the same tab and credits move
+   frecency. Data: `learnsets` in moves.json (loaded in the background; the table appears
+   once loaded). Pok\u00e9API's Scarlet data includes the DLCs; entries not in Scarlet at all
+   (325, e.g. Abra) fall back to Sword/Shield, then BDSP, USUM, SM, Let's Go, labelled
+   "From <game>" (Legends games and Champions excluded). Cross-checked against Pok\u00e9mon
+   Showdown's learnsets: same coverage. Bulbapedia blocks automated access (403).
+7. **Footer:** `Catch rate 45 · Weight 6.9 kg`, small and grey.
 5. **Evo button** opens a bottom sheet with the chain tree (branches supported, e.g.
    Eevee). Each node shows a thumbnail + name, and each edge shows its method. Tapping
    a node swaps the page to that entry in place. Pressing and dragging from the Evo
