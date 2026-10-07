@@ -11,7 +11,8 @@ PIKACHU_PNG = ROOT / ".cache/sprites/sprites/pokemon/other/official-artwork/25.p
 
 def _entry(eid: int) -> Entry:
     return Entry(id=eid, dex=eid, name=f"E{eid}", species=f"E{eid}", form=None,
-                 types=["normal"], stats=[1] * 6, chain=1, forms=[eid])
+                 types=["normal"], stats=[1] * 6, chain=1, abilities=[1], hidden=None,
+                 catch_rate=45, weight=10, forms=[eid])
 
 
 def test_missing_art_is_a_gap(tmp_path: Path):

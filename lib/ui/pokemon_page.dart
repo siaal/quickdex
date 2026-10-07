@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../frecency/frecency.dart';
 import '../trace.dart';
+import 'ability_line.dart';
 import 'art.dart';
 import 'defense_table.dart';
 import 'evolution_sheet.dart';
@@ -137,6 +138,7 @@ class _PokemonPageState extends State<PokemonPage> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 4),
             Wrap(spacing: 6, children: [for (final t in e.types) TypeBadge(t)]),
+            AbilityLine(entry: e, abilities: widget.dex.abilities),
             if (e.forms.length > 1) ...[
               const SizedBox(height: 12),
               Wrap(
@@ -157,7 +159,19 @@ class _PokemonPageState extends State<PokemonPage> with WidgetsBindingObserver {
             const SizedBox(height: 16),
             StatBars(stats: e.stats),
             const SizedBox(height: 16),
-            DefenseTable(defense: e.defense, order: widget.dex.types.order),
+            DefenseTable(
+              defense: e.defense,
+              order: widget.dex.types.order,
+              guard: e.guard,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Catch rate ${e.catchRate} · Weight ${e.weightKg} kg',
+              key: const Key('misc-line'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.hintColor,
+              ),
+            ),
           ],
         ),
       ),

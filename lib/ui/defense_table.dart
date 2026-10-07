@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../data/ability_guard.dart';
 import '../data/defense.dart';
 import 'type_badge.dart';
 
 class DefenseTable extends StatelessWidget {
-  const DefenseTable({super.key, required this.defense, required this.order});
+  const DefenseTable({
+    super.key,
+    required this.defense,
+    required this.order,
+    this.guard,
+  });
   final Map<String, double> defense;
   final List<String> order;
+  final AbilityGuard? guard;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +23,7 @@ class DefenseTable extends StatelessWidget {
       children: [
         Text('Type defenses', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
-        for (final g in defenseGroups(defense, order))
+        for (final g in defenseGroups(defense, order, guard: guard))
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
@@ -53,6 +60,32 @@ class DefenseTable extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+                      if (g.guard case final guard?)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(width: 32, child: Text(multLabel(0))),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  for (final t in guard.types)
+                                    TypeBadge(
+                                      t,
+                                      compact: true,
+                                      key: Key('def-guard-$t'),
+                                    ),
+                                  Text(
+                                    '(${guard.ability})',
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                     ],
                   ),

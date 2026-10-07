@@ -23,14 +23,20 @@ class Entry:
     types: list[str]
     stats: list[int]
     chain: int
+    abilities: list[int]  # non-hidden ability ids, slot order
+    hidden: int | None  # hidden ability id
+    catch_rate: int
+    weight: int  # hectograms, as PokéAPI stores it
     forms: list[int] = field(default_factory=list)
 
     def to_json(self) -> dict:
         assert self.forms and self.id in self.forms, self
+        assert self.abilities, self
         return {
             "id": self.id, "dex": self.dex, "name": self.name, "species": self.species,
             "form": self.form, "types": self.types, "stats": self.stats,
-            "forms": self.forms, "chain": self.chain,
+            "forms": self.forms, "chain": self.chain, "abilities": self.abilities,
+            "hidden": self.hidden, "catch": self.catch_rate, "weight": self.weight,
         }
 
 
@@ -63,7 +69,7 @@ def _name_drop_reason(identifier: str, form: dict[str, str]) -> str | None:
 
 
 def build_entries(db: CsvDb) -> EntryBuild:
-    pokemon = db.rows("pokemon", ("id", "identifier", "species_id", "is_default"))
+    pokemon = db.rows("pokemon", ("id", "identifier", "species_id", "is_default", "weight"))
     default_form: dict[str, dict[str, str]] = {}
     for f in db.rows("pokemon_forms",
                      ("id", "pokemon_id", "is_default", "is_mega", "form_order")):
@@ -79,13 +85,22 @@ def build_entries(db: CsvDb) -> EntryBuild:
     stats: dict[str, dict[str, int]] = defaultdict(dict)
     for r in db.rows("pokemon_stats", ("pokemon_id", "stat_id", "base_stat")):
         stats[r["pokemon_id"]][r["stat_id"]] = int(r["base_stat"])
+    abilities: dict[str, list[int]] = defaultdict(list)
+    hidden: dict[str, int] = {}
+    for r in sorted(db.rows("pokemon_abilities",
+                            ("pokemon_id", "ability_id", "is_hidden", "slot")),
+                    key=lambda r: int(r["slot"])):
+        if r["is_hidden"] == "1":
+            hidden[r["pokemon_id"]] = int(r["ability_id"])
+        else:
+            abilities[r["pokemon_id"]].append(int(r["ability_id"]))
     species_names = db.english_names("pokemon_species_names", "pokemon_species_id")
     form_names = {r["pokemon_form_id"]: r
                   for r in db.rows("pokemon_form_names",
                                    ("pokemon_form_id", "form_name", "pokemon_name"))
                   if r["local_language_id"] == ENGLISH}
-    species_rows = {r["id"]: r for r in db.rows("pokemon_species",
-                                                 ("id", "identifier", "evolution_chain_id"))}
+    species_rows = {r["id"]: r for r in db.rows(
+        "pokemon_species", ("id", "identifier", "evolution_chain_id", "capture_rate"))}
 
     def signature(pid: str) -> tuple[tuple[str, ...], tuple[int, ...]]:
         t, s = types.get(pid), stats.get(pid, {})
@@ -131,9 +146,14 @@ def build_entries(db: CsvDb) -> EntryBuild:
             label = suffix.replace("-", " ").title()
             log.debug("entries.build.label_from_identifier %s -> %s", ident, label)
         name = species if is_default else f"{species} ({label})"
+        if not abilities.get(pid):
+            raise SchemaError(f"pokemon {pid} ({ident}) has no non-hidden ability")
         entry = Entry(id=int(pid), dex=int(sid), name=name, species=species, form=label,
                       types=list(t), stats=list(s),
-                      chain=int(species_rows[sid]["evolution_chain_id"]))
+                      chain=int(species_rows[sid]["evolution_chain_id"]),
+                      abilities=abilities[pid], hidden=hidden.get(pid),
+                      catch_rate=int(species_rows[sid]["capture_rate"]),
+                      weight=int(p["weight"]))
         keyed.append(((int(sid), 0 if is_default else 1, int(pid)), entry, sid))
 
     keyed.sort(key=lambda k: k[0])

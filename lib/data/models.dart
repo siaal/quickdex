@@ -1,5 +1,19 @@
 import 'dart:convert';
 
+import 'ability_guard.dart';
+
+class Ability {
+  const Ability(this.key, this.name, this.effect);
+
+  factory Ability.fromJson(Map<String, dynamic> j) =>
+      Ability(j['key'] as String, j['name'] as String, j['effect'] as String);
+
+  /// PokéAPI identifier, e.g. `levitate`.
+  final String key;
+  final String name;
+  final String effect;
+}
+
 class PokemonEntry {
   const PokemonEntry({
     required this.id,
@@ -12,15 +26,26 @@ class PokemonEntry {
     required this.forms,
     required this.chain,
     required this.defense,
+    this.abilities = const [],
+    this.hidden,
+    this.catchRate = 0,
+    this.weight = 0,
+    this.guard,
   });
 
   /// `defenseFor` maps a type list to its defensive multipliers (derived from the chart
   /// at load, not stored in the JSON, to keep startup parsing small).
+  /// `guardFor` derives the guaranteed ability immunity (see ability_guard.dart).
   factory PokemonEntry.fromJson(
     Map<String, dynamic> j,
     Map<String, double> Function(List<String> types) defenseFor,
+    AbilityGuard? Function(List<int> abilityIds, Map<String, double> defense)
+    guardFor,
   ) {
     final types = (j['types'] as List).cast<String>();
+    final abilities = (j['abilities'] as List).cast<int>();
+    final hidden = j['hidden'] as int?;
+    final defense = defenseFor(types);
     return PokemonEntry(
       id: j['id'] as int,
       dex: j['dex'] as int,
@@ -31,7 +56,12 @@ class PokemonEntry {
       stats: (j['stats'] as List).cast<int>(),
       forms: (j['forms'] as List).cast<int>(),
       chain: j['chain'] as int,
-      defense: defenseFor(types),
+      defense: defense,
+      abilities: abilities,
+      hidden: hidden,
+      catchRate: j['catch'] as int,
+      weight: j['weight'] as int,
+      guard: guardFor([...abilities, ?hidden], defense),
     );
   }
 
@@ -46,6 +76,18 @@ class PokemonEntry {
   final int chain;
   final Map<String, double> defense;
 
+  /// Non-hidden ability ids in slot order.
+  final List<int> abilities;
+  final int? hidden;
+  final int catchRate;
+
+  /// Hectograms, as PokéAPI stores it.
+  final int weight;
+
+  /// Immunity granted by every ability this entry can have, if any.
+  final AbilityGuard? guard;
+
+  double get weightKg => weight / 10;
   String get chipLabel => form ?? species;
   String get dexLabel => '#${dex.toString().padLeft(3, '0')}';
   int get total => stats.fold(0, (a, b) => a + b);
@@ -109,14 +151,24 @@ class TypeChart {
 }
 
 class Pokedex {
-  Pokedex({required this.entries, required this.chains, required this.types})
-    : byId = {for (final e in entries) e.id: e};
+  Pokedex({
+    required this.entries,
+    required this.chains,
+    required this.types,
+    this.abilities = const {},
+  }) : byId = {for (final e in entries) e.id: e};
 
   factory Pokedex.parse(String pokedexJson, String typesJson) {
     final dex = jsonDecode(pokedexJson) as Map<String, dynamic>;
     final types = TypeChart.fromJson(
       jsonDecode(typesJson) as Map<String, dynamic>,
     );
+    final abilities = (dex['abilities'] as Map<String, dynamic>).map(
+      (k, v) =>
+          MapEntry(int.parse(k), Ability.fromJson(v as Map<String, dynamic>)),
+    );
+    AbilityGuard? guardFor(List<int> ids, Map<String, double> defense) =>
+        guaranteedGuard([for (final a in ids) abilities[a]!], defense);
     // Entries sharing a typing share one (read-only) defence map.
     final defenseCache = <String, Map<String, double>>{};
     Map<String, double> defenseFor(List<String> t) =>
@@ -124,8 +176,9 @@ class Pokedex {
     return Pokedex(
       entries: [
         for (final e in (dex['entries'] as List).cast<Map<String, dynamic>>())
-          PokemonEntry.fromJson(e, defenseFor),
+          PokemonEntry.fromJson(e, defenseFor, guardFor),
       ],
+      abilities: abilities,
       chains: (dex['chains'] as Map<String, dynamic>).map(
         (k, v) => MapEntry(
           int.parse(k),
@@ -140,6 +193,7 @@ class Pokedex {
   final Map<int, PokemonEntry> byId;
   final Map<int, EvoChain> chains;
   final TypeChart types;
+  final Map<int, Ability> abilities;
 
   PokemonEntry operator [](int id) => byId[id]!;
 
@@ -155,6 +209,11 @@ class Pokedex {
         assert(e.forms.every(byId.containsKey), '${e.name}: unknown form id');
         assert(e.defense.length == 18, '${e.name}: defense must have 18 keys');
         assert(e.stats.length == 6, '${e.name}: expected 6 stats');
+        assert(e.abilities.isNotEmpty, '${e.name}: no abilities');
+        assert(
+          [...e.abilities, ?e.hidden].every(abilities.containsKey),
+          '${e.name}: unknown ability id',
+        );
       }
       for (final c in chains.values) {
         for (final edge in c.edges) {

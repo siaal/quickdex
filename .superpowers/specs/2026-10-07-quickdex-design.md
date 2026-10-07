@@ -77,6 +77,9 @@ tool/overrides.json ───► hand-curated fixes for anything the gaps check 
    - `types` (1–2), `stats` (hp, atk, def, spa, spd, spe; total derived)
    - `forms`: sibling entry ids (same species, including itself), in display order
    - `chain`: evolution chain id
+   - `abilities` (slot order), `hidden` ability id, `catch` (capture rate), `weight`
+     (hectograms); plus a top-level `abilities` table: id → key, name, English short
+     effect. (Added 2026-10-07.)
    - (`defense` is *not* stored. The app derives each entry's 18-type multiplier map
      from `types.json` at load time, cached per typing. Storing it doubled the JSON
      and pushed startup past 150 ms on the Pixel 7. Changed 2026-10-07.)
@@ -124,7 +127,9 @@ query cleared and the field refocused.
 **Pokémon page,** top to bottom (ordered by how often each part is checked):
 1. **Header:** portrait, then `Row(Expanded(name + #dex, wraps), EvoButton)`. The Evo
    button is pinned to the right edge of the page and takes no extra vertical space;
-   long names wrap instead of pushing it. Type badges follow.
+   long names wrap instead of pushing it. Type badges follow, then **one ability line**
+   (`Overgrow · Chlorophyll (H)`, scaled down rather than wrapped). Tapping an
+   ability opens a dialog with its effect.
 2. **Form chips,** only when the entry has sibling forms (e.g. `[Raichu] [Alolan]`).
    Tapping one swaps the displayed entry **in place** (no new route), so back still
    returns to search.
@@ -136,6 +141,11 @@ query cleared and the field refocused.
    - Resistant to: ½×, ¼×
    - Immune to: 0×
    Each row is a wrap of type badges, read directly from the entry's `defense` map (built at load).
+   **Guaranteed ability immunities:** when *every* ability an entry can have blocks a
+   type (Levitate, Volt/Water Absorb, Flash Fire, …; Wonder Guard blocks everything
+   not super effective), those types move to Immune to with a `(Levitate)` tag.
+   E.g. Gastly, Shedinja; not Koffing (Levitate is only one of its abilities).
+6. **Footer:** `Catch rate 45 · Weight 6.9 kg`, small and grey.
 5. **Evo button** opens a bottom sheet with the chain tree (branches supported, e.g.
    Eevee). Each node shows a thumbnail + name, and each edge shows its method. Tapping
    a node swaps the page to that entry in place.

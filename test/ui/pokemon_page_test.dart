@@ -38,6 +38,35 @@ void main() {
 
   int idOf(String name) => dex.entries.firstWhere((e) => e.name == name).id;
 
+  testWidgets('ability line lists abilities, hidden marked', (tester) async {
+    await pumpLauncher(tester, 1);
+    expect(find.byKey(const Key('ability-65')), findsOneWidget);
+    expect(find.text('Overgrow'), findsOneWidget);
+    expect(find.text('Chlorophyll (H)'), findsOneWidget);
+  });
+
+  testWidgets('tapping an ability explains it in a dialog', (tester) async {
+    await pumpLauncher(tester, idOf('Gastly'));
+    await tester.tap(find.byKey(const Key('ability-26')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.text('Evades Ground moves.'), findsOneWidget);
+  });
+
+  testWidgets('catch rate and weight sit at the bottom', (tester) async {
+    await pumpLauncher(tester, 1);
+    expect(find.text('Catch rate 45 · Weight 6.9 kg'), findsOneWidget);
+  });
+
+  testWidgets('Gastly shows Ground under Immune with a Levitate tag', (
+    tester,
+  ) async {
+    await pumpLauncher(tester, idOf('Gastly'));
+    expect(find.byKey(const Key('def-2.0-ground')), findsNothing);
+    expect(find.byKey(const Key('def-guard-ground')), findsOneWidget);
+    expect(find.text('(Levitate)'), findsOneWidget);
+  });
+
   testWidgets('header shows portrait, name, dex and types', (tester) async {
     await pumpLauncher(tester, 25);
     expect(find.byKey(const Key('portrait-25')), findsOneWidget);

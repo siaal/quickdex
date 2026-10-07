@@ -5,6 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
+from quickdex_data.abilities import build_abilities
 from quickdex_data.art import convert_art
 from quickdex_data.csvdb import CsvDb
 from quickdex_data.entries import build_entries
@@ -48,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     overrides = json.loads((ROOT / "tool" / "overrides.json").read_text())
     build = build_entries(db)
     chart = build_chart(db)
+    abilities = build_abilities(db, build.entries)
     chains, evo_gaps = build_chains(db, build.entries, overrides["methods"])
     art_gaps = convert_art(build.entries, art_dir, ROOT / "assets" / "art", overrides["art"])
 
@@ -63,7 +65,8 @@ def main(argv: list[str] | None = None) -> int:
     if code:
         return code
     _write_json(ROOT / "assets" / "data" / "pokedex.json",
-                {"entries": [e.to_json() for e in build.entries], "chains": chains})
+                {"entries": [e.to_json() for e in build.entries], "chains": chains,
+                 "abilities": abilities})
     _write_json(ROOT / "assets" / "data" / "types.json", {"order": TYPE_ORDER, "chart": chart})
     print(f"\n{len(build.entries)} entries, {len(chains)} chains")
     print(f"data {_dir_size(ROOT / 'assets' / 'data') / 1e6:.2f} MB, "

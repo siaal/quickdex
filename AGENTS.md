@@ -17,6 +17,10 @@
   lookup tables. There's no database. Defence maps are **not** in the JSON:
   `Pokedex.parse` derives them from the chart, one shared map per typing. Bundling them
   doubled the JSON and pushed startup past 150 ms.
+- Ability immunities (`lib/data/ability_guard.dart`) are game logic, so they live in
+  Dart, not the pipeline: a const map of ability key → immune types, plus Wonder
+  Guard. An entry gets a guard only if *all* its abilities (hidden included) share the
+  immunity and the chart doesn't already make it 0× (so Rotom-Fan gets none).
 - Search (`lib/search/`) is synchronous over all entries on every keystroke. Ranking:
   frecent first by score, then match tier (prefix > word prefix > substring), then dex
   order.

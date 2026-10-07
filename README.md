@@ -28,12 +28,14 @@ and only types while QuickDex is the focused window.
 
 `tool/build_data.py` reads the PokéAPI CSVs and official artwork and writes:
 
-- `assets/data/pokedex.json`: entries (types, stats, forms, chain id) and evolution
-  chains
+- `assets/data/pokedex.json`: entries (types, stats, forms, chain id, abilities,
+  catch rate, weight), evolution chains, and ability descriptions
 - `assets/data/types.json`: the 18×18 chart
 - `assets/art/full/<id>.webp` (256px) and `assets/art/thumb/<id>.webp` (128px)
 
 Each entry's defence multipliers are derived from `types.json` when the app loads.
+If every ability a Pokémon can have grants an immunity (Gastly's Levitate,
+Shedinja's Wonder Guard), the defence table shows it under "Immune to".
 
 If `make data` reports gaps (missing artwork or an evolution method it can't render),
 fix them in `tool/overrides.json`.
