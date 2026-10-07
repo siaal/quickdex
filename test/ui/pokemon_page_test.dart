@@ -51,6 +51,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
     expect(find.text('Evades Ground moves.'), findsOneWidget);
+    expect(
+      find.textContaining('disabled during Gravity or Ingrain'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('description equal to the one-liner is not repeated', (
+    tester,
+  ) async {
+    final talonflame = dex.entries.firstWhere((e) => e.name == 'Talonflame');
+    await pumpLauncher(tester, talonflame.id);
+    await tester.tap(find.byKey(Key('ability-${talonflame.hidden}')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text("Raises Flying moves' priority by one stage."),
+      findsOneWidget,
+    );
   });
 
   testWidgets('catch rate and weight sit at the bottom', (tester) async {

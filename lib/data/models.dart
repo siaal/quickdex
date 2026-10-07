@@ -3,15 +3,25 @@ import 'dart:convert';
 import 'ability_guard.dart';
 
 class Ability {
-  const Ability(this.key, this.name, this.effect);
+  const Ability(this.key, this.name, this.effect, [this.description = '']);
 
-  factory Ability.fromJson(Map<String, dynamic> j) =>
-      Ability(j['key'] as String, j['name'] as String, j['effect'] as String);
+  factory Ability.fromJson(Map<String, dynamic> j) => Ability(
+    j['key'] as String,
+    j['name'] as String,
+    j['effect'] as String,
+    j['description'] as String,
+  );
 
   /// PokéAPI identifier, e.g. `levitate`.
   final String key;
   final String name;
+
+  /// One-line summary.
   final String effect;
+
+  /// PokéAPI's long effect text; paragraphs separated by blank lines. Written
+  /// around Gen 5–6, so may miss later mechanics changes.
+  final String description;
 }
 
 class PokemonEntry {

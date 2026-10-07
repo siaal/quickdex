@@ -11,11 +11,17 @@ class AbilityLine extends StatelessWidget {
 
   void _explain(BuildContext context, int id, bool hidden) {
     final a = abilities[id]!;
-    trace('page.ability.open', {'entry': entry.id, 'ability': a.key});
+    final showLong = a.description.isNotEmpty && a.description != a.effect;
+    trace('page.ability.open', {
+      'entry': entry.id,
+      'ability': a.key,
+      'long': showLong,
+    });
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(a.name),
+        scrollable: true, // long descriptions run to ~1500 chars
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,7 +33,8 @@ class AbilityLine extends StatelessWidget {
               ),
               const SizedBox(height: 8),
             ],
-            Text(a.effect),
+            Text(a.effect, style: const TextStyle(fontWeight: FontWeight.bold)),
+            if (showLong) ...[const SizedBox(height: 12), Text(a.description)],
           ],
         ),
         actions: [

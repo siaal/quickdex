@@ -79,7 +79,7 @@ tool/overrides.json ───► hand-curated fixes for anything the gaps check 
    - `chain`: evolution chain id
    - `abilities` (slot order), `hidden` ability id, `catch` (capture rate), `weight`
      (hectograms); plus a top-level `abilities` table: id → key, name, English short
-     effect. (Added 2026-10-07.)
+     effect, long description. (Added 2026-10-07.)
    - (`defense` is *not* stored. The app derives each entry's 18-type multiplier map
      from `types.json` at load time, cached per typing. Storing it doubled the JSON
      and pushed startup past 150 ms on the Pixel 7. Changed 2026-10-07.)
@@ -129,7 +129,9 @@ query cleared and the field refocused.
    button is pinned to the right edge of the page and takes no extra vertical space;
    long names wrap instead of pushing it. Type badges follow, then **one ability line**
    (`Overgrow · Chlorophyll (H)`, scaled down rather than wrapped). Tapping an
-   ability opens a dialog with its effect.
+   ability opens a scrollable dialog: the one-liner in bold, then PokéAPI's long
+   description (written around Gen 5–6, so it may predate later changes; correct wrong
+   ones by hand if found).
 2. **Form chips,** only when the entry has sibling forms (e.g. `[Raichu] [Alolan]`).
    Tapping one swaps the displayed entry **in place** (no new route), so back still
    returns to search.
