@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quickdex/data/loader.dart';
+import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/frecency/frecency.dart';
-import 'package:quickdex/ui/moves_screen.dart';
+import 'package:quickdex/search/search_index.dart';
+import 'package:quickdex/ui/search_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  late Pokedex dex;
   late MoveDex moves;
-  setUpAll(() async => moves = await loadMoves(rootBundle));
+  setUpAll(() async {
+    dex = await loadPokedex(rootBundle);
+    moves = await loadMoves(rootBundle);
+  });
 
   int idOf(String n) => moves.moves.firstWhere((m) => m.name == n).id;
 
@@ -16,7 +23,14 @@ void main() {
     final f = FrecencyStore(clock: () => DateTime.utc(2026, 10, 7));
     await tester.pumpWidget(
       MaterialApp(
-        home: MovesScreen(moves: moves, frecency: f),
+        home: SearchScreen(
+          dex: dex,
+          frecency: FrecencyStore(),
+          index: SearchIndex(dex.entries),
+          moves: Future.value(moves),
+          moveFrecency: f,
+          initialMode: SearchMode.moves,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -24,7 +38,7 @@ void main() {
   }
 
   Future<void> open(WidgetTester tester, String query, String name) async {
-    await tester.enterText(find.byKey(const Key('move-search-field')), query);
+    await tester.enterText(find.byKey(const Key('search-field')), query);
     await tester.pump();
     await tester.tap(find.byKey(Key('move-row-${idOf(name)}')));
     await tester.pumpAndSettle();
@@ -32,7 +46,7 @@ void main() {
 
   testWidgets('typing filters moves live', (tester) async {
     await pump(tester);
-    await tester.enterText(find.byKey(const Key('move-search-field')), 'uturn');
+    await tester.enterText(find.byKey(const Key('search-field')), 'uturn');
     await tester.pump();
     expect(find.byKey(Key('move-row-${idOf('U-turn')}')), findsOneWidget);
     expect(find.text('Thunderbolt'), findsNothing);

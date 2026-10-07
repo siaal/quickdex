@@ -64,4 +64,25 @@ void main() {
   test('no match returns empty', () {
     expect(index.search('zzz', FakeScores()), isEmpty);
   });
+
+  group('mergeHits', () {
+    // A second kind of searchable, standing in for moves.
+    final other = SearchIndex([fx(1, 'Mimic'), fx(2, 'Thunder Shock')]);
+
+    test('tier decides; first list wins ties', () {
+      final merged = mergeHits(
+        index.search('mi', FakeScores()),
+        other.search('mi', FakeScores()),
+      );
+      expect(names(merged), ['Mime Jr.', 'Mimic', 'Mr. Mime']);
+    });
+
+    test('frecency outranks tier across both lists', () {
+      final merged = mergeHits(
+        index.search('mi', FakeScores({122: 1})),
+        other.search('mi', FakeScores({1: 2})),
+      );
+      expect(names(merged), ['Mimic', 'Mr. Mime', 'Mime Jr.']);
+    });
+  });
 }

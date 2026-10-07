@@ -23,10 +23,12 @@
   immunity and the chart doesn't already make it 0× (so Rotom-Fan gets none).
 - Search (`lib/search/`) is synchronous over all entries on every keystroke. Ranking:
   frecent first by score, then match tier (prefix > word prefix > substring), then dex
-  order. `SearchIndex<T extends Searchable>` and `lib/ui/search_screen.dart` serve
-  both Lookup and Moves; Moves keys are prefixed `move-` (`move-search-field`, …).
+  order. `SearchIndex<T extends Searchable>` runs per kind; the single
+  `lib/ui/search_screen.dart` (Pokémon | All | Moves toggle, mode persisted under
+  `search.mode`) merges kinds with `mergeHits` (Pokémon win ties). One `search-field`;
+  move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, Pokémon rows `row-<id>`.
 - Moves (`assets/data/moves.json`, `lib/data/moves.dart`) load in the background at
-  launch and the Moves tab is built on first visit. Gen 9 moves have no flag data in
+  launch; move results and learnset tables appear once loaded. Gen 9 moves have no flag data in
   PokéAPI, so `flags` is null ("contact unknown"), not empty.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1`. A visit is credited to the

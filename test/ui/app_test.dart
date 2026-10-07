@@ -6,6 +6,7 @@ import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/frecency/frecency.dart';
 import 'package:quickdex/ui/app.dart';
+import 'package:quickdex/ui/search_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +29,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('launches on Lookup with the search field focused', (
+  testWidgets('launches on Search with the search field focused', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -40,21 +41,17 @@ void main() {
     expect(field.focusNode!.hasFocus, isTrue);
   });
 
-  testWidgets('Moves is the middle tab, built only once opened', (
+  testWidgets('two tabs: Search (starting in All) and Type Chart', (
     tester,
   ) async {
     await pumpApp(tester);
-    expect(
-      find.byKey(const Key('move-search-field'), skipOffstage: false),
-      findsNothing,
+    final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(bar.destinations.length, 2);
+    expect(find.text('Type Chart'), findsOneWidget);
+    final mode = tester.widget<SegmentedButton<SearchMode>>(
+      find.byKey(const Key('search-mode')),
     );
-    await tester.tap(find.text('Moves'));
-    await tester.pumpAndSettle();
-    final field = tester.widget<TextField>(
-      find.byKey(const Key('move-search-field')),
-    );
-    expect(field.focusNode!.hasFocus, isTrue);
-    expect(find.text('Absorb'), findsOneWidget);
+    expect(mode.selected, {SearchMode.all});
   });
 
   Future<void> openPikachu(WidgetTester tester) async {
@@ -77,7 +74,7 @@ void main() {
     await tester.tap(find.text('Type Chart'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('portrait-25')), findsNothing);
-    await tester.tap(find.text('Lookup'));
+    await tester.tap(find.text('Search'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('portrait-25')), findsOneWidget);
   });
@@ -87,7 +84,7 @@ void main() {
   ) async {
     await pumpApp(tester);
     await openPikachu(tester);
-    await tester.tap(find.text('Lookup'));
+    await tester.tap(find.text('Search'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('portrait-25')), findsNothing);
     expect(find.byKey(const Key('search-field')), findsOneWidget);

@@ -1,63 +1,86 @@
 import 'package:flutter/material.dart';
 
+import '../data/models.dart';
+import '../data/moves.dart';
 import '../frecency/frecency.dart';
 import '../search/search_index.dart';
 import '../search/searchable.dart';
 import '../trace.dart';
+import 'art.dart';
+import 'category_badge.dart';
+import 'move_page.dart';
+import 'pokemon_page.dart';
+import 'type_badge.dart';
 
-/// Live search over [index], frecent hits first. Frecent rows swipe away with Undo.
-/// Keys: `${keyPrefix}search-field`, `${keyPrefix}row-<id>`, `${keyPrefix}dismiss-<id>`.
-class SearchScreen<T extends Searchable> extends StatefulWidget {
+enum SearchMode { pokemon, all, moves }
+
+/// Live search over Pokémon and/or moves, frecent hits first; a mode toggle sits
+/// above the field so results never cover it. Frecent rows swipe away with Undo.
+/// Keys: `search-mode`, `mode-<mode>`, `search-field`; Pokémon rows `row-<id>` /
+/// `dismiss-<id>`, move rows `move-row-<id>` / `move-dismiss-<id>`.
+class SearchScreen extends StatefulWidget {
   const SearchScreen({
     super.key,
-    required this.index,
+    required this.dex,
     required this.frecency,
-    required this.hint,
-    required this.tileBuilder,
-    required this.pageBuilder,
-    this.keyPrefix = '',
-    this.autofocus = true,
-    this.precacheImageFor,
+    required this.index,
+    required this.moves,
+    required this.moveFrecency,
+    this.initialMode = SearchMode.all,
+    this.onModeChanged,
   });
-  final SearchIndex<T> index;
+  final Pokedex dex;
   final FrecencyStore frecency;
-  final String hint;
-  final String keyPrefix;
-  final bool autofocus;
+  final SearchIndex<PokemonEntry> index;
 
-  /// Row content; the screen supplies the key and tap handler.
-  final ListTile Function(T item, VoidCallback onTap) tileBuilder;
-
-  /// The page opened on tap. It is responsible for crediting the visit.
-  final Widget Function(T item) pageBuilder;
-  final ImageProvider Function(T item)? precacheImageFor;
+  /// Loaded in the background; until then move results are simply absent.
+  final Future<MoveDex> moves;
+  final FrecencyStore moveFrecency;
+  final SearchMode initialMode;
+  final ValueChanged<SearchMode>? onModeChanged;
 
   @override
-  State<SearchScreen<T>> createState() => _SearchScreenState<T>();
+  State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
+class _SearchScreenState extends State<SearchScreen> {
   static const _precacheCount = 12;
   final _controller = TextEditingController();
   final _focus = FocusNode();
-  late List<SearchHit<T>> _hits = _search('');
+  late SearchMode _mode = widget.initialMode;
+  SearchIndex<Move>? _moveIndex;
+  late List<SearchHit<Searchable>> _hits = _search('');
   bool _precached = false;
 
-  String get _p => widget.keyPrefix;
+  @override
+  void initState() {
+    super.initState();
+    widget.moves.then(
+      (moves) {
+        if (!mounted) return;
+        trace('search.moves.ready', {'count': moves.moves.length});
+        _moveIndex = SearchIndex(moves.moves);
+        _refresh();
+      },
+      onError: (Object e) => trace('search.moves.load_failed', {
+        'error': e.runtimeType.toString(),
+      }),
+    );
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final imageFor = widget.precacheImageFor;
-    if (_precached || imageFor == null) return;
+    if (_precached) return;
     _precached = true;
-    final frecent = _hits
+    final frecent = widget.index
+        .search('', widget.frecency)
         .takeWhile((h) => h.frecent)
         .take(_precacheCount)
         .toList();
-    trace('lookup.precache', {'prefix': _p, 'count': frecent.length});
+    trace('lookup.precache', {'count': frecent.length});
     for (final h in frecent) {
-      precacheImage(imageFor(h.entry), context);
+      precacheImage(AssetImage(thumbPath(h.entry.id)), context);
     }
   }
 
@@ -68,11 +91,25 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
     super.dispose();
   }
 
-  List<SearchHit<T>> _search(String q) {
+  FrecencyStore _storeFor(Searchable e) =>
+      e is Move ? widget.moveFrecency : widget.frecency;
+
+  String _prefixFor(Searchable e) => e is Move ? 'move-' : '';
+
+  List<SearchHit<Searchable>> _search(String q) {
     final sw = Stopwatch()..start();
-    final hits = widget.index.search(q, widget.frecency);
+    List<SearchHit<Move>> moveHits() =>
+        _moveIndex?.search(q, widget.moveFrecency) ?? const [];
+    final hits = switch (_mode) {
+      SearchMode.pokemon => widget.index.search(q, widget.frecency),
+      SearchMode.moves => moveHits(),
+      SearchMode.all => mergeHits(
+        widget.index.search(q, widget.frecency),
+        moveHits(),
+      ),
+    };
     trace('search.query.done', {
-      'prefix': _p,
+      'mode': _mode.name,
       'us': sw.elapsedMicroseconds,
       'len': q.length,
       'hits': hits.length,
@@ -82,12 +119,32 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
 
   void _refresh() => setState(() => _hits = _search(_controller.text));
 
-  Future<void> _open(T e) async {
-    trace('lookup.open', {'prefix': _p, 'id': e.id});
+  void _setMode(SearchMode mode) {
+    trace('search.mode.change', {'from': _mode.name, 'to': mode.name});
+    _mode = mode;
+    _refresh();
+    widget.onModeChanged?.call(mode);
+    _focus.requestFocus();
+  }
+
+  Widget _pageFor(Searchable e) => switch (e) {
+    PokemonEntry() => PokemonPage(
+      dex: widget.dex,
+      frecency: widget.frecency,
+      initialId: e.id,
+      moves: widget.moves,
+      moveFrecency: widget.moveFrecency,
+    ),
+    Move() => MovePage(move: e, frecency: widget.moveFrecency),
+    _ => throw StateError('unknown searchable ${e.runtimeType}'),
+  };
+
+  Future<void> _open(Searchable e) async {
+    trace('lookup.open', {'kind': e.runtimeType.toString(), 'id': e.id});
     _focus.unfocus();
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute<void>(builder: (_) => widget.pageBuilder(e)));
+    ).push(MaterialPageRoute<void>(builder: (_) => _pageFor(e)));
     if (!mounted) {
       trace('lookup.open.unmounted_after_pop');
       return;
@@ -97,8 +154,9 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
     _focus.requestFocus();
   }
 
-  void _dismiss(T e) {
-    final removed = widget.frecency.remove(e.id);
+  void _dismiss(Searchable e) {
+    final store = _storeFor(e);
+    final removed = store.remove(e.id);
     assert(removed != null, 'only frecent rows are dismissible');
     _refresh();
     final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
@@ -108,8 +166,8 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () {
-            trace('lookup.dismiss.undo', {'prefix': _p, 'id': e.id});
-            widget.frecency.restore(e.id, removed!);
+            trace('lookup.dismiss.undo', {'prefix': _prefixFor(e), 'id': e.id});
+            store.restore(e.id, removed!);
             if (mounted) _refresh();
           },
         ),
@@ -119,27 +177,59 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final waitingForMoves = _mode == SearchMode.moves && _moveIndex == null;
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: SegmentedButton<SearchMode>(
+                key: const Key('search-mode'),
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                segments: const [
+                  ButtonSegment(
+                    value: SearchMode.pokemon,
+                    label: Text('Pokémon', key: Key('mode-pokemon')),
+                  ),
+                  ButtonSegment(
+                    value: SearchMode.all,
+                    label: Text('All', key: Key('mode-all')),
+                  ),
+                  ButtonSegment(
+                    value: SearchMode.moves,
+                    label: Text('Moves', key: Key('mode-moves')),
+                  ),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (s) => _setMode(s.single),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: TextField(
-                key: Key('${_p}search-field'),
+                key: const Key('search-field'),
                 controller: _controller,
                 focusNode: _focus,
-                autofocus: widget.autofocus,
+                autofocus: true,
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: widget.hint,
+                  hintText: switch (_mode) {
+                    SearchMode.pokemon => 'Search Pokémon',
+                    SearchMode.all => 'Search Pokémon and moves',
+                    SearchMode.moves => 'Search moves',
+                  },
                   prefixIcon: const Icon(Icons.search),
                   border: const OutlineInputBorder(),
                 ),
                 onChanged: (q) => setState(() => _hits = _search(q)),
                 onSubmitted: (_) {
                   if (_hits.isEmpty) {
-                    trace('lookup.submit.no_hits', {'prefix': _p});
+                    trace('lookup.submit.no_hits', {'mode': _mode.name});
                     _focus.requestFocus();
                     return;
                   }
@@ -148,12 +238,14 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                itemCount: _hits.length,
-                itemBuilder: (context, i) => _row(_hits[i]),
-              ),
+              child: waitingForMoves
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      itemCount: _hits.length,
+                      itemBuilder: (context, i) => _row(_hits[i]),
+                    ),
             ),
           ],
         ),
@@ -161,18 +253,68 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
     );
   }
 
-  Widget _row(SearchHit<T> h) {
+  Widget _row(SearchHit<Searchable> h) {
     final e = h.entry;
+    final p = _prefixFor(e);
     final tile = KeyedSubtree(
-      key: Key('${_p}row-${e.id}'),
-      child: widget.tileBuilder(e, () => _open(e)),
+      key: Key('${p}row-${e.id}'),
+      child: switch (e) {
+        PokemonEntry() => _pokemonTile(e),
+        Move() => _moveTile(e),
+        _ => throw StateError('unknown searchable ${e.runtimeType}'),
+      },
     );
     if (!h.frecent) return tile;
     return Dismissible(
-      key: Key('${_p}dismiss-${e.id}'),
+      key: Key('${p}dismiss-${e.id}'),
       background: Container(color: Colors.red.withValues(alpha: 0.25)),
       onDismissed: (_) => _dismiss(e),
       child: tile,
     );
   }
+
+  Widget _pokemonTile(PokemonEntry e) => ListTile(
+    leading: Image.asset(thumbPath(e.id), width: 48, height: 48),
+    title: Text(e.name),
+    subtitle: Text(e.dexLabel),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final t in e.types)
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: TypeBadge(t, compact: true),
+          ),
+      ],
+    ),
+    onTap: () => _open(e),
+  );
+
+  Widget _moveTile(Move m) => ListTile(
+    leading: SizedBox(
+      width: 48,
+      child: Center(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Image.asset(typeIconPath(m.type), width: 32, height: 32),
+        ),
+      ),
+    ),
+    title: Text(m.name),
+    subtitle: m.inScarlet ? null : const Text('Not in Scarlet'),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CategoryBadge(m.category, compact: true),
+        SizedBox(
+          width: 64,
+          child: Text(
+            '${m.power ?? '—'} · ${m.accuracy == null ? '—' : '${m.accuracy}%'}',
+            textAlign: TextAlign.end,
+          ),
+        ),
+      ],
+    ),
+    onTap: () => _open(m),
+  );
 }

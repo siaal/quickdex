@@ -30,6 +30,32 @@ class _Key<T extends Searchable> {
   final String? dexPadded;
 }
 
+/// Whether [b] ranks strictly before [a]: frecency score first, then match tier.
+bool _before(SearchHit b, SearchHit a) {
+  if ((a.score > 0 || b.score > 0) && a.score != b.score) {
+    return b.score > a.score;
+  }
+  return b.tier.index < a.tier.index;
+}
+
+/// Merges two ranked result lists (e.g. Pokémon and moves) by the same rule
+/// [SearchIndex.search] ranks with; [first] wins ties.
+List<SearchHit<Searchable>> mergeHits(
+  List<SearchHit<Searchable>> first,
+  List<SearchHit<Searchable>> second,
+) {
+  final out = <SearchHit<Searchable>>[];
+  var i = 0, j = 0;
+  while (i < first.length && j < second.length) {
+    out.add(_before(second[j], first[i]) ? second[j++] : first[i++]);
+  }
+  out
+    ..addAll(first.skip(i))
+    ..addAll(second.skip(j));
+  assert(out.length == first.length + second.length);
+  return out;
+}
+
 /// Ties keep the order of the list passed in (dex order, or name order for moves).
 class SearchIndex<T extends Searchable> {
   SearchIndex(List<T> entries)

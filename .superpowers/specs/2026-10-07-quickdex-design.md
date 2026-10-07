@@ -116,8 +116,8 @@ The generated `assets/` are committed, so app builds never need the network.
 the chains map, and each entry's defence map (derived from the chart, shared per typing).
 Load time is measured and logged. Nothing is computed at page-render time.
 
-**Moves tab** (added 2026-10-07), between Lookup and Type Chart: the same live search
-(`SearchScreen<T>`, shared with Lookup) over `assets/data/moves.json`, with its own
+**Moves** (added 2026-10-07 as a tab; merged into the Search tab 2026-10-08): live search
+over `assets/data/moves.json`, with its own
 frecency store (`frecency.moves.v1`, credited when a move page opens). Covers every
 move a player can see (incl. Struggle, Celebrate, Starmobile torques); excludes Z-Moves,
 Max Moves and Shadow moves. Moves no Pokémon learns in Scarlet are tagged "Not in
@@ -126,18 +126,23 @@ Accuracy · PP · Priority (if non-zero) · Effect chance; target and flags
 (Contact, Punch, Sound, …; "contact unknown" where PokéAPI has no flag data,
 i.e. all Gen 9 moves); in-game text (Scarlet's, else latest); PokéAPI long
 description (hand-written via `tool/overrides.json` `move_descriptions` where missing).
-No learnset (user decision). moves.json loads in the background and the tab is built on
-first visit, so neither startup nor Lookup's autofocus is affected.
+No "who learns this" list on move pages (user decision). moves.json loads in the
+background, so startup is unaffected; move results appear once it has loaded.
 
-**Shell:** a bottom nav with **Lookup** (default), **Moves** and **Type Chart**. The theme follows
+**Shell:** a bottom nav with **Search** (default) and **Type Chart** (Lookup and Moves
+were separate tabs until 2026-10-08). The theme follows
 system light/dark, and type badges use the standard type colours. Each tab has its own
 nested Navigator inside the IndexedStack, so pages open above the tab but below the
 bottom bar, and an open page survives switching tabs; system back pops the current
 tab's navigator (exits at a tab root); re-tapping the current tab pops it to its root. Enter in a search field opens the top result.
 
-**Lookup tab:** the search field sits at the top, autofocused, with the keyboard up on
-launch. Live suggestions are listed below it, each row showing a thumbnail, name, #dex
-and type badges. Tapping a row opens the Pokémon page. Back returns to search with the
+**Search tab:** a Pokémon | All | Moves segmented toggle sits *above* the search field,
+so the result list never covers it; the mode persists (`search.mode`, default All) and
+switching keeps the query and keyboard. All merges both ranked lists with the same rule
+(frecency, then tier; Pokémon win ties); no Pokémon shares a name with a move. The
+field is autofocused with the keyboard up on launch. Pokémon rows show thumbnail,
+name, #dex and type badges; move rows show type icon, name, category, power ·
+accuracy. Tapping a row opens the Pokémon or move page in this tab. Back returns to search with the
 query cleared and the field refocused.
 
 **Pokémon page,** top to bottom (ordered by how often each part is checked):
@@ -302,7 +307,7 @@ Pipeline
 12. No pipeline code contacts Bulbapedia.
 
 App: search
-13. On launch, the Lookup tab is shown.
+13. On launch, the Search tab is shown, in the last-used mode.
 14. On launch, the search field is focused.
 15. Query `mrmime` returns Mr. Mime.
 16. Query `mr mime` returns Mr. Mime.
