@@ -163,8 +163,9 @@ query cleared and the field refocused.
    type (Levitate, Volt/Water Absorb, Flash Fire, …; Wonder Guard blocks everything
    not super effective), those types move to Immune to with a `(Levitate)` tag.
    E.g. Gastly, Shedinja; not Koffing (Levitate is only one of its abilities).
-6. **Level-up moves** (above the footer): Lv ("Evo" for level 0), type icon, move,
-   category, power; tapping opens the move page in the same tab and credits move
+6. **Level-up moves** (above the footer): Lv ("Evo" for level 0), category symbol
+   (drawn: Physical starburst, Special rings, Status half circle), type icon, move,
+   power, accuracy, under a small header row; tapping opens the move page in the same tab and credits move
    frecency. Data: `learnsets` in moves.json (loaded in the background; the table appears
    once loaded). PokéAPI's Scarlet data includes the DLCs; entries not in Scarlet at all
    (325, e.g. Abra) fall back to Sword/Shield, then BDSP, USUM, SM, Let's Go, labelled

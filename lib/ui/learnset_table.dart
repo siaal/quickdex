@@ -29,6 +29,21 @@ class LearnsetTable extends StatelessWidget {
         if (learnset.game case final game?)
           Text('From $game', key: const Key('learnset-game'), style: hint),
         const SizedBox(height: 4),
+        Row(
+          children: [
+            SizedBox(width: 36, child: Text('Lv', style: hint)),
+            const SizedBox(width: 52),
+            Expanded(child: Text('Move', style: hint)),
+            SizedBox(
+              width: 36,
+              child: Text('Pow', style: hint, textAlign: TextAlign.end),
+            ),
+            SizedBox(
+              width: 48,
+              child: Text('Acc', style: hint, textAlign: TextAlign.end),
+            ),
+          ],
+        ),
         for (final (:level, :move) in learnset.moves)
           _row(context, level, move),
       ],
@@ -48,16 +63,24 @@ class LearnsetTable extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(width: 36, child: Text(level == 0 ? 'Evo' : '$level')),
+            CategoryIcon(m.category),
+            const SizedBox(width: 4),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: Image.asset(typeIconPath(m.type), width: 20, height: 20),
             ),
             const SizedBox(width: 8),
             Expanded(child: Text(m.name)),
-            CategoryBadge(m.category, compact: true),
             SizedBox(
-              width: 40,
+              width: 36,
               child: Text('${m.power ?? '—'}', textAlign: TextAlign.end),
+            ),
+            SizedBox(
+              width: 48,
+              child: Text(
+                m.accuracy == null ? '—' : '${m.accuracy}%',
+                textAlign: TextAlign.end,
+              ),
             ),
           ],
         ),

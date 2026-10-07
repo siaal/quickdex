@@ -52,6 +52,29 @@ void main() {
     expect(find.byKey(const Key('learnset-game')), findsNothing);
   });
 
+  testWidgets('rows show category symbol left of type, power and accuracy', (
+    tester,
+  ) async {
+    await pump(tester, 25);
+    final row = find.byKey(Key('learn-36-${moveId('Thunderbolt')}'));
+    Finder inRow(Finder f) => find.descendant(of: row, matching: f);
+    final cat = inRow(find.byKey(const Key('cat-special')));
+    expect(cat, findsOneWidget);
+    expect(inRow(find.text('Special')), findsNothing);
+    expect(
+      tester.getTopLeft(cat).dx,
+      lessThan(tester.getTopLeft(inRow(find.byType(Image))).dx),
+    );
+    expect(inRow(find.text('90')), findsOneWidget);
+    expect(inRow(find.text('100%')), findsOneWidget);
+    // Never-miss / status moves show a dash for accuracy.
+    final growl = find.byKey(Key('learn-1-${moveId('Growl')}'));
+    expect(
+      find.descendant(of: growl, matching: find.byKey(const Key('cat-status'))),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('evolution moves show as Evo', (tester) async {
     await pump(tester, 700);
     final row = find.byKey(Key('learn-0-${moveId('Disarming Voice')}'));
