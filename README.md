@@ -1,17 +1,39 @@
-# quickdex
+# QuickDex
 
-A new Flutter project.
+Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
 
-## Getting Started
+- **Lookup:** live search ranked by frecency (your team and the current zone float to
+  the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
+  base stats, type defences (Bulbapedia layout), form switching, and an Evo sheet.
+- **Type Chart:** a Focus tab (pick a type, toggle Attacker/Defender) and a full 18×18
+  grid with frozen headers, pinch-zoom and row/column highlight.
 
-This project is a starting point for a Flutter application.
+Everything is bundled. The app has no network permission.
 
-A few resources to get you started if this is your first Flutter project:
+## Commands
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+| Command | What it does |
+|---|---|
+| `make data` | Rebuild `assets/` from PokéAPI dumps (clones into `.cache/`) |
+| `make test` | pytest (`tool/tests`) + `flutter test` |
+| `make analyze` | ruff + `flutter analyze` |
+| `make run` | Debug build on the connected device (hot reload) |
+| `make install` | Release build + `adb install -r` |
+| `make perf` | Traced release build; prints startup and per-keystroke timings from logcat |
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+`make perf` needs the phone awake and unlocked. It reads only QuickDex's own log lines,
+and only types while QuickDex is the focused window.
+
+## Data
+
+`tool/build_data.py` reads the PokéAPI CSVs and official artwork and writes:
+
+- `assets/data/pokedex.json`: entries (types, stats, forms, chain id) and evolution
+  chains
+- `assets/data/types.json`: the 18×18 chart
+- `assets/art/full/<id>.webp` (256px) and `assets/art/thumb/<id>.webp` (128px)
+
+Each entry's defence multipliers are derived from `types.json` when the app loads.
+
+If `make data` reports gaps (missing artwork or an evolution method it can't render),
+fix them in `tool/overrides.json`.
