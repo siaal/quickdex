@@ -24,15 +24,13 @@ class Entry:
     stats: list[int]
     chain: int
     forms: list[int] = field(default_factory=list)
-    defense: dict[str, float] = field(default_factory=dict)
 
     def to_json(self) -> dict:
         assert self.forms and self.id in self.forms, self
-        assert len(self.defense) == 18, self
         return {
             "id": self.id, "dex": self.dex, "name": self.name, "species": self.species,
             "form": self.form, "types": self.types, "stats": self.stats,
-            "forms": self.forms, "chain": self.chain, "defense": self.defense,
+            "forms": self.forms, "chain": self.chain,
         }
 
 

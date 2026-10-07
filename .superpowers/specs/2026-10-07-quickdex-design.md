@@ -77,7 +77,9 @@ tool/overrides.json ───► hand-curated fixes for anything the gaps check 
    - `types` (1–2), `stats` (hp, atk, def, spa, spd, spe; total derived)
    - `forms`: sibling entry ids (same species, including itself), in display order
    - `chain`: evolution chain id
-   - `defense`: precomputed map of 18 attacking types to multiplier (0, ¼, ½, 1, 2, 4)
+   - (`defense` is *not* stored. The app derives each entry's 18-type multiplier map
+     from `types.json` at load time, cached per typing. Storing it doubled the JSON
+     and pushed startup past 150 ms on the Pixel 7. Changed 2026-10-07.)
 3. **Builds evolution trees** keyed by chain id. Each edge carries a short method string
    rendered from `pokemon_evolution.csv`: `Lv. 16`, `Thunder Stone`,
    `Trade w/ Metal Coat`, `High friendship, day`, etc. Regional evolution variants
@@ -108,8 +110,8 @@ The generated `assets/` are committed, so app builds never need the network.
 
 **Startup:** load `pokedex.json` and `types.json` once and build the LUTs:
 `Map<int, Entry> byId`, the ordered entry list, the precomputed normalised search keys,
-and the chains map. Load time is measured and logged. Nothing is computed at
-page-render time.
+the chains map, and each entry's defence map (derived from the chart, shared per typing).
+Load time is measured and logged. Nothing is computed at page-render time.
 
 **Shell:** a bottom nav with **Lookup** (default) and **Type Chart**. The theme follows
 system light/dark, and type badges use the standard type colours.
@@ -132,7 +134,7 @@ query cleared and the field refocused.
    - Damaged normally by: 1×
    - Resistant to: ½×, ¼×
    - Immune to: 0×
-   Each row is a wrap of type badges, read directly from the precomputed `defense` map.
+   Each row is a wrap of type badges, read directly from the entry's `defense` map (built at load).
 5. **Evo button** opens a bottom sheet with the chain tree (branches supported, e.g.
    Eevee). Each node shows a thumbnail + name, and each edge shows its method. Tapping
    a node swaps the page to that entry in place.

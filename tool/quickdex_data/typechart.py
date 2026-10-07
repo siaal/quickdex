@@ -1,5 +1,4 @@
 import logging
-from math import prod
 
 from .csvdb import CsvDb, SchemaError
 
@@ -28,8 +27,3 @@ def build_chart(db: CsvDb) -> dict[str, dict[str, float]]:
         if set(row) != set(TYPE_ORDER):
             raise SchemaError(f"type_efficacy incomplete for attacker {a}")
     return {a: {d: chart[a][d] for d in TYPE_ORDER} for a in TYPE_ORDER}
-
-
-def defense_for(types: list[str], chart: dict[str, dict[str, float]]) -> dict[str, float]:
-    assert 1 <= len(types) <= 2, types
-    return {a: prod(chart[a][d] for d in types) for a in TYPE_ORDER}

@@ -14,20 +14,26 @@ class PokemonEntry {
     required this.defense,
   });
 
-  factory PokemonEntry.fromJson(Map<String, dynamic> j) => PokemonEntry(
-    id: j['id'] as int,
-    dex: j['dex'] as int,
-    name: j['name'] as String,
-    species: j['species'] as String,
-    form: j['form'] as String?,
-    types: (j['types'] as List).cast<String>(),
-    stats: (j['stats'] as List).cast<int>(),
-    forms: (j['forms'] as List).cast<int>(),
-    chain: j['chain'] as int,
-    defense: (j['defense'] as Map<String, dynamic>).map(
-      (k, v) => MapEntry(k, (v as num).toDouble()),
-    ),
-  );
+  /// `defenseFor` maps a type list to its defensive multipliers (derived from the chart
+  /// at load, not stored in the JSON, to keep startup parsing small).
+  factory PokemonEntry.fromJson(
+    Map<String, dynamic> j,
+    Map<String, double> Function(List<String> types) defenseFor,
+  ) {
+    final types = (j['types'] as List).cast<String>();
+    return PokemonEntry(
+      id: j['id'] as int,
+      dex: j['dex'] as int,
+      name: j['name'] as String,
+      species: j['species'] as String,
+      form: j['form'] as String?,
+      types: types,
+      stats: (j['stats'] as List).cast<int>(),
+      forms: (j['forms'] as List).cast<int>(),
+      chain: j['chain'] as int,
+      defense: defenseFor(types),
+    );
+  }
 
   final int id;
   final int dex;
@@ -108,10 +114,17 @@ class Pokedex {
 
   factory Pokedex.parse(String pokedexJson, String typesJson) {
     final dex = jsonDecode(pokedexJson) as Map<String, dynamic>;
+    final types = TypeChart.fromJson(
+      jsonDecode(typesJson) as Map<String, dynamic>,
+    );
+    // Entries sharing a typing share one (read-only) defence map.
+    final defenseCache = <String, Map<String, double>>{};
+    Map<String, double> defenseFor(List<String> t) =>
+        defenseCache.putIfAbsent(t.join('/'), () => types.defenseFor(t));
     return Pokedex(
       entries: [
         for (final e in (dex['entries'] as List).cast<Map<String, dynamic>>())
-          PokemonEntry.fromJson(e),
+          PokemonEntry.fromJson(e, defenseFor),
       ],
       chains: (dex['chains'] as Map<String, dynamic>).map(
         (k, v) => MapEntry(
@@ -119,7 +132,7 @@ class Pokedex {
           EvoChain.fromJson(v as Map<String, dynamic>),
         ),
       ),
-      types: TypeChart.fromJson(jsonDecode(typesJson) as Map<String, dynamic>),
+      types: types,
     );
   }
 

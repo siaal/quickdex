@@ -25,10 +25,15 @@ void main() {
     expect(dex[26].chipLabel, 'Raichu');
   });
 
-  test('precomputed defense equals chart computation for every entry', () {
-    for (final e in dex.entries) {
-      expect(e.defense, dex.types.defenseFor(e.types), reason: e.name);
-    }
+  test('defense is derived from types and shared per typing', () {
+    final gyarados = dex.entries.firstWhere((e) => e.name == 'Gyarados');
+    expect(gyarados.defense['electric'], 4);
+    expect(gyarados.defense['ground'], 0);
+    final raichu = dex[26];
+    expect(
+      identical(dex[25].defense, raichu.defense),
+      isTrue,
+    ); // both pure Electric
   });
 
   test('chainFor returns null for non-evolving species', () {

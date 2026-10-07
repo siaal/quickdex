@@ -10,7 +10,7 @@ from quickdex_data.csvdb import CsvDb
 from quickdex_data.entries import build_entries
 from quickdex_data.evolutions import build_chains
 from quickdex_data.sources import ensure_sources
-from quickdex_data.typechart import TYPE_ORDER, build_chart, defense_for
+from quickdex_data.typechart import TYPE_ORDER, build_chart
 
 ROOT = Path(__file__).resolve().parent.parent
 log = logging.getLogger("quickdex.build")
@@ -48,8 +48,6 @@ def main(argv: list[str] | None = None) -> int:
     overrides = json.loads((ROOT / "tool" / "overrides.json").read_text())
     build = build_entries(db)
     chart = build_chart(db)
-    for e in build.entries:
-        e.defense = defense_for(e.types, chart)
     chains, evo_gaps = build_chains(db, build.entries, overrides["methods"])
     art_gaps = convert_art(build.entries, art_dir, ROOT / "assets" / "art", overrides["art"])
 
