@@ -25,10 +25,7 @@ void main() {
     expect(g['Immune to'], {
       0.0: ['ground'],
     });
-    expect(
-      g['Damaged normally by']![1.0],
-      containsAll(['grass', 'ice', 'normal']),
-    );
+    expect(g.containsKey('Damaged normally by'), isFalse);
   });
 
   test('Shedinja groups match Bulbapedia', () {

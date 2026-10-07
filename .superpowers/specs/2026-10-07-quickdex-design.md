@@ -155,9 +155,9 @@ query cleared and the field refocused.
    HP, Atk, SpA, Def, SpD, Spe (offence above defence); the data keeps PokéAPI order.
 4. **Type defences,** in the Bulbapedia layout:
    - Weak to: 4×, 2×
-   - Damaged normally by: 1×
    - Resistant to: ½×, ¼×
    - Immune to: 0×
+   (1× types are not listed; user removed the "Damaged normally by" row.)
    Each row is a wrap of type badges, read directly from the entry's `defense` map (built at load).
    **Guaranteed ability immunities:** when *every* ability an entry can have blocks a
    type (Levitate, Volt/Water Absorb, Flash Fire, …; Wonder Guard blocks everything

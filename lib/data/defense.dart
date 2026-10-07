@@ -34,7 +34,6 @@ List<DefenseGroup> defenseGroups(
   }
 
   add('Weak to', [4.0, 2.0]);
-  add('Damaged normally by', [1.0]);
   add('Resistant to', [0.5, 0.25]);
   add('Immune to', [0.0], guard: guard);
   return groups;
