@@ -4,7 +4,8 @@ Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
 
 - **Lookup:** live search ranked by frecency (your team and the current zone float to
   the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
-  base stats, type defences (Bulbapedia layout), form switching, and an Evo sheet.
+  base stats, type defences (Bulbapedia layout), form switching, and an Evo sheet (or drag from Evo and release on an evolution to
+  jump straight to it).
 - **Moves:** the same live search over every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target and contact-type flags, the in-game
   text and a longer description. Moves not in Scarlet are tagged.

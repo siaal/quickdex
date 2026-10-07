@@ -163,7 +163,10 @@ query cleared and the field refocused.
 6. **Footer:** `Catch rate 45 · Weight 6.9 kg`, small and grey.
 5. **Evo button** opens a bottom sheet with the chain tree (branches supported, e.g.
    Eevee). Each node shows a thumbnail + name, and each edge shows its method. Tapping
-   a node swaps the page to that entry in place.
+   a node swaps the page to that entry in place. Pressing and dragging from the Evo
+   button instead pops up a compact list of the line (tree order) with the current
+   entry under the thumb; releasing on another entry swaps to it, releasing off the
+   list cancels. Its pan recognizer uses half the touch slop so it beats page scroll.
 
 **Type Chart tab,** with two sub-tabs:
 - **Focus:** an **Attacker / Defender toggle** at the top, then 18 type tiles; select

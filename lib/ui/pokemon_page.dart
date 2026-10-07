@@ -6,6 +6,7 @@ import '../trace.dart';
 import 'ability_line.dart';
 import 'art.dart';
 import 'defense_table.dart';
+import 'evo_drag_menu.dart';
 import 'evolution_sheet.dart';
 import 'stat_bars.dart';
 import 'type_badge.dart';
@@ -125,13 +126,18 @@ class _PokemonPageState extends State<PokemonPage> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
-                TextButton.icon(
-                  key: const Key('evo-button'),
-                  onPressed: _openEvolutions,
-                  icon: const Icon(Icons.account_tree_outlined, size: 18),
-                  label: const Text('Evo'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
+                EvoDragMenu(
+                  dex: widget.dex,
+                  current: e,
+                  onSelect: (id) => _show(id, 'evo-drag'),
+                  child: TextButton.icon(
+                    key: const Key('evo-button'),
+                    onPressed: _openEvolutions,
+                    icon: const Icon(Icons.account_tree_outlined, size: 18),
+                    label: const Text('Evo'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
                 ),
               ],
