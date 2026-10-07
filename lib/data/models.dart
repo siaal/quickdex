@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../search/searchable.dart';
 import 'ability_guard.dart';
 
 class Ability {
@@ -24,7 +25,7 @@ class Ability {
   final String description;
 }
 
-class PokemonEntry {
+class PokemonEntry implements Searchable {
   const PokemonEntry({
     required this.id,
     required this.dex,
@@ -75,8 +76,10 @@ class PokemonEntry {
     );
   }
 
+  @override
   final int id;
   final int dex;
+  @override
   final String name;
   final String species;
   final String? form;
@@ -99,6 +102,8 @@ class PokemonEntry {
 
   double get weightKg => weight / 10;
   String get chipLabel => form ?? species;
+  @override
+  int? get number => dex;
   String get dexLabel => '#${dex.toString().padLeft(3, '0')}';
   int get total => stats.fold(0, (a, b) => a + b);
 }

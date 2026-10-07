@@ -1,6 +1,6 @@
-import '../data/models.dart';
 import '../trace.dart';
 import 'normalise.dart';
+import 'searchable.dart';
 
 abstract interface class FrecencyScores {
   double score(int id);
@@ -8,39 +8,40 @@ abstract interface class FrecencyScores {
 
 enum MatchTier { prefix, wordPrefix, substring }
 
-class SearchHit {
+class SearchHit<T extends Searchable> {
   const SearchHit(this.entry, this.tier, this.score);
-  final PokemonEntry entry;
+  final T entry;
   final MatchTier tier;
   final double score;
   bool get frecent => score > 0;
 }
 
-class _Key {
+class _Key<T extends Searchable> {
   _Key(this.entry, this.order)
     : name = normalise(entry.name),
       words = splitWords(entry.name),
-      dex = '${entry.dex}',
-      dexPadded = entry.dex.toString().padLeft(3, '0');
-  final PokemonEntry entry;
+      dex = entry.number?.toString(),
+      dexPadded = entry.number?.toString().padLeft(3, '0');
+  final T entry;
   final int order;
   final String name;
   final List<String> words;
-  final String dex;
-  final String dexPadded;
+  final String? dex;
+  final String? dexPadded;
 }
 
-class SearchIndex {
-  SearchIndex(List<PokemonEntry> entries)
+/// Ties keep the order of the list passed in (dex order, or name order for moves).
+class SearchIndex<T extends Searchable> {
+  SearchIndex(List<T> entries)
     : _keys = [for (var i = 0; i < entries.length; i++) _Key(entries[i], i)];
 
-  final List<_Key> _keys;
+  final List<_Key<T>> _keys;
   static final _digits = RegExp(r'^[0-9]+$');
 
-  List<SearchHit> search(String query, FrecencyScores frecency) {
+  List<SearchHit<T>> search(String query, FrecencyScores frecency) {
     final q = normalise(query);
     final numeric = _digits.hasMatch(q);
-    final hits = <(SearchHit, int)>[];
+    final hits = <(SearchHit<T>, int)>[];
     for (final k in _keys) {
       final tier = q.isEmpty
           ? MatchTier.prefix
@@ -63,16 +64,17 @@ class SearchIndex {
     return [for (final h in hits) h.$1];
   }
 
-  MatchTier? _nameTier(_Key k, String q) {
+  MatchTier? _nameTier(_Key<T> k, String q) {
     if (k.name.startsWith(q)) return MatchTier.prefix;
     if (k.words.any((w) => w.startsWith(q))) return MatchTier.wordPrefix;
     if (k.name.contains(q)) return MatchTier.substring;
     return null;
   }
 
-  MatchTier? _dexTier(_Key k, String q) {
-    if (int.tryParse(q) == k.entry.dex) return MatchTier.prefix;
-    if (k.dex.startsWith(q) || k.dexPadded.startsWith(q)) {
+  MatchTier? _dexTier(_Key<T> k, String q) {
+    if (k.dex == null) return null;
+    if (int.tryParse(q) == k.entry.number) return MatchTier.prefix;
+    if (k.dex!.startsWith(q) || k.dexPadded!.startsWith(q)) {
       return MatchTier.substring;
     }
     return null;

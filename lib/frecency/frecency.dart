@@ -49,6 +49,7 @@ class FrecencyStore implements FrecencyScores {
 
   static const halfLife = Duration(days: 3);
   static const prefsKey = 'frecency.v1';
+  static const movesPrefsKey = 'frecency.moves.v1';
 
   final DateTime Function() _clock;
   final Map<int, FrecencyRecord> _records;

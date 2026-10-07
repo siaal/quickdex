@@ -10,7 +10,7 @@ import 'package:quickdex/ui/lookup_screen.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Pokedex dex;
-  late SearchIndex index;
+  late SearchIndex<PokemonEntry> index;
   setUpAll(() async {
     dex = await loadPokedex(rootBundle);
     index = SearchIndex(dex.entries);

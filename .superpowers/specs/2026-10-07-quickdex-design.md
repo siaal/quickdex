@@ -116,7 +116,20 @@ The generated `assets/` are committed, so app builds never need the network.
 the chains map, and each entry's defence map (derived from the chart, shared per typing).
 Load time is measured and logged. Nothing is computed at page-render time.
 
-**Shell:** a bottom nav with **Lookup** (default) and **Type Chart**. The theme follows
+**Moves tab** (added 2026-10-07), between Lookup and Type Chart: the same live search
+(`SearchScreen<T>`, shared with Lookup) over `assets/data/moves.json`, with its own
+frecency store (`frecency.moves.v1`, credited when a move page opens). Covers every
+move a player can see (incl. Struggle, Celebrate, Starmobile torques); excludes Z-Moves,
+Max Moves and Shadow moves. Moves no Pokémon learns in Scarlet are tagged "Not in
+Scarlet". Move page: name; type, category and Not-in-Scarlet badges; Power ·
+Accuracy · PP · Priority (if non-zero) · Effect chance; target and flags
+(Contact, Punch, Sound, …; "contact unknown" where PokéAPI has no flag data,
+i.e. all Gen 9 moves); in-game text (Scarlet's, else latest); PokéAPI long
+description (hand-written via `tool/overrides.json` `move_descriptions` where missing).
+No learnset (user decision). moves.json loads in the background and the tab is built on
+first visit, so neither startup nor Lookup's autofocus is affected.
+
+**Shell:** a bottom nav with **Lookup** (default), **Moves** and **Type Chart**. The theme follows
 system light/dark, and type badges use the standard type colours.
 
 **Lookup tab:** the search field sits at the top, autofocused, with the keyboard up on
