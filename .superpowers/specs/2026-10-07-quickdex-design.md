@@ -208,9 +208,9 @@ in order. The same rule covers both cases.
 stored score to now and adds 1. Storage is O(1) per entry, persisted as a small map in
 `shared_preferences`. The clock is injected for tests.
 
-**Visit attribution:** a visit is credited to the entry **on screen when the user leaves
-the page** (back, tab switch, or app paused). So Raichu → [Alolan] → back credits Alolan
-Raichu only.
+**Visit attribution:** a visit is credited to the entry **opened from search**, when its
+page opens (changed 2026-10-07 at the user's request; previously the entry on screen at
+leave). So Raichu → [Alolan] → back credits Raichu only.
 
 **Swipe to dismiss:** only frecent rows can be swiped. Swiping deletes that entry's
 frecency record, and an Undo snackbar restores the previous `(score, lastUpdated)`.

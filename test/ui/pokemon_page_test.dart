@@ -102,7 +102,7 @@ void main() {
   });
 
   testWidgets(
-    'form chip swaps in place; back returns to launcher; credit goes to final form',
+    'form chip swaps in place; back returns to launcher; credit goes to the opened entry',
     (tester) async {
       final f = await pumpLauncher(tester, 26);
       await tester.tap(find.byKey(const Key('form-chip-10100')));
@@ -111,8 +111,8 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.text('open'), findsOneWidget);
-      expect(f.isFrecent(10100), isTrue);
-      expect(f.isFrecent(26), isFalse);
+      expect(f.isFrecent(26), isTrue);
+      expect(f.isFrecent(10100), isFalse);
     },
   );
 

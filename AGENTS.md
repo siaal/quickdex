@@ -30,7 +30,7 @@
   PokéAPI, so `flags` is null ("contact unknown"), not empty.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1`. A visit is credited to the
-  entry on screen when the user leaves the Pokémon page.
+  entry opened from search (on page open), not to forms/evolutions swapped to after.
 
 ## Conventions
 

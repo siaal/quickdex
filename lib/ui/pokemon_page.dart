@@ -26,39 +26,17 @@ class PokemonPage extends StatefulWidget {
   State<PokemonPage> createState() => _PokemonPageState();
 }
 
-class _PokemonPageState extends State<PokemonPage> with WidgetsBindingObserver {
+class _PokemonPageState extends State<PokemonPage> {
   late int _id = widget.initialId;
-  int? _creditedId;
 
   @override
   void initState() {
     super.initState();
     assert(widget.dex.byId.containsKey(_id), 'unknown entry $_id');
-    WidgetsBinding.instance.addObserver(this);
-    trace('page.open', {'id': _id});
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) _credit('paused');
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _credit('leave');
-    super.dispose();
-  }
-
-  /// A visit is credited to whatever entry is on screen when the user leaves.
-  void _credit(String reason) {
-    if (_creditedId == _id) {
-      trace('page.credit.skip_already', {'id': _id, 'reason': reason});
-      return;
-    }
-    _creditedId = _id;
-    trace('page.credit', {'id': _id, 'reason': reason});
+    // The visit is credited to the entry that was opened, not to forms or
+    // evolutions swapped to afterwards.
     widget.frecency.visit(_id);
+    trace('page.open', {'id': _id});
   }
 
   void _show(int id, String via) {
