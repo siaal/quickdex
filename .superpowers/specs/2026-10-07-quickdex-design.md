@@ -130,7 +130,10 @@ No learnset (user decision). moves.json loads in the background and the tab is b
 first visit, so neither startup nor Lookup's autofocus is affected.
 
 **Shell:** a bottom nav with **Lookup** (default), **Moves** and **Type Chart**. The theme follows
-system light/dark, and type badges use the standard type colours.
+system light/dark, and type badges use the standard type colours. Each tab has its own
+nested Navigator inside the IndexedStack, so pages open above the tab but below the
+bottom bar, and an open page survives switching tabs; system back pops the current
+tab's navigator (exits at a tab root). Enter in a search field opens the top result.
 
 **Lookup tab:** the search field sits at the top, autofocused, with the keyboard up on
 launch. Live suggestions are listed below it, each row showing a thumbnail, name, #dex

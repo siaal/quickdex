@@ -137,6 +137,14 @@ class _SearchScreenState<T extends Searchable> extends State<SearchScreen<T>> {
                   border: const OutlineInputBorder(),
                 ),
                 onChanged: (q) => setState(() => _hits = _search(q)),
+                onSubmitted: (_) {
+                  if (_hits.isEmpty) {
+                    trace('lookup.submit.no_hits', {'prefix': _p});
+                    _focus.requestFocus();
+                    return;
+                  }
+                  _open(_hits.first.entry);
+                },
               ),
             ),
             Expanded(
