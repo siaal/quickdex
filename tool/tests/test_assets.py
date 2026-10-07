@@ -33,3 +33,11 @@ def test_types_json_shape():
     types = json.loads((DATA / "types.json").read_text())
     assert len(types["order"]) == 18
     assert types["chart"]["electric"]["ground"] == 0
+
+
+def test_every_type_has_a_scarlet_violet_icon():
+    order = json.loads((DATA / "types.json").read_text())["order"]
+    assert {p.stem for p in (ART / "types").glob("*.png")} == set(order)
+    for t in order:
+        with Image.open(ART / "types" / f"{t}.png") as im:
+            assert im.size == (60, 60), t

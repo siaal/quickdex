@@ -32,6 +32,7 @@ and only types while QuickDex is the focused window.
   catch rate, weight), evolution chains, and ability descriptions
 - `assets/data/types.json`: the 18×18 chart
 - `assets/art/full/<id>.webp` (256px) and `assets/art/thumb/<id>.webp` (128px)
+- `assets/art/types/<type>.png`: Scarlet/Violet type icons (60px)
 
 Each entry's defence multipliers are derived from `types.json` when the app loads.
 If every ability a Pokémon can have grants an immunity (Gastly's Levitate,

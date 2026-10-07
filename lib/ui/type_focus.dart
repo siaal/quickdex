@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../trace.dart';
 import 'type_badge.dart';
-import 'type_style.dart';
+import 'type_tile.dart';
 
 enum FocusMode { attacker, defender }
 
@@ -64,17 +64,22 @@ class _TypeFocusState extends State<TypeFocus> {
           },
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
+        GridView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            mainAxisExtent: 40,
+          ),
           children: [
             for (final t in widget.chart.order)
-              ChoiceChip(
+              TypeTile(
+                t,
                 key: Key('focus-type-$t'),
-                label: Text(typeLabel(t)),
                 selected: _selected == t,
-                selectedColor: typeColors[t],
-                onSelected: (_) {
+                onTap: () {
                   trace('focus.type', {'type': t});
                   setState(() => _selected = t);
                 },

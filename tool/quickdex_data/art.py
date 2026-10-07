@@ -1,4 +1,5 @@
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -37,4 +38,18 @@ def convert_art(entries: list[Entry], src_dir: Path, out_dir: Path,
             if stale.name not in wanted:
                 log.debug("art.convert.remove_stale %s", stale)
                 stale.unlink()
+    return gaps
+
+
+def copy_type_icons(type_idents: dict[str, str], src_dir: Path, out_dir: Path) -> list[str]:
+    """Copy Scarlet/Violet type icons (`<type id>.png`) to `out_dir/<identifier>.png`."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    gaps = []
+    for tid, ident in type_idents.items():
+        src = src_dir / f"{tid}.png"
+        if not src.is_file():
+            log.debug("art.type_icon.missing %s %s", tid, ident)
+            gaps.append(f"type icon {tid} ({ident}) missing from the sprites repo")
+            continue
+        shutil.copyfile(src, out_dir / f"{ident}.png")
     return gaps

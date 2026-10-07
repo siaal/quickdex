@@ -3,7 +3,7 @@ from pathlib import Path
 
 from conftest import ROOT
 
-from quickdex_data.art import convert_art
+from quickdex_data.art import convert_art, copy_type_icons
 from quickdex_data.entries import Entry
 
 PIKACHU_PNG = ROOT / ".cache/sprites/sprites/pokemon/other/official-artwork/25.png"
@@ -42,3 +42,13 @@ def test_pipeline_never_contacts_bulbapedia():
         if "tests" in path.parts or ".venv" in path.parts:
             continue
         assert not re.search(r"bulbapedia|bulbagarden", path.read_text(), re.IGNORECASE), path
+
+
+def test_copy_type_icons_maps_ids_to_identifiers(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "10.png").write_bytes(b"fire")
+    out = tmp_path / "out"
+    gaps = copy_type_icons({"10": "fire", "11": "water"}, src, out)
+    assert (out / "fire.png").read_bytes() == b"fire"
+    assert gaps == ["type icon 11 (water) missing from the sprites repo"]

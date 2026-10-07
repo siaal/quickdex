@@ -153,8 +153,9 @@ query cleared and the field refocused.
    a node swaps the page to that entry in place.
 
 **Type Chart tab,** with two sub-tabs:
-- **Focus:** an **Attacker / Defender toggle** at the top, then 18 type chips; select
-  exactly one type.
+- **Focus:** an **Attacker / Defender toggle** at the top, then 18 type tiles; select
+  exactly one type. Tiles sit in their own fixed 3-column grid, all the same size,
+  each showing the Scarlet/Violet type icon (`assets/art/types/<type>.png`) and name.
   - Attacker mode: what type X hits, grouped as Super effective (2×),
     Not very effective (½×), No effect (0×).
   - Defender mode: how type X takes hits, grouped as Weak to (2×), Resistant to (½×),

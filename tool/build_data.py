@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from quickdex_data.abilities import build_abilities
-from quickdex_data.art import convert_art
+from quickdex_data.art import convert_art, copy_type_icons
 from quickdex_data.csvdb import CsvDb
 from quickdex_data.entries import build_entries
 from quickdex_data.evolutions import build_chains
@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING,
                         format="%(name)s %(message)s")
 
-    csv_dir, art_dir = ensure_sources(args.cache)
+    csv_dir, art_dir, icon_dir = ensure_sources(args.cache)
     db = CsvDb(csv_dir)
     overrides = json.loads((ROOT / "tool" / "overrides.json").read_text())
     build = build_entries(db)
@@ -52,6 +52,9 @@ def main(argv: list[str] | None = None) -> int:
     abilities = build_abilities(db, build.entries)
     chains, evo_gaps = build_chains(db, build.entries, overrides["methods"])
     art_gaps = convert_art(build.entries, art_dir, ROOT / "assets" / "art", overrides["art"])
+    type_idents = {r["id"]: r["identifier"] for r in db.rows("types", ("id", "identifier"))
+                   if r["identifier"] in TYPE_ORDER}
+    art_gaps += copy_type_icons(type_idents, icon_dir, ROOT / "assets" / "art" / "types")
 
     print("Kept alternate forms:")
     for e in build.entries:
