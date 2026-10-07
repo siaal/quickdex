@@ -133,7 +133,7 @@ first visit, so neither startup nor Lookup's autofocus is affected.
 system light/dark, and type badges use the standard type colours. Each tab has its own
 nested Navigator inside the IndexedStack, so pages open above the tab but below the
 bottom bar, and an open page survives switching tabs; system back pops the current
-tab's navigator (exits at a tab root). Enter in a search field opens the top result.
+tab's navigator (exits at a tab root); re-tapping the current tab pops it to its root. Enter in a search field opens the top result.
 
 **Lookup tab:** the search field sits at the top, autofocused, with the keyboard up on
 launch. Live suggestions are listed below it, each row showing a thumbnail, name, #dex

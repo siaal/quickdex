@@ -141,6 +141,12 @@ class _HomeShellState extends State<HomeShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) {
+          if (i == _tab) {
+            // Re-tapping the current tab goes back to its root (search) screen.
+            trace('shell.tab.reselect', {'tab': i});
+            _navigators[i].currentState?.popUntil((r) => r.isFirst);
+            return;
+          }
           trace('shell.tab.select', {'tab': i});
           setState(() {
             _tab = i;

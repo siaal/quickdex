@@ -82,6 +82,17 @@ void main() {
     expect(find.byKey(const Key('portrait-25')), findsOneWidget);
   });
 
+  testWidgets('tapping the current tab returns to its search screen', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    await openPikachu(tester);
+    await tester.tap(find.text('Lookup'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('portrait-25')), findsNothing);
+    expect(find.byKey(const Key('search-field')), findsOneWidget);
+  });
+
   testWidgets('system back pops the page inside the tab', (tester) async {
     await pumpApp(tester);
     await openPikachu(tester);
