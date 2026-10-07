@@ -166,9 +166,9 @@ query cleared and the field refocused.
 6. **Level-up moves** (above the footer): Lv ("Evo" for level 0), type icon, move,
    category, power; tapping opens the move page in the same tab and credits move
    frecency. Data: `learnsets` in moves.json (loaded in the background; the table appears
-   once loaded). Pok\u00e9API's Scarlet data includes the DLCs; entries not in Scarlet at all
+   once loaded). PokéAPI's Scarlet data includes the DLCs; entries not in Scarlet at all
    (325, e.g. Abra) fall back to Sword/Shield, then BDSP, USUM, SM, Let's Go, labelled
-   "From <game>" (Legends games and Champions excluded). Cross-checked against Pok\u00e9mon
+   "From <game>" (Legends games and Champions excluded). Cross-checked against Pokémon
    Showdown's learnsets: same coverage. Bulbapedia blocks automated access (403).
 7. **Footer:** `Catch rate 45 · Weight 6.9 kg`, small and grey.
 5. **Evo button** opens a bottom sheet with the chain tree (branches supported, e.g.
