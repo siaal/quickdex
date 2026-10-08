@@ -1,6 +1,10 @@
 # QuickDex: agent notes
 
-- Flutter is pinned with fvm (`.fvmrc`, 3.41.8). Always run `fvm flutter …`.
+- Flutter is pinned with fvm (`.fvmrc`, 3.41.8). Always run `fvm flutter …`. CI
+  (`.github/workflows/release.yml`) reads the same version from `.fvmrc`.
+- Platforms: Android (primary), plus Linux and Windows builds for CI releases (desktop
+  windows open phone-sized, 480×900). Never commit `android/key.properties` or any
+  keystore; the release key lives in `~/.config/quickdex/` (see README).
 - Python tooling lives in `tool/` as a uv project: `uv run --project tool …`.
 - All commands go through the Makefile (`data`, `test`, `analyze`, `run`, `install`, `perf`).
 

@@ -29,6 +29,26 @@ Everything is bundled. The app has no network permission.
 `make perf` needs the phone awake and unlocked. It reads only QuickDex's own log lines,
 and only types while QuickDex is the focused window.
 
+## Releases (CI)
+
+Every push to `main` runs `.github/workflows/release.yml`: `flutter analyze` + `flutter
+test`, then builds an Android APK, a Linux x64 tarball and a Windows x64 zip, and publishes
+them as GitHub release `v1.0.<run number>`. The Android versionCode is the commit count,
+the same as `make install`, so local and CI builds install over each other. (Python data
+tests need the PokéAPI cache, so they run locally only.)
+
+Android release signing uses one key for local and CI builds:
+
+- Locally, `android/key.properties` (gitignored) symlinks to
+  `~/.config/quickdex/key.properties`, which points at `~/.config/quickdex/release.jks`.
+  **Back both up.** Lose the key and installed copies can't be updated without an
+  uninstall.
+- In CI, it comes from four repository secrets: `ANDROID_KEYSTORE_BASE64`,
+  `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`. The build fails
+  if they're missing rather than shipping a debug-signed APK.
+
+Without `key.properties` outside CI, release builds fall back to the debug key.
+
 ## Data
 
 `tool/build_data.py` reads the PokéAPI CSVs and official artwork and writes:
