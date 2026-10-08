@@ -20,6 +20,7 @@ Everything is bundled. The app has no network permission.
 | Command | What it does |
 |---|---|
 | `make data` | Rebuild `assets/` from PokéAPI dumps (clones into `.cache/`) |
+| `make icon` | Regenerate Android/Windows/Linux app icons from `tool/icon/foreground.svg` (needs rsvg-convert, ImageMagick) |
 | `make test` | pytest (`tool/tests`) + `flutter test` |
 | `make analyze` | ruff + `flutter analyze` |
 | `make run` | Debug build on the connected device (hot reload) |

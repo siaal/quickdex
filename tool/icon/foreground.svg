@@ -1,0 +1,17 @@
+<!-- QuickDex icon art: a Pokédex front (lens, three lights, screen). 108×108 like an
+     Android adaptive-icon foreground; everything stays inside the central 66-unit
+     safe circle. The red background is added by tool/icon.sh. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- lens -->
+  <circle cx="42" cy="44" r="15" fill="#fff" stroke="#222" stroke-width="2.5"/>
+  <circle cx="42" cy="44" r="11" fill="#2a8cf0" stroke="#164f8c" stroke-width="2"/>
+  <circle cx="38" cy="40" r="3.5" fill="#bfe2ff"/>
+  <!-- status lights -->
+  <circle cx="61" cy="34" r="3.5" fill="#ff4d4d" stroke="#222" stroke-width="1.5"/>
+  <circle cx="69.5" cy="34" r="3.5" fill="#ffd23f" stroke="#222" stroke-width="1.5"/>
+  <circle cx="78" cy="34" r="3.5" fill="#4ccf6a" stroke="#222" stroke-width="1.5"/>
+  <!-- screen -->
+  <rect x="33" y="63" width="42" height="17" rx="3" fill="#e8e8e8" stroke="#222" stroke-width="2.5"/>
+  <rect x="37" y="66.5" width="34" height="10" rx="1.5" fill="#7fd6a8"/>
+  <path d="M41 72.5 h10 M41 70 h16 M41 75 h6" stroke="#2f6b4c" stroke-width="1.4" stroke-linecap="round"/>
+</svg>

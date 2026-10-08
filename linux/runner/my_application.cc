@@ -54,6 +54,17 @@ static void my_application_activate(GApplication* application) {
 
   gtk_window_set_default_size(window, 480, 900);
 
+  // data/app_icon.png sits next to the binary in the bundle.
+  g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe != nullptr) {
+    g_autofree gchar* dir = g_path_get_dirname(exe);
+    g_autofree gchar* icon =
+        g_build_filename(dir, "data", "app_icon.png", nullptr);
+    if (!gtk_window_set_icon_from_file(window, icon, nullptr)) {
+      g_warning("QuickDex: could not load window icon %s", icon);
+    }
+  }
+
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);

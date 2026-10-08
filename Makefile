@@ -4,10 +4,13 @@ APK := build/app/outputs/flutter-apk/app-release.apk
 # Same versionCode scheme as CI (commit count), so local and CI builds update each other.
 BUILD_NUMBER := $(shell git rev-list --count HEAD)
 
-.PHONY: data test analyze run install perf
+.PHONY: data icon test analyze run install perf
 
 data:
 	$(UV) python tool/build_data.py
+
+icon:
+	tool/icon.sh
 
 test:
 	$(UV) pytest tool/tests -q
