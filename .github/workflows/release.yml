@@ -36,6 +36,7 @@ jobs:
   android:
     needs: check
     runs-on: ubuntu-latest
+    environment: sdf
     steps:
       - uses: actions/checkout@v4
         with:
