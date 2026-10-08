@@ -28,6 +28,16 @@ void main() {
     expect(names(index.search('25', FakeScores())).first, 'Pikachu');
   });
 
+  test('regional dex number matches too; exact matches first', () {
+    final idx = SearchIndex([
+      fx(1, 'Bulbasaur', region: (name: 'Blueberry', number: 164)),
+      fx(906, 'Sprigatito', region: (name: 'Paldea', number: 1)),
+    ]);
+    expect(names(idx.search('164', FakeScores())), ['Bulbasaur']);
+    expect(names(idx.search('001', FakeScores())), ['Bulbasaur', 'Sprigatito']);
+    expect(names(idx.search('906', FakeScores())), ['Sprigatito']);
+  });
+
   test('match tiers: prefix, then word prefix, then substring', () {
     final hits = index.search('mime', FakeScores());
     expect(names(hits), ['Mime Jr.', 'Mr. Mime']);

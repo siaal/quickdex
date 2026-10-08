@@ -11,6 +11,9 @@ DROP_SUBSTRINGS = ("-mega", "-gmax", "-primal", "-totem", "-eternamax")
 STAT_IDS = ("1", "2", "3", "4", "5", "6")  # hp, atk, def, spa, spd, spe
 # Labels PokéAPI's English names render awkwardly once the other forms are dropped.
 LABEL_OVERRIDES = {"darmanitan-galar-standard": "Galarian", "minior-red": "Core"}
+# Scarlet/Violet's in-game dexes (pokedexes.csv id -> label), in display preference:
+# a species in several shows its first.
+SV_DEXES = (("31", "Paldea"), ("32", "Kitakami"), ("33", "Blueberry"))
 
 
 @dataclass
@@ -27,6 +30,7 @@ class Entry:
     hidden: int | None  # hidden ability id
     catch_rate: int
     weight: int  # hectograms, as PokéAPI stores it
+    region: tuple[str, int] | None = None  # Scarlet regional dex (label, number)
     forms: list[int] = field(default_factory=list)
 
     def to_json(self) -> dict:
@@ -37,6 +41,7 @@ class Entry:
             "form": self.form, "types": self.types, "stats": self.stats,
             "forms": self.forms, "chain": self.chain, "abilities": self.abilities,
             "hidden": self.hidden, "catch": self.catch_rate, "weight": self.weight,
+            "region": list(self.region) if self.region else None,
         }
 
 
@@ -101,6 +106,16 @@ def build_entries(db: CsvDb) -> EntryBuild:
                   if r["local_language_id"] == ENGLISH}
     species_rows = {r["id"]: r for r in db.rows(
         "pokemon_species", ("id", "identifier", "evolution_chain_id", "capture_rate"))}
+    sv_numbers: dict[str, dict[str, int]] = defaultdict(dict)  # species -> dex id -> no.
+    for r in db.rows("pokemon_dex_numbers", ("species_id", "pokedex_id", "pokedex_number")):
+        sv_numbers[r["species_id"]][r["pokedex_id"]] = int(r["pokedex_number"])
+
+    def region_for(sid: str) -> tuple[str, int] | None:
+        for dex_id, label in SV_DEXES:
+            if dex_id in sv_numbers[sid]:
+                return label, sv_numbers[sid][dex_id]
+        log.debug("entries.region.none species=%s", sid)
+        return None
 
     def signature(pid: str) -> tuple[tuple[str, ...], tuple[int, ...]]:
         t, s = types.get(pid), stats.get(pid, {})
@@ -153,7 +168,7 @@ def build_entries(db: CsvDb) -> EntryBuild:
                       chain=int(species_rows[sid]["evolution_chain_id"]),
                       abilities=abilities[pid], hidden=hidden.get(pid),
                       catch_rate=int(species_rows[sid]["capture_rate"]),
-                      weight=int(p["weight"]))
+                      weight=int(p["weight"]), region=region_for(sid))
         keyed.append(((int(sid), 0 if is_default else 1, int(pid)), entry, sid))
 
     keyed.sort(key=lambda k: k[0])

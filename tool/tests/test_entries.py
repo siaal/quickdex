@@ -43,6 +43,16 @@ def test_ability_only_duplicate_form_dropped(by_name, by_id):
     assert 10118 not in by_id  # zygarde-10-power-construct: same types+stats as 10181
 
 
+def test_scarlet_regional_dex_numbers(by_id, by_name):
+    assert by_name["Sprigatito"].region == ("Paldea", 1)
+    assert by_name["Pikachu"].region == ("Paldea", 74)  # Paldea wins over Kitakami
+    assert by_name["Dipplin"].region == ("Kitakami", 36)  # DLC-only
+    assert by_id[1].region == ("Blueberry", 164)  # Bulbasaur
+    assert by_name["Abra"].region is None  # not in Scarlet
+    assert by_name["Tauros (Paldean Combat Breed)"].region == ("Paldea", 223)
+    assert by_name["Sprigatito"].to_json()["region"] == ["Paldea", 1]
+
+
 def test_label_overrides(by_id):
     assert by_id[10177].name == "Darmanitan (Galarian)"
     assert by_id[10136].name == "Minior (Core)"

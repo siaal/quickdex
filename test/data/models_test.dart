@@ -19,7 +19,11 @@ void main() {
 
   test('lookup by id', () {
     expect(dex[25].name, 'Pikachu');
-    expect(dex[25].dexLabel, '#025');
+    expect(dex[25].dexLabel, 'Paldea #074 · #025');
+    expect(dex[1].dexLabel, 'Blueberry #164 · #001');
+    expect(dex[63].dexLabel, '#063', reason: 'Abra is not in Scarlet');
+    expect(dex[63].region, isNull);
+    expect(dex[906].region, (name: 'Paldea', number: 1));
     expect(dex[10100].name, 'Raichu (Alolan)');
     expect(dex[10100].chipLabel, 'Alolan');
     expect(dex[26].chipLabel, 'Raichu');

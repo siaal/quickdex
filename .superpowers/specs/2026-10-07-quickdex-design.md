@@ -72,7 +72,9 @@ tool/overrides.json ───► hand-curated fixes for anything the gaps check 
    - **Keep** everything else. That includes battle-only forms that change type/stats
      (Zen Mode, Aegislash Blade); the user reviews the printed kept/dropped list once.
    Each entry holds:
-   - `id` (PokéAPI pokemon id), `dex` (species national dex #)
+   - `id` (PokéAPI pokemon id), `dex` (species national dex #), `region` (Scarlet
+     in-game dex `[label, number]`: Paldea, else Kitakami, else Blueberry; null if in
+     none; added 2026-10-08)
    - `name` (display, e.g. `Raichu`, `Raichu (Alolan)`), `form` label (e.g. `Alolan`, or null)
    - `types` (1–2), `stats` (hp, atk, def, spa, spd, spe; total derived)
    - `forms`: sibling entry ids (same species, including itself), in display order
@@ -327,7 +329,8 @@ App: search
 App: Pokémon page
 26. The header shows the portrait.
 27. The header shows the name.
-28. The header shows the #dex.
+28. The header shows the dex label: "Paldea #074 · #025" (regional, then national), or
+    just "#063" if not in Scarlet. Digit queries match national or regional numbers.
 29. The header shows the type badges.
 30. The Evo button is pinned to the right edge of the name line.
 31. A long name wraps rather than moving the Evo button.

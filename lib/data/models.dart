@@ -42,6 +42,7 @@ class PokemonEntry implements Searchable {
     this.catchRate = 0,
     this.weight = 0,
     this.guard,
+    this.region,
   });
 
   /// `defenseFor` maps a type list to its defensive multipliers (derived from the chart
@@ -73,6 +74,10 @@ class PokemonEntry implements Searchable {
       catchRate: j['catch'] as int,
       weight: j['weight'] as int,
       guard: guardFor([...abilities, ?hidden], defense),
+      region: switch (j['region']) {
+        [final String name, final int number] => (name: name, number: number),
+        _ => null,
+      },
     );
   }
 
@@ -100,11 +105,24 @@ class PokemonEntry implements Searchable {
   /// Immunity granted by every ability this entry can have, if any.
   final AbilityGuard? guard;
 
+  /// Scarlet's in-game dex (Paldea, then Kitakami, then Blueberry); null if the
+  /// species is in none of them.
+  final ({String name, int number})? region;
+
   double get weightKg => weight / 10;
   String get chipLabel => form ?? species;
   @override
-  int? get number => dex;
-  String get dexLabel => '#${dex.toString().padLeft(3, '0')}';
+  List<int> get numbers => [dex, ?region?.number];
+
+  /// e.g. "Paldea #074 · #025"; just the national "#063" if not in Scarlet.
+  String get dexLabel {
+    String pad(int n) => '#${n.toString().padLeft(3, '0')}';
+    final r = region;
+    return r == null
+        ? pad(dex)
+        : '${r.name} ${pad(r.number)} · ${pad(dex)}';
+  }
+
   int get total => stats.fold(0, (a, b) => a + b);
 }
 

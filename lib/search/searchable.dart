@@ -4,6 +4,7 @@ abstract interface class Searchable {
   int get id;
   String get name;
 
-  /// Matched by digit-only queries (the dex number); null if not numbered.
-  int? get number;
+  /// Matched by digit-only queries (national and regional dex numbers); empty if
+  /// not numbered.
+  List<int> get numbers;
 }

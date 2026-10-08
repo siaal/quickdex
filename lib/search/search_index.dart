@@ -20,14 +20,19 @@ class _Key<T extends Searchable> {
   _Key(this.entry, this.order)
     : name = normalise(entry.name),
       words = splitWords(entry.name),
-      dex = entry.number?.toString(),
-      dexPadded = entry.number?.toString().padLeft(3, '0');
+      numbers = [
+        for (final n in entry.numbers) ...[
+          n.toString(),
+          n.toString().padLeft(3, '0'),
+        ],
+      ];
   final T entry;
   final int order;
   final String name;
   final List<String> words;
-  final String? dex;
-  final String? dexPadded;
+
+  /// Each dex number, unpadded and zero-padded to 3 digits.
+  final List<String> numbers;
 }
 
 /// Whether [b] ranks strictly before [a]: frecency score first, then match tier.
@@ -98,11 +103,9 @@ class SearchIndex<T extends Searchable> {
   }
 
   MatchTier? _dexTier(_Key<T> k, String q) {
-    if (k.dex == null) return null;
-    if (int.tryParse(q) == k.entry.number) return MatchTier.prefix;
-    if (k.dex!.startsWith(q) || k.dexPadded!.startsWith(q)) {
-      return MatchTier.substring;
-    }
+    if (k.numbers.isEmpty) return null;
+    if (k.entry.numbers.contains(int.tryParse(q))) return MatchTier.prefix;
+    if (k.numbers.any((n) => n.startsWith(q))) return MatchTier.substring;
     return null;
   }
 }

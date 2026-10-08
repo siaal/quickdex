@@ -27,6 +27,7 @@ PokemonEntry fx(
   String? form,
   List<String> types = const ['normal'],
   int? dex,
+  ({String name, int number})? region,
 }) => PokemonEntry(
   id: id,
   dex: dex ?? id,
@@ -38,6 +39,7 @@ PokemonEntry fx(
   forms: [id],
   chain: id,
   defense: _allNormal,
+  region: region,
 );
 
 final fixtureEntries = [

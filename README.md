@@ -3,7 +3,8 @@
 Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
 
 - **Search:** one search for Pokémon and moves, with a Pokémon | All | Moves toggle
-  above the field (the last mode is remembered). Live results are ranked by frecency (your team and the current zone float to
+  above the field (the last mode is remembered). Pokémon show their Scarlet in-game dex
+  number (Paldea, Kitakami or Blueberry) next to the National one, and either finds them. Live results are ranked by frecency (your team and the current zone float to
   the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
   base stats, type defences (Bulbapedia layout), form switching, level-up moves, and an Evo sheet (or drag from Evo and release on an evolution to
   jump straight to it).

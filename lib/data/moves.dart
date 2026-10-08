@@ -75,7 +75,7 @@ class Move implements Searchable {
   final String? description;
 
   @override
-  int? get number => null;
+  List<int> get numbers => const [];
 }
 
 /// Level-up moves of one Pokémon entry, in level order; level 0 = on evolution.
