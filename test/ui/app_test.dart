@@ -68,7 +68,12 @@ void main() {
     expect(find.byType(NavigationBar), findsOneWidget);
   });
 
-  testWidgets('switching tabs keeps the open page', (tester) async {
+  TextField searchField(WidgetTester tester) =>
+      tester.widget<TextField>(find.byKey(const Key('search-field')));
+
+  testWidgets('returning to Search lands on the focused search screen', (
+    tester,
+  ) async {
     await pumpApp(tester);
     await openPikachu(tester);
     await tester.tap(find.text('Type Chart'));
@@ -76,7 +81,23 @@ void main() {
     expect(find.byKey(const Key('portrait-25')), findsNothing);
     await tester.tap(find.text('Search'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('portrait-25')), findsOneWidget);
+    expect(find.byKey(const Key('portrait-25')), findsNothing);
+    expect(searchField(tester).focusNode!.hasFocus, isTrue);
+  });
+
+  testWidgets('tapping Search on the search screen re-shows the keyboard', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+    expect(searchField(tester).focusNode!.hasFocus, isTrue);
+    tester.testTextInput.log.clear();
+    await tester.tap(find.text('Search'));
+    await tester.pumpAndSettle();
+    expect(searchField(tester).focusNode!.hasFocus, isTrue);
+    expect(
+      tester.testTextInput.log.map((c) => c.method),
+      contains('TextInput.show'),
+    );
   });
 
   testWidgets('tapping the current tab returns to its search screen', (

@@ -133,8 +133,11 @@ background, so startup is unaffected; move results appear once it has loaded.
 were separate tabs until 2026-10-08). The theme follows
 system light/dark, and type badges use the standard type colours. Each tab has its own
 nested Navigator inside the IndexedStack, so pages open above the tab but below the
-bottom bar, and an open page survives switching tabs; system back pops the current
-tab's navigator (exits at a tab root); re-tapping the current tab pops it to its root. Enter in a search field opens the top result.
+bottom bar. System back pops the current tab's navigator (exits at a tab root);
+re-tapping the current tab pops it to its root. Selecting Search (from another tab or
+re-tapped) always lands on the search screen, focuses the field and shows the keyboard
+even if the field was already focused (user change 2026-10-08, reverting "Search
+remembers its open page"). Enter in a search field opens the top result.
 
 **Search tab:** a Pokémon | All | Moves segmented toggle sits *above* the search field,
 so the result list never covers it; the mode persists (`search.mode`, default All) and

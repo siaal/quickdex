@@ -77,6 +77,15 @@ class _HomeShellState extends State<HomeShell> {
   final _navigators = List.generate(2, (_) => GlobalKey<NavigatorState>());
   int _tab = 0;
 
+  /// Bumped to make the search screen focus its field and show the keyboard.
+  final _searchFocusRequests = ValueNotifier(0);
+
+  @override
+  void dispose() {
+    _searchFocusRequests.dispose();
+    super.dispose();
+  }
+
   Widget _tabNavigator(int tab, Widget root) => Navigator(
     key: _navigators[tab],
     onGenerateRoute: (_) => MaterialPageRoute<void>(builder: (_) => root),
@@ -115,6 +124,7 @@ class _HomeShellState extends State<HomeShell> {
               moveFrecency: widget.moveFrecency,
               initialMode: widget.initialSearchMode,
               onModeChanged: widget.onSearchModeChanged,
+              focusRequests: _searchFocusRequests,
             ),
           ),
           _tabNavigator(1, TypeChartScreen(chart: widget.dex.types)),
@@ -123,14 +133,22 @@ class _HomeShellState extends State<HomeShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (i) {
-          if (i == _tab) {
-            // Re-tapping the current tab goes back to its root (search) screen.
-            trace('shell.tab.reselect', {'tab': i});
+          trace(i == _tab ? 'shell.tab.reselect' : 'shell.tab.select', {
+            'tab': i,
+          });
+          // Search always lands on its search screen (open pages are dropped),
+          // whether re-tapped or returned to; other tabs keep their page unless
+          // re-tapped.
+          if (i == 0 || i == _tab) {
             _navigators[i].currentState?.popUntil((r) => r.isFirst);
-            return;
           }
-          trace('shell.tab.select', {'tab': i});
-          setState(() => _tab = i);
+          if (i != _tab) setState(() => _tab = i);
+          if (i == 0) {
+            // After the frame: the tab must be visible before it can take focus.
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _searchFocusRequests.value++,
+            );
+          }
         },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.search), label: 'Search'),

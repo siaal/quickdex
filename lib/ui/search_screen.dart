@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../data/models.dart';
 import '../data/moves.dart';
@@ -28,6 +29,7 @@ class SearchScreen extends StatefulWidget {
     required this.moveFrecency,
     this.initialMode = SearchMode.all,
     this.onModeChanged,
+    this.focusRequests,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
@@ -38,6 +40,10 @@ class SearchScreen extends StatefulWidget {
   final FrecencyStore moveFrecency;
   final SearchMode initialMode;
   final ValueChanged<SearchMode>? onModeChanged;
+
+  /// Each notification focuses the field and shows the keyboard, even if the
+  /// field already has focus (e.g. the user dismissed the keyboard).
+  final Listenable? focusRequests;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -55,6 +61,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    widget.focusRequests?.addListener(_focusField);
     widget.moves.then(
       (moves) {
         if (!mounted) return;
@@ -84,8 +91,18 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  void _focusField() {
+    trace('search.focus.request', {'had_focus': _focus.hasFocus});
+    if (_focus.hasFocus) {
+      SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+    } else {
+      _focus.requestFocus();
+    }
+  }
+
   @override
   void dispose() {
+    widget.focusRequests?.removeListener(_focusField);
     _controller.dispose();
     _focus.dispose();
     super.dispose();
