@@ -12,6 +12,10 @@ void main() {
     }
   });
 
+  test('Normal is Scarlet\'s grey, not olive (looked like Bug)', () {
+    expect(typeColors['normal'], const Color(0xFF9FA19F));
+  });
+
   testWidgets('badges use the hard-coded text colour', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

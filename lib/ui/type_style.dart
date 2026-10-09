@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 const typeColors = <String, Color>{
-  'normal': Color(0xFFA8A77A),
+  'normal': Color(0xFF9FA19F), // Scarlet's grey; the usual olive read as Bug
   'fire': Color(0xFFEE8130),
   'water': Color(0xFF6390F0),
   'electric': Color(0xFFF7D02C),

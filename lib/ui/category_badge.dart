@@ -94,13 +94,20 @@ class CategoryBadge extends StatelessWidget {
         color: _colors[category],
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: compact ? 11 : 13,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CategoryIcon(category, size: compact ? 13 : 17),
+          SizedBox(width: compact ? 2 : 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: compact ? 11 : 13,
+            ),
+          ),
+        ],
       ),
     );
   }

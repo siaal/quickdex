@@ -123,7 +123,9 @@ over `assets/data/moves.json`, with its own
 frecency store (`frecency.moves.v1`, credited when a move page opens). Covers every
 move a player can see (incl. Struggle, Celebrate, Starmobile torques); excludes Z-Moves,
 Max Moves and Shadow moves. Moves no Pokémon learns in Scarlet are tagged "Not in
-Scarlet". Move page: name; type, category and Not-in-Scarlet badges; Power ·
+Scarlet". Move page: name with the category pill (symbol + word) right-aligned on the
+same row, kept apart from the type so it isn't read as a second type; type and
+Not-in-Scarlet badges below; Power ·
 Accuracy · PP · Priority (if non-zero) · Effect chance; target, "Makes contact" /
 "No contact" on every move, and flags (Punch, Sound, …). Flags come from Pokémon
 Showdown's moves.json (cached in `.cache/showdown/`), because PokéAPI's
@@ -199,6 +201,8 @@ can't be scanned without memorising it).
 (white contrast < 2.3:1). Hard-coded as `darkTextTypes` in `lib/ui/type_style.dart`; a
 test recomputes the luminance rule to keep it in sync with `typeColors`. The user chose
 this over strict max-contrast, which would turn 13 of 18 black.
+Normal uses Scarlet's grey (#9FA19F, sampled from its type icon) instead of the usual
+olive, which the user found looked like Bug.
 
 **Type Chart tab,** with two sub-tabs:
 - **Focus:** an **Attacker / Defender toggle** at the top, then 18 type tiles; select

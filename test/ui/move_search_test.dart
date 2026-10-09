@@ -81,6 +81,35 @@ void main() {
     );
   });
 
+  testWidgets('category pill sits right of the name, with its symbol', (
+    tester,
+  ) async {
+    await pump(tester);
+    await open(tester, 'quick attack', 'Quick Attack');
+    final badge = find.byKey(const Key('move-category'));
+    final name = tester.getRect(find.byKey(const Key('move-name')));
+    final rect = tester.getRect(badge);
+    expect(rect.center.dy, closeTo(name.center.dy, 4), reason: 'same row');
+    expect(
+      rect.right,
+      closeTo(
+        tester.view.physicalSize.width / tester.view.devicePixelRatio - 16,
+        1,
+      ),
+    );
+    expect(
+      find.descendant(
+        of: badge,
+        matching: find.byKey(const Key('cat-physical')),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: badge, matching: find.text('Physical')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('non-contact moves say so', (tester) async {
     await pump(tester);
     await open(tester, 'thunderbolt', 'Thunderbolt');

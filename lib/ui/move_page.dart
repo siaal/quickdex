@@ -48,10 +48,19 @@ class _MovePageState extends State<MovePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              m.name,
-              key: const Key('move-name'),
-              style: theme.textTheme.headlineSmall,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    m.name,
+                    key: const Key('move-name'),
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Kept apart from the type badge so it isn't read as a second type.
+                CategoryBadge(m.category, key: const Key('move-category')),
+              ],
             ),
             const SizedBox(height: 8),
             Wrap(
@@ -59,7 +68,6 @@ class _MovePageState extends State<MovePage> {
               runSpacing: 6,
               children: [
                 TypeBadge(m.type),
-                CategoryBadge(m.category),
                 if (!m.inScarlet)
                   Container(
                     key: const Key('move-not-sv'),
