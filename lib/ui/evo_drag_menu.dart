@@ -185,11 +185,14 @@ class _EvoDragMenuState extends State<EvoDragMenu> {
 /// A pan that wins the arena before the page's vertical scroll does
 /// (half the usual touch slop instead of twice it).
 class _EagerPan extends PanGestureRecognizer {
+  /// Fixed, not derived from the slop: Android's device touch slop (~8 dp) is what
+  /// the page's scroll recognizer uses, so half of Flutter's default (9) lost to
+  /// it whenever the page could scroll. 3 px still lets a tap through.
+  static const _acceptDistance = 3.0;
+
   @override
   bool hasSufficientGlobalDistanceToAccept(
     PointerDeviceKind pointerDeviceKind,
     double? deviceTouchSlop,
-  ) =>
-      globalDistanceMoved.abs() >
-      computeHitSlop(pointerDeviceKind, gestureSettings) / 2;
+  ) => globalDistanceMoved.abs() > _acceptDistance;
 }

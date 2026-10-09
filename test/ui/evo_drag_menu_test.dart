@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +49,44 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('portrait-3')), findsOneWidget);
     expect(find.byKey(const Key('evo-drag-item-3')), findsNothing);
+  });
+
+  testWidgets('beats page scroll even when the page could scroll', (
+    tester,
+  ) async {
+    // Android reports a device touch slop (~8 dp) smaller than Flutter's
+    // default 18, which the page's scroll recognizer uses.
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            gestureSettings: const DeviceGestureSettings(touchSlop: 8),
+          ),
+          child: child!,
+        ),
+        home: PokemonPage(dex: dex, frecency: FrecencyStore(), initialId: 2),
+      ),
+    );
+    final scroll = find.byType(Scrollable).first;
+    await tester.drag(scroll, const Offset(0, -60));
+    await tester.pumpAndSettle();
+    final pos = tester.state<ScrollableState>(scroll).position;
+    final before = pos.pixels;
+    expect(before, greaterThan(0), reason: 'page can scroll both ways');
+
+    for (final dy in [-1.0, 1.0]) {
+      final g = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('evo-button'))),
+      );
+      for (var i = 0; i < 6; i++) {
+        await g.moveBy(Offset(0, 3 * dy)); // finger-sized steps
+        await tester.pump();
+      }
+      expect(find.byKey(const Key('evo-drag-item-2')), findsOneWidget);
+      expect(pos.pixels, before, reason: 'page did not scroll (dy $dy)');
+      await g.up();
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('works upwards to pre-evolutions too', (tester) async {
