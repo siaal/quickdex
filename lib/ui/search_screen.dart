@@ -317,15 +317,21 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
     ),
-    title: Text(m.name),
+    title: Row(
+      children: [
+        Flexible(child: Text(m.name)),
+        const SizedBox(width: 6),
+        CategoryIcon(m.category, size: 18),
+      ],
+    ),
     subtitle: m.inScarlet ? null : const Text('Not in Scarlet'),
     trailing: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CategoryBadge(m.category, compact: true),
         SizedBox(
-          width: 64,
+          width: 76,
           child: Text(
+            style: const TextStyle(fontSize: 14),
             '${m.power ?? '—'} · ${m.accuracy == null ? '—' : '${m.accuracy}%'}',
             textAlign: TextAlign.end,
           ),

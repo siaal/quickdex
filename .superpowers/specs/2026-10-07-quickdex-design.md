@@ -150,7 +150,8 @@ so the result list never covers it; the mode persists (`search.mode`, default Al
 switching keeps the query and keyboard. All merges both ranked lists with the same rule
 (frecency, then tier; Pokémon win ties); no Pokémon shares a name with a move. The
 field is autofocused with the keyboard up on launch. Pokémon rows show thumbnail,
-name, #dex and type badges; move rows show type icon, name, category, power ·
+name, #dex and type badges; move rows show type icon, name with the category symbol (icon only) right after it,
+and (in 14 sp text) power ·
 accuracy. Tapping a row opens the Pokémon or move page in this tab. Back returns to search with the
 query cleared and the field refocused.
 

@@ -52,6 +52,23 @@ void main() {
     expect(find.text('Thunderbolt'), findsNothing);
   });
 
+  testWidgets('result row: category symbol only, right of the name', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.enterText(find.byKey(const Key('search-field')), 'uturn');
+    await tester.pump();
+    final row = find.byKey(Key('move-row-${idOf('U-turn')}'));
+    Finder inRow(Finder f) => find.descendant(of: row, matching: f);
+    expect(inRow(find.text('Physical')), findsNothing);
+    final icon = tester.getRect(inRow(find.byKey(const Key('cat-physical'))));
+    final name = tester.getRect(inRow(find.text('U-turn')));
+    expect(icon.left, greaterThan(name.right));
+    expect(icon.center.dy, closeTo(name.center.dy, 4));
+    final stats = tester.widget<Text>(inRow(find.text('70 · 100%')));
+    expect(stats.style?.fontSize, 14);
+  });
+
   testWidgets('move page shows the numbers, target, text and description', (
     tester,
   ) async {

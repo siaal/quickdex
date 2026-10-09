@@ -78,18 +78,14 @@ class _CategoryPainter extends CustomPainter {
 }
 
 class CategoryBadge extends StatelessWidget {
-  const CategoryBadge(this.category, {super.key, this.compact = false});
+  const CategoryBadge(this.category, {super.key});
   final MoveCategory category;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final label = category.name[0].toUpperCase() + category.name.substring(1);
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 6 : 10,
-        vertical: compact ? 2 : 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: _colors[category],
         borderRadius: BorderRadius.circular(4),
@@ -97,14 +93,14 @@ class CategoryBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CategoryIcon(category, size: compact ? 13 : 17),
-          SizedBox(width: compact ? 2 : 4),
+          CategoryIcon(category, size: 17),
+          const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
-              fontSize: compact ? 11 : 13,
+              fontSize: 13,
             ),
           ),
         ],
