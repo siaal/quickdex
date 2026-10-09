@@ -98,15 +98,26 @@ void main() {
     );
   });
 
-  testWidgets('category pill sits right of the name, with its symbol', (
+  testWidgets('category pill right-aligned on the type row; type has icon', (
     tester,
   ) async {
     await pump(tester);
     await open(tester, 'quick attack', 'Quick Attack');
     final badge = find.byKey(const Key('move-category'));
-    final name = tester.getRect(find.byKey(const Key('move-name')));
+    final type = find.byKey(const Key('move-type'));
     final rect = tester.getRect(badge);
-    expect(rect.center.dy, closeTo(name.center.dy, 4), reason: 'same row');
+    expect(
+      rect.center.dy,
+      closeTo(tester.getRect(type).center.dy, 2),
+      reason: 'same row as the type pill',
+    );
+    expect(
+      find.descendant(
+        of: type,
+        matching: find.byKey(const Key('type-icon-normal')),
+      ),
+      findsOneWidget,
+    );
     expect(
       rect.right,
       closeTo(

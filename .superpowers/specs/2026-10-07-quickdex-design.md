@@ -123,9 +123,9 @@ over `assets/data/moves.json`, with its own
 frecency store (`frecency.moves.v1`, credited when a move page opens). Covers every
 move a player can see (incl. Struggle, Celebrate, Starmobile torques); excludes Z-Moves,
 Max Moves and Shadow moves. Moves no Pokémon learns in Scarlet are tagged "Not in
-Scarlet". Move page: name with the category pill (symbol + word) right-aligned on the
-same row, kept apart from the type so it isn't read as a second type; type and
-Not-in-Scarlet badges below; Power ·
+Scarlet". Move page: name; below it a row with the type pill (with its type icon) and
+Not-in-Scarlet tag on the left, and the category pill (symbol + word) right-aligned so
+it isn't read as a second type; Power ·
 Accuracy · PP · Priority (if non-zero) · Effect chance; target, "Makes contact" /
 "No contact" on every move, and flags (Punch, Sound, …). Flags come from Pokémon
 Showdown's moves.json (cached in `.cache/showdown/`), because PokéAPI's
