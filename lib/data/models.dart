@@ -118,9 +118,7 @@ class PokemonEntry implements Searchable {
   String get dexLabel {
     String pad(int n) => '#${n.toString().padLeft(3, '0')}';
     final r = region;
-    return r == null
-        ? pad(dex)
-        : '${r.name} ${pad(r.number)} · ${pad(dex)}';
+    return r == null ? pad(dex) : '${r.name} ${pad(r.number)} · ${pad(dex)}';
   }
 
   int get total => stats.fold(0, (a, b) => a + b);
