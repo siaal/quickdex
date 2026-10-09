@@ -56,10 +56,7 @@ class _TypeGridState extends State<TypeGrid> {
     child: FittedBox(
       child: Text(
         typeAbbr(t),
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(color: typeTextColor(t), fontWeight: FontWeight.bold),
       ),
     ),
   );

@@ -195,6 +195,11 @@ query cleared and the field refocused.
 `TYPE_ORDER` via `types.json` (user choice; the conventional Normal, Fire, Water… order
 can't be scanned without memorising it).
 
+**Type label text** is white, except black on Electric, Ice, Ground, Steel, Grass and Bug
+(white contrast < 2.3:1). Hard-coded as `darkTextTypes` in `lib/ui/type_style.dart`; a
+test recomputes the luminance rule to keep it in sync with `typeColors`. The user chose
+this over strict max-contrast, which would turn 13 of 18 black.
+
 **Type Chart tab,** with two sub-tabs:
 - **Focus:** an **Attacker / Defender toggle** at the top, then 18 type tiles; select
   exactly one type. Tiles sit in their own fixed 3-column grid, all the same size,

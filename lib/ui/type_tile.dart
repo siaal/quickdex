@@ -46,7 +46,7 @@ class TypeTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: selected ? Colors.white : null,
+                    color: selected ? typeTextColor(type) : null,
                   ),
                 ),
               ),

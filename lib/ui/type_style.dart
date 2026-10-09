@@ -21,5 +21,14 @@ const typeColors = <String, Color>{
   'fairy': Color(0xFFD685AD),
 };
 
+/// Types whose colour is too bright for white text: white contrast below 2.3:1
+/// (WCAG relative luminance). Hard-coded from [typeColors] rather than computed
+/// at runtime; test/ui/type_style_test.dart checks it still matches the colours.
+const darkTextTypes = {'electric', 'ice', 'ground', 'steel', 'grass', 'bug'};
+
+/// Text colour to use on a [typeColors] background.
+Color typeTextColor(String t) =>
+    darkTextTypes.contains(t) ? Colors.black : Colors.white;
+
 String typeLabel(String t) => t[0].toUpperCase() + t.substring(1);
 String typeAbbr(String t) => t.substring(0, 3).toUpperCase();

@@ -22,7 +22,7 @@ class TypeBadge extends StatelessWidget {
       child: Text(
         typeLabel(type),
         style: TextStyle(
-          color: Colors.white,
+          color: typeTextColor(type),
           fontWeight: FontWeight.w600,
           fontSize: compact ? 11 : 13,
         ),
