@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import urllib.request
 from pathlib import Path
 
 log = logging.getLogger("quickdex.sources")
@@ -9,6 +10,7 @@ SPRITES_URL = "https://github.com/PokeAPI/sprites.git"
 CSV_PATH = "data/v2/csv"
 ART_PATH = "sprites/pokemon/other/official-artwork"
 TYPE_ICON_PATH = "sprites/types/generation-ix/scarlet-violet/small"
+SHOWDOWN_MOVES_URL = "https://play.pokemonshowdown.com/data/moves.json"
 
 
 def _git(*args: str) -> None:
@@ -55,3 +57,20 @@ def ensure_sources(cache: Path) -> tuple[Path, Path, Path]:
     assert art_dir.is_dir(), art_dir
     assert icon_dir.is_dir(), icon_dir
     return csv_dir, art_dir, icon_dir
+
+
+def ensure_showdown_moves(cache: Path) -> Path:
+    """Download Showdown's moves.json into `cache` once; delete it to refresh."""
+    path = cache / "showdown" / "moves.json"
+    if path.is_file():
+        log.debug("sources.showdown.cached")
+        return path
+    log.debug("sources.showdown.download")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part")
+    # The server 403s Python's default User-Agent.
+    req = urllib.request.Request(SHOWDOWN_MOVES_URL, headers={"User-Agent": "quickdex-data"})
+    with urllib.request.urlopen(req) as resp:
+        tmp.write_bytes(resp.read())
+    tmp.rename(path)
+    return path

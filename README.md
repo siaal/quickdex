@@ -9,7 +9,7 @@ Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
   base stats, type defences (Bulbapedia layout), form switching, level-up moves, and an Evo sheet (or drag from Evo and release on an evolution to
   jump straight to it).
 - **Moves** (in Search): every move; each page shows type, category,
-  power/accuracy/PP/priority/effect chance, target and contact-type flags, the in-game
+  power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description. Moves not in Scarlet are tagged.
 - **Type Chart:** a Focus tab (pick a type, toggle Attacker/Defender) and a full 18×18
   grid with frozen headers, pinch-zoom and row/column highlight.
@@ -20,7 +20,7 @@ Everything is bundled. The app has no network permission.
 
 | Command | What it does |
 |---|---|
-| `make data` | Rebuild `assets/` from PokéAPI dumps (clones into `.cache/`) |
+| `make data` | Rebuild `assets/` from PokéAPI dumps and Showdown's move flags (cached in `.cache/`) |
 | `make icon` | Regenerate Android/Windows/Linux app icons from `tool/icon/foreground.svg` (needs rsvg-convert, ImageMagick) |
 | `make test` | pytest (`tool/tests`) + `flutter test` |
 | `make analyze` | ruff + `flutter analyze` |

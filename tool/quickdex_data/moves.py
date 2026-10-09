@@ -1,5 +1,7 @@
+import json
 import logging
 from collections import defaultdict
+from pathlib import Path
 
 from .csvdb import ENGLISH, CsvDb, SchemaError
 
@@ -9,9 +11,14 @@ SV_VERSION_GROUP = "25"
 # Seen in Scarlet without any Pokémon learning them.
 SV_EXTRA = {"struggle", "behemoth-blade", "behemoth-bash", "blazing-torque",
             "wicked-torque", "noxious-torque", "combat-torque", "magical-torque"}
-# move_flags id -> label; only flags that matter when reading a move.
-FLAG_LABELS = {"1": "Contact", "8": "Punch", "9": "Sound", "15": "Powder", "16": "Bite",
-               "17": "Pulse", "18": "Bullet", "21": "Dance"}
+# Showdown flag -> label; only flags that matter when reading a move. Contact is
+# emitted separately as a bool. PokéAPI's move_flag_map lacks every Gen 9 and many
+# Gen 7-8 moves, so flags come from Showdown, cross-checked against PokéAPI.
+FLAG_LABELS = {"punch": "Punch", "sound": "Sound", "powder": "Powder", "bite": "Bite",
+               "pulse": "Pulse", "bullet": "Bullet", "dance": "Dance"}
+# PokéAPI move_flags id -> Showdown flag, for the cross-check.
+POKEAPI_FLAGS = {"1": "contact", "8": "punch", "9": "sound", "15": "powder", "16": "bite",
+                 "17": "pulse", "18": "bullet", "21": "dance"}
 TARGET_FALLBACK = {"fainting-pokemon": "Fainted party Pokémon"}
 
 
@@ -30,10 +37,25 @@ def _clean(text: str) -> str:
     return " ".join(text.split())
 
 
-def build_moves(db: CsvDb, desc_overrides: dict[str, str]) -> list[dict]:
+def load_showdown(path: Path) -> dict[int, set[str]]:
+    """Showdown's moves.json as move number -> the flags we use (incl. contact)."""
+    wanted = set(POKEAPI_FLAGS.values())
+    out: dict[int, set[str]] = {}
+    for m in json.loads(path.read_text()).values():
+        if m["num"] <= 0:  # CAP / custom moves
+            continue
+        # Hidden Power has one entry per type, all with the same relevant flags.
+        out[m["num"]] = set(m.get("flags", {})) & wanted
+    assert out, path
+    return out
+
+
+def build_moves(db: CsvDb, desc_overrides: dict[str, str],
+                showdown: dict[int, set[str]]) -> list[dict]:
     """Every move a player can see in battle, sorted by English name.
 
-    `desc_overrides` maps move identifier -> hand-written long description.
+    `desc_overrides` maps move identifier -> hand-written long description;
+    `showdown` is move number -> flags, from `load_showdown`.
     """
     types = {r["id"]: r["identifier"] for r in db.rows("types", ("id", "identifier"))}
     classes = {r["id"]: r["identifier"]
@@ -44,11 +66,9 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str]) -> list[dict]:
     long = db.english_names("move_effect_prose", "move_effect_id", "effect")
     sv = {r["move_id"] for r in db.rows("pokemon_moves", ("move_id", "version_group_id"))
           if r["version_group_id"] == SV_VERSION_GROUP}
-    flags: dict[str, list[str]] = defaultdict(list)
+    pokeapi_flags: dict[str, set[str]] = defaultdict(set)
     for r in db.rows("move_flag_map", ("move_id", "move_flag_id")):
-        if r["move_flag_id"] in FLAG_LABELS:
-            flags[r["move_id"]].append(r["move_flag_id"])
-    has_flag_data = {r["move_id"] for r in db.rows("move_flag_map")}
+        pokeapi_flags[r["move_id"]].add(POKEAPI_FLAGS.get(r["move_flag_id"], ""))
     # Latest English in-game text per move (Scarlet/Violet when it has one).
     text: dict[str, tuple[int, str]] = {}
     for r in db.rows("move_flavor_text", ("move_id", "version_group_id", "language_id",
@@ -78,8 +98,14 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str]) -> list[dict]:
             desc = "\n\n".join(_clean(p) for p in long[m["effect_id"]].split("\n\n") if p.strip())
         if desc is None:
             log.debug("moves.build.no_description %s", key)
-        if mid not in has_flag_data:
-            log.debug("moves.build.no_flag_data %s", key)
+        flags = showdown.get(int(mid))
+        if flags is None:
+            raise SchemaError(f"move {mid} ({key}) is missing from Showdown's moves")
+        if mid in pokeapi_flags and pokeapi_flags[mid] - {""} != flags:
+            raise SchemaError(f"move {mid} ({key}) flags differ: PokéAPI "
+                              f"{sorted(pokeapi_flags[mid] - {''})} vs Showdown {sorted(flags)}")
+        if mid not in pokeapi_flags:
+            log.debug("moves.build.flags_from_showdown_only %s", key)
         out.append({
             "id": int(mid), "key": key, "name": names[mid], "type": types[m["type_id"]],
             "cat": classes[m["damage_class_id"]],
@@ -89,8 +115,8 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str]) -> list[dict]:
             "prio": int(m["priority"]),
             "chance": int(m["effect_chance"]) if m["effect_chance"] else None,
             "target": target_names.get(m["target_id"]) or TARGET_FALLBACK[target_key],
-            "flags": ([FLAG_LABELS[f] for f in sorted(flags[mid], key=int)]
-                      if mid in has_flag_data else None),
+            "contact": "contact" in flags,
+            "flags": [label for f, label in FLAG_LABELS.items() if f in flags],
             "sv": mid in sv or key in SV_EXTRA,
             "text": _clean(text[mid][1]) if mid in text else None,
             "desc": desc,

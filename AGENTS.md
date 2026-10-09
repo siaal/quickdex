@@ -32,8 +32,9 @@
   `search.mode`) merges kinds with `mergeHits` (Pokémon win ties). One `search-field`;
   move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, Pokémon rows `row-<id>`.
 - Moves (`assets/data/moves.json`, `lib/data/moves.dart`) load in the background at
-  launch; move results and learnset tables appear once loaded. Gen 9 moves have no flag data in
-  PokéAPI, so `flags` is null ("contact unknown"), not empty.
+  launch; move results and learnset tables appear once loaded. Move flags and `contact` come
+  from Showdown's moves.json (`.cache/showdown/`, downloaded once; delete to refresh), since
+  PokéAPI lacks Gen 9 flags; the build cross-checks the two and fails on disagreement.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1`. A visit is credited to the
   entry opened from search (on page open), not to forms/evolutions swapped to after.

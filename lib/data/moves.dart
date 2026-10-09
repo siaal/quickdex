@@ -20,6 +20,7 @@ class Move implements Searchable {
     required this.priority,
     required this.chance,
     required this.target,
+    required this.contact,
     required this.flags,
     required this.inScarlet,
     required this.text,
@@ -38,7 +39,8 @@ class Move implements Searchable {
     priority: j['prio'] as int,
     chance: j['chance'] as int?,
     target: j['target'] as String,
-    flags: (j['flags'] as List?)?.cast<String>(),
+    contact: j['contact'] as bool,
+    flags: (j['flags'] as List).cast<String>(),
     inScarlet: j['sv'] as bool,
     text: j['text'] as String?,
     description: j['desc'] as String?,
@@ -64,8 +66,10 @@ class Move implements Searchable {
   final int? chance;
   final String target;
 
-  /// Contact, Punch, Sound, …; null when PokéAPI has no flag data (Gen 9 moves).
-  final List<String>? flags;
+  final bool contact;
+
+  /// Punch, Sound, Dance, …; contact is [contact].
+  final List<String> flags;
   final bool inScarlet;
 
   /// In-game text (Scarlet's when it has one).

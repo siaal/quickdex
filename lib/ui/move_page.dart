@@ -38,8 +38,8 @@ class _MovePageState extends State<MovePage> {
     ];
     final properties = [
       m.target,
-      ...?m.flags,
-      if (m.flags == null) 'contact unknown',
+      m.contact ? 'Makes contact' : 'No contact',
+      ...m.flags,
     ].join(' · ');
     return Scaffold(
       appBar: AppBar(),

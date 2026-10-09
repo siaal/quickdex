@@ -64,7 +64,7 @@ void main() {
     expect(find.text('100%'), findsOneWidget);
     expect(find.text('10%'), findsOneWidget); // effect chance
     expect(find.byKey(const Key('move-stat-Priority')), findsNothing);
-    expect(find.text('Selected Pokémon'), findsOneWidget);
+    expect(find.textContaining('Selected Pokémon'), findsOneWidget);
     expect(find.textContaining('strong electric blast'), findsOneWidget);
     expect(find.textContaining('Inflicts regular damage.'), findsOneWidget);
     expect(find.byKey(const Key('move-not-sv')), findsNothing);
@@ -75,13 +75,25 @@ void main() {
     await open(tester, 'mach punch', 'Mach Punch');
     expect(find.byKey(const Key('move-stat-Priority')), findsOneWidget);
     expect(find.text('+1'), findsOneWidget);
-    expect(find.text('Selected Pokémon · Contact · Punch'), findsOneWidget);
+    expect(
+      find.text('Selected Pokémon · Makes contact · Punch'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('missing flag data and description are explicit', (tester) async {
+  testWidgets('non-contact moves say so', (tester) async {
+    await pump(tester);
+    await open(tester, 'thunderbolt', 'Thunderbolt');
+    expect(find.text('Selected Pokémon · No contact'), findsOneWidget);
+  });
+
+  testWidgets('Gen 9 move has contact; missing description omitted', (
+    tester,
+  ) async {
     await pump(tester);
     await open(tester, 'glaive rush', 'Glaive Rush');
-    expect(find.textContaining('contact unknown'), findsOneWidget);
+    expect(find.text('Selected Pokémon · Makes contact'), findsOneWidget);
+    expect(find.textContaining('unknown'), findsNothing);
     expect(find.byKey(const Key('move-desc')), findsNothing);
   });
 

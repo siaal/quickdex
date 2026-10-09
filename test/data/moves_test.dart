@@ -33,6 +33,7 @@ void main() {
     );
     expect(t.inScarlet, isTrue);
     expect(t.flags, isEmpty);
+    expect(t.contact, isFalse);
     expect(t.text, contains('paralysis'));
     expect(t.description, startsWith('Inflicts regular damage.'));
   });
@@ -40,7 +41,7 @@ void main() {
   test('nullable fields', () {
     final sd = named('Swords Dance');
     expect((sd.power, sd.accuracy), (null, null));
-    expect(named('Glaive Rush').flags, isNull);
+    expect(named('Glaive Rush').contact, isTrue, reason: 'Gen 9, via Showdown');
     expect(named('Glaive Rush').description, isNull);
     expect(named('Return').inScarlet, isFalse);
   });

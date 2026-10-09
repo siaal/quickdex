@@ -10,8 +10,8 @@ from quickdex_data.art import convert_art, copy_type_icons
 from quickdex_data.csvdb import CsvDb
 from quickdex_data.entries import build_entries
 from quickdex_data.evolutions import build_chains
-from quickdex_data.moves import build_learnsets, build_moves
-from quickdex_data.sources import ensure_sources
+from quickdex_data.moves import build_learnsets, build_moves, load_showdown
+from quickdex_data.sources import ensure_showdown_moves, ensure_sources
 from quickdex_data.typechart import TYPE_ORDER, build_chart
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,7 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     build = build_entries(db)
     chart = build_chart(db)
     abilities = build_abilities(db, build.entries)
-    moves = build_moves(db, overrides["move_descriptions"])
+    showdown = load_showdown(ensure_showdown_moves(args.cache))
+    moves = build_moves(db, overrides["move_descriptions"], showdown)
     learnsets = build_learnsets(db, [e.id for e in build.entries], {m["id"] for m in moves})
     chains, evo_gaps = build_chains(db, build.entries, overrides["methods"])
     art_gaps = convert_art(build.entries, art_dir, ROOT / "assets" / "art", overrides["art"])

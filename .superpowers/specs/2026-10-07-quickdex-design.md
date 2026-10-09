@@ -124,9 +124,11 @@ frecency store (`frecency.moves.v1`, credited when a move page opens). Covers ev
 move a player can see (incl. Struggle, Celebrate, Starmobile torques); excludes Z-Moves,
 Max Moves and Shadow moves. Moves no Pokémon learns in Scarlet are tagged "Not in
 Scarlet". Move page: name; type, category and Not-in-Scarlet badges; Power ·
-Accuracy · PP · Priority (if non-zero) · Effect chance; target and flags
-(Contact, Punch, Sound, …; "contact unknown" where PokéAPI has no flag data,
-i.e. all Gen 9 moves); in-game text (Scarlet's, else latest); PokéAPI long
+Accuracy · PP · Priority (if non-zero) · Effect chance; target, "Makes contact" /
+"No contact" on every move, and flags (Punch, Sound, …). Flags come from Pokémon
+Showdown's moves.json (cached in `.cache/showdown/`), because PokéAPI's
+move_flag_map lacks all Gen 9 and many Gen 7–8 moves; the build fails if the two
+disagree where PokéAPI has data (0 of 723 did, 2026-10-09); in-game text (Scarlet's, else latest); PokéAPI long
 description (hand-written via `tool/overrides.json` `move_descriptions` where missing).
 No "who learns this" list on move pages (user decision). moves.json loads in the
 background, so startup is unaffected; move results appear once it has loaded.
