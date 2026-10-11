@@ -61,6 +61,9 @@ class FrecencyStore implements FrecencyScores {
     return r == null ? 0 : _decayed(r, _clock());
   }
 
+  @override
+  DateTime? lastVisit(int id) => _records[id]?.updated;
+
   bool isFrecent(int id) => _records.containsKey(id);
 
   void visit(int id) {

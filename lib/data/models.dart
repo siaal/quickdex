@@ -179,6 +179,19 @@ class TypeChart {
       for (final a in order) a: types.fold(1.0, (m, d) => m * multiplier(a, d)),
     };
   }
+
+  /// Best multiplier per defending type when attacking with any of [types]
+  /// (STAB coverage).
+  Map<String, double> coverageFor(List<String> types) {
+    assert(
+      types.isNotEmpty && types.length <= 2,
+      'coverageFor expects 1-2 types: $types',
+    );
+    return {
+      for (final d in order)
+        d: types.map((a) => multiplier(a, d)).reduce((x, y) => x > y ? x : y),
+    };
+  }
 }
 
 class Pokedex {
@@ -227,6 +240,16 @@ class Pokedex {
   final Map<int, Ability> abilities;
 
   PokemonEntry operator [](int id) => byId[id]!;
+
+  /// Ids with an outgoing evolution edge. Edges are per form, so Hisuian
+  /// Growlithe evolves while default Farfetch'd does not.
+  late final Set<int> _evolves = {
+    for (final c in chains.values)
+      for (final e in c.edges) e.from,
+  };
+
+  /// Whether [e] is the last stage of its line (or doesn't evolve at all).
+  bool isFinalStage(PokemonEntry e) => !_evolves.contains(e.id);
 
   EvoChain? chainFor(PokemonEntry e) => chains[e.chain];
 

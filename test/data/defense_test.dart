@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickdex/data/defense.dart';
 import 'package:quickdex/data/models.dart';
+import 'package:quickdex/ui/matchup_section.dart';
 
 import 'models_test.dart' show realDex;
 
@@ -49,6 +51,27 @@ void main() {
       dex.types.order,
     ).map((g) => g.label);
     expect(labels, isNot(contains('Immune to')));
+  });
+
+  test('coverageFor takes the best multiplier of either attacking type', () {
+    final c = dex.types.coverageFor(['electric', 'ice']);
+    expect(c['ground'], 2, reason: 'Ice covers the Electric immunity');
+    expect(c['water'], 2);
+    expect(dex.types.coverageFor(['fire', 'water'])['dragon'], 0.5);
+    expect(dex.types.coverageFor(['electric'])['ground'], 0);
+  });
+
+  test('matchupTint: red when bad for the viewer, stronger at 4× / ¼×', () {
+    final weak4 = matchupTint(4, defending: true);
+    final weak2 = matchupTint(2, defending: true);
+    expect(weak4.r, greaterThan(weak4.g));
+    expect(weak4.a, greaterThan(weak2.a));
+    final se = matchupTint(2, defending: false);
+    expect(se.g, greaterThan(se.r), reason: 'super effective is good');
+    expect(matchupTint(1, defending: true), Colors.transparent);
+    expect(extremeMultiplier([4, 2]), 4);
+    expect(extremeMultiplier([0.5, 0.25]), 0.25);
+    expect(extremeMultiplier([2, 0]), 0);
   });
 
   test('multLabel', () {

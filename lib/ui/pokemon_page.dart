@@ -22,6 +22,7 @@ class PokemonPage extends StatefulWidget {
     required this.initialId,
     this.moves,
     this.moveFrecency,
+    this.onOpenType,
   }) : assert(
          (moves == null) == (moveFrecency == null),
          'moves and moveFrecency go together',
@@ -34,6 +35,10 @@ class PokemonPage extends StatefulWidget {
   /// wired in) or until it has loaded.
   final Future<MoveDex>? moves;
   final FrecencyStore? moveFrecency;
+
+  /// Opens a tapped type pill (header, defenses or strengths) in the Type
+  /// Chart; pills aren't tappable when null.
+  final ValueChanged<String>? onOpenType;
 
   @override
   State<PokemonPage> createState() => _PokemonPageState();
@@ -56,6 +61,15 @@ class _PokemonPageState extends State<PokemonPage> {
     assert(widget.dex.byId.containsKey(id), 'unknown entry $id');
     trace('page.swap', {'from': _id, 'to': id, 'via': via});
     setState(() => _id = id);
+  }
+
+  void Function()? _openType(String t, String from) {
+    final open = widget.onOpenType;
+    if (open == null) return null;
+    return () {
+      trace('page.type.open', {'id': _id, 'type': t, 'from': from});
+      open(t);
+    };
   }
 
   Widget _learnset(MoveDex? moves, PokemonEntry e) {
@@ -154,7 +168,17 @@ class _PokemonPageState extends State<PokemonPage> {
               ],
             ),
             const SizedBox(height: 4),
-            Wrap(spacing: 6, children: [for (final t in e.types) TypeBadge(t)]),
+            Wrap(
+              spacing: 6,
+              children: [
+                for (final t in e.types)
+                  TypeBadge(
+                    t,
+                    key: Key('type-$t'),
+                    onTap: _openType(t, 'header'),
+                  ),
+              ],
+            ),
             AbilityLine(entry: e, abilities: widget.dex.abilities),
             if (e.forms.length > 1) ...[
               const SizedBox(height: 12),
@@ -178,8 +202,12 @@ class _PokemonPageState extends State<PokemonPage> {
             const SizedBox(height: 16),
             DefenseTable(
               defense: e.defense,
+              coverage: widget.dex.types.coverageFor(e.types),
               order: widget.dex.types.order,
               guard: e.guard,
+              onOpenType: widget.onOpenType == null
+                  ? null
+                  : (t) => _openType(t, 'matchups')!(),
             ),
             if (widget.moves case final moves?)
               FutureBuilder<MoveDex>(

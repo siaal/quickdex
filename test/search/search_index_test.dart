@@ -4,10 +4,18 @@ import 'package:quickdex/search/search_index.dart';
 import '../support/fixture.dart';
 
 class FakeScores implements FrecencyScores {
-  FakeScores([this.scores = const {}]);
+  FakeScores([this.scores = const {}, this.visits = const {}]);
   final Map<int, double> scores;
+
+  /// Last visit as minutes after an arbitrary epoch; ids with a score but no
+  /// entry here default to minute 0.
+  final Map<int, int> visits;
   @override
   double score(int id) => scores[id] ?? 0;
+  @override
+  DateTime? lastVisit(int id) => scores.containsKey(id)
+      ? DateTime.utc(2025).add(Duration(minutes: visits[id] ?? 0))
+      : null;
 }
 
 List<String> names(List<SearchHit> hits) => [
@@ -60,12 +68,24 @@ void main() {
     expect(hits.first.frecent, isTrue);
   });
 
-  test('frecent entries ordered by score', () {
-    final hits = index.search('', FakeScores({151: 1, 25: 3}));
-    expect(names(hits).take(3), ['Pikachu', 'Mew', 'Raichu']);
+  test('typed query orders frecent entries by score, not recency', () {
+    final hits = index.search(
+      'm',
+      FakeScores({151: 1, 122: 3}, {151: 10, 122: 1}),
+    );
+    expect(names(hits).take(2), ['Mr. Mime', 'Mew']);
   });
 
-  test('empty query lists everything in dex order after frecent', () {
+  test('empty query orders visited entries by recency, not score', () {
+    final hits = index.search(
+      '',
+      FakeScores({151: 1, 25: 3}, {151: 10, 25: 1}),
+    );
+    expect(names(hits).take(3), ['Mew', 'Pikachu', 'Raichu']);
+    expect(hits.take(2).every((h) => h.frecent), isTrue);
+  });
+
+  test('empty query lists everything in dex order after visited', () {
     final hits = index.search('', FakeScores());
     expect(hits.length, fixtureEntries.length);
     expect(names(hits).take(2), ['Pikachu', 'Raichu']);
@@ -93,6 +113,15 @@ void main() {
         other.search('mi', FakeScores({1: 2})),
       );
       expect(names(merged), ['Mimic', 'Mr. Mime', 'Mime Jr.']);
+    });
+
+    test('byRecency: most recent visit first across both lists', () {
+      final merged = mergeHits(
+        index.search('', FakeScores({122: 5}, {122: 9})),
+        other.search('', FakeScores({1: 1}, {1: 3})),
+        byRecency: true,
+      );
+      expect(names(merged).take(2), ['Mr. Mime', 'Mimic']);
     });
   });
 }

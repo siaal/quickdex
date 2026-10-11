@@ -10,6 +10,8 @@ MoveDex realMoves() =>
 class _NoScores implements FrecencyScores {
   @override
   double score(int id) => 0;
+  @override
+  DateTime? lastVisit(int id) => null;
 }
 
 void main() {

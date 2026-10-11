@@ -25,8 +25,40 @@ class _MovePageState extends State<MovePage> {
   }
 
   @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(),
+    body: SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      child: MoveDetails(widget.move),
+    ),
+  );
+}
+
+/// Bottom sheet with a move's details, without crediting a visit.
+Future<void> showMoveDetails(BuildContext context, Move move) {
+  trace('move.details.sheet', {'id': move.id});
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => SafeArea(
+      child: SingleChildScrollView(
+        key: const Key('move-details-sheet'),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: MoveDetails(move),
+      ),
+    ),
+  );
+}
+
+/// A move's name, type, category, stats, properties and texts.
+class MoveDetails extends StatelessWidget {
+  const MoveDetails(this.move, {super.key});
+  final Move move;
+
+  @override
   Widget build(BuildContext context) {
-    final m = widget.move;
+    final m = move;
     final theme = Theme.of(context);
     final stats = [
       ('Power', m.power?.toString() ?? '—'),
@@ -41,83 +73,77 @@ class _MovePageState extends State<MovePage> {
       m.contact ? 'Makes contact' : 'No contact',
       ...m.flags,
     ].join(' · ');
-    return Scaffold(
-      appBar: AppBar(),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          m.name,
+          key: const Key('move-name'),
+          style: theme.textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 8),
+        Row(
           children: [
-            Text(
-              m.name,
-              key: const Key('move-name'),
-              style: theme.textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                TypeBadge(m.type, key: const Key('move-type'), icon: true),
-                if (!m.inScarlet) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    key: const Key('move-not-sv'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: theme.hintColor),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Not in Scarlet',
-                      style: TextStyle(color: theme.hintColor),
-                    ),
-                  ),
-                ],
-                // Right-aligned, away from the type, so it isn't read as a second type.
-                const Spacer(),
-                CategoryBadge(m.category, key: const Key('move-category')),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                for (final (label, value) in stats)
-                  Expanded(
-                    key: Key('move-stat-$label'),
-                    child: Column(
-                      children: [
-                        Text(label, style: theme.textTheme.labelSmall),
-                        Text(value, style: theme.textTheme.titleLarge),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              properties,
-              key: const Key('move-properties'),
-              style: theme.textTheme.bodyMedium,
-            ),
-            if (m.text case final text?) ...[
-              const SizedBox(height: 16),
-              Text(
-                text,
-                key: const Key('move-text'),
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontStyle: FontStyle.italic,
+            TypeBadge(m.type, key: const Key('move-type'), icon: true),
+            if (!m.inScarlet) ...[
+              const SizedBox(width: 6),
+              Container(
+                key: const Key('move-not-sv'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: theme.hintColor),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Not in Scarlet',
+                  style: TextStyle(color: theme.hintColor),
                 ),
               ),
             ],
-            if (m.description case final desc?) ...[
-              const SizedBox(height: 16),
-              Text(desc, key: const Key('move-desc')),
-            ],
+            // Right-aligned, away from the type, so it isn't read as a second type.
+            const Spacer(),
+            CategoryBadge(m.category, key: const Key('move-category')),
           ],
         ),
-      ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            for (final (label, value) in stats)
+              Expanded(
+                key: Key('move-stat-$label'),
+                child: Column(
+                  children: [
+                    Text(label, style: theme.textTheme.labelSmall),
+                    Text(value, style: theme.textTheme.titleLarge),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          properties,
+          key: const Key('move-properties'),
+          style: theme.textTheme.bodyMedium,
+        ),
+        if (m.text case final text?) ...[
+          const SizedBox(height: 16),
+          Text(
+            text,
+            key: const Key('move-text'),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+        if (m.description case final desc?) ...[
+          const SizedBox(height: 16),
+          Text(desc, key: const Key('move-desc')),
+        ],
+      ],
     );
   }
 }

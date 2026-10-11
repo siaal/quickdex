@@ -27,8 +27,9 @@ void main() {
     WidgetTester tester, {
     List<int> visited = const [],
     SearchMode mode = SearchMode.pokemon,
+    FrecencyStore? store,
   }) async {
-    final f = FrecencyStore(clock: () => DateTime.utc(2026, 10, 7));
+    final f = store ?? FrecencyStore(clock: () => DateTime.utc(2026, 10, 7));
     moveFrecency = FrecencyStore(clock: () => DateTime.utc(2026, 10, 7));
     modeChanges.clear();
     for (final id in visited) {
@@ -55,6 +56,26 @@ void main() {
     await tester.enterText(find.byKey(const Key('search-field')), q);
     await tester.pump();
   }
+
+  double rowY(WidgetTester tester, int id) =>
+      tester.getTopLeft(find.byKey(Key('row-$id'))).dy;
+
+  testWidgets('empty field lists by recency; typing switches to frecency', (
+    tester,
+  ) async {
+    var now = DateTime.utc(2026, 10, 7);
+    final f = FrecencyStore(clock: () => now)
+      ..visit(25)
+      ..visit(25)
+      ..visit(25);
+    now = now.add(const Duration(minutes: 1));
+    f.visit(1);
+    await pump(tester, store: f);
+    expect(rowY(tester, 1), lessThan(rowY(tester, 25)), reason: 'recency');
+
+    await type(tester, 'a'); // matches both Bulbasaur and Pikachu
+    expect(rowY(tester, 25), lessThan(rowY(tester, 1)), reason: 'frecency');
+  });
 
   testWidgets('mode toggle sits above the search field', (tester) async {
     await pump(tester);

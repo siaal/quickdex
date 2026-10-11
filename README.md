@@ -4,15 +4,33 @@ Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
 
 - **Search:** one search for Pokémon and moves, with a Pokémon | All | Moves toggle
   above the field (the last mode is remembered). Pokémon show their Scarlet in-game dex
-  number (Paldea, Kitakami or Blueberry) next to the National one, and either finds them. Live results are ranked by frecency (your team and the current zone float to
-  the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
-  base stats, type defences (Bulbapedia layout), form switching, level-up moves, and an Evo sheet (or drag from Evo and release on an evolution to
+  number (Paldea, Kitakami or Blueberry) next to the National one, and either finds them. With nothing typed, the list
+  shows what you opened most recently first; once you type, results are ranked by
+  frecency (your team and the current zone float to the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
+  base stats, type defences (Bulbapedia grouping, each group on a red/green tint) beside what its
+  own types hit super-effectively (tap any type pill to open it in the Type Chart as a
+  defender), form switching, level-up moves, and an Evo sheet (or drag from Evo and release on an evolution to
   jump straight to it).
 - **Moves** (in Search): every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description. Moves not in Scarlet are tagged.
-- **Type Chart:** a Focus tab (pick a type, toggle Attacker/Defender) and a full 18×18
+- **Type Chart:** a Focus tab (pick a type, toggle Attacker/Defender;
+  long-press or right-click a second type for a dual-type defender or two-type STAB
+  coverage; result pills work the same way), a Finder tab (pick one or two types to list every Pokémon
+  with them, filter by name, optionally highest evolution only) and a full 18×18
   grid with frozen headers, pinch-zoom and row/column highlight.
+- **Team Planner:** six slots; tap one to pick a Pokémon, its ability and up to four
+  moves (level-up moves are suggested; typing searches every move; long-press or
+  right-click a move to read what it does). Below, each
+  attacking type shows how many members are weak, resist or are immune (the chosen
+  ability's immunity counts, e.g. Levitate), and how many hit it super-effectively
+  with their damaging moves (or their own types if no moves are picked). Tap a type for
+  each member's multipliers; tap a column header to sort by it (again to reverse).
+  Long-press or right-click a slot to go straight to the Pokémon chooser, or a type
+  pill to open it in the Type Chart as a defender. The team is saved on the device.
+
+On desktop, the mouse back button goes back like a back swipe (but never closes the
+app).
 
 Everything is bundled. The app has no network permission.
 

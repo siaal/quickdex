@@ -9,6 +9,8 @@ class TypeBadge extends StatelessWidget {
     super.key,
     this.compact = false,
     this.icon = false,
+    this.onTap,
+    this.onAdd,
   });
   final String type;
   final bool compact;
@@ -16,9 +18,27 @@ class TypeBadge extends StatelessWidget {
   /// Show the Scarlet type icon before the label (key `type-icon-<type>`).
   final bool icon;
 
+  /// When set, the badge is tappable; long-press or right-click calls [onAdd].
+  final VoidCallback? onTap;
+  final VoidCallback? onAdd;
+
   @override
   Widget build(BuildContext context) {
     assert(typeColors.containsKey(type), 'unknown type $type');
+    final badge = _badge();
+    if (onTap == null && onAdd == null) return badge;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onAdd,
+        onSecondaryTap: onAdd,
+        child: badge,
+      ),
+    );
+  }
+
+  Widget _badge() {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 6 : 10,
@@ -40,12 +60,18 @@ class TypeBadge extends StatelessWidget {
             ),
             SizedBox(width: compact ? 2 : 4),
           ],
-          Text(
-            typeLabel(type),
-            style: TextStyle(
-              color: typeTextColor(type),
-              fontWeight: FontWeight.w600,
-              fontSize: compact ? 11 : 13,
+          // Shrinks rather than overflows when its column is narrower.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                typeLabel(type),
+                style: TextStyle(
+                  color: typeTextColor(type),
+                  fontWeight: FontWeight.w600,
+                  fontSize: compact ? 11 : 13,
+                ),
+              ),
             ),
           ),
         ],

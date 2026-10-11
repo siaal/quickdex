@@ -8,14 +8,15 @@ import '../search/search_index.dart';
 import '../search/searchable.dart';
 import '../trace.dart';
 import 'art.dart';
-import 'category_badge.dart';
 import 'move_page.dart';
 import 'pokemon_page.dart';
-import 'type_badge.dart';
+import 'move_tile.dart';
+import 'pokemon_tile.dart';
 
 enum SearchMode { pokemon, all, moves }
 
-/// Live search over Pokémon and/or moves, frecent hits first; a mode toggle sits
+/// Live search over Pokémon and/or moves: with nothing typed, recently visited
+/// first; once typed, frecent hits first; a mode toggle sits
 /// above the field so results never cover it. Frecent rows swipe away with Undo.
 /// Keys: `search-mode`, `mode-<mode>`, `search-field`; Pokémon rows `row-<id>` /
 /// `dismiss-<id>`, move rows `move-row-<id>` / `move-dismiss-<id>`.
@@ -30,6 +31,7 @@ class SearchScreen extends StatefulWidget {
     this.initialMode = SearchMode.all,
     this.onModeChanged,
     this.focusRequests,
+    this.onOpenType,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
@@ -44,6 +46,9 @@ class SearchScreen extends StatefulWidget {
   /// Each notification focuses the field and shows the keyboard, even if the
   /// field already has focus (e.g. the user dismissed the keyboard).
   final Listenable? focusRequests;
+
+  /// Passed to Pokémon pages: open a tapped type pill in the Type Chart.
+  final ValueChanged<String>? onOpenType;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -123,6 +128,7 @@ class _SearchScreenState extends State<SearchScreen> {
       SearchMode.all => mergeHits(
         widget.index.search(q, widget.frecency),
         moveHits(),
+        byRecency: isRecencyQuery(q),
       ),
     };
     trace('search.query.done', {
@@ -151,6 +157,7 @@ class _SearchScreenState extends State<SearchScreen> {
       initialId: e.id,
       moves: widget.moves,
       moveFrecency: widget.moveFrecency,
+      onOpenType: widget.onOpenType,
     ),
     Move() => MovePage(move: e, frecency: widget.moveFrecency),
     _ => throw StateError('unknown searchable ${e.runtimeType}'),
@@ -276,8 +283,8 @@ class _SearchScreenState extends State<SearchScreen> {
     final tile = KeyedSubtree(
       key: Key('${p}row-${e.id}'),
       child: switch (e) {
-        PokemonEntry() => _pokemonTile(e),
-        Move() => _moveTile(e),
+        PokemonEntry() => PokemonTile(e, onTap: () => _open(e)),
+        Move() => MoveTile(e, onTap: () => _open(e)),
         _ => throw StateError('unknown searchable ${e.runtimeType}'),
       },
     );
@@ -289,55 +296,4 @@ class _SearchScreenState extends State<SearchScreen> {
       child: tile,
     );
   }
-
-  Widget _pokemonTile(PokemonEntry e) => ListTile(
-    leading: Image.asset(thumbPath(e.id), width: 48, height: 48),
-    title: Text(e.name),
-    subtitle: Text(e.dexLabel),
-    trailing: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final t in e.types)
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: TypeBadge(t, compact: true),
-          ),
-      ],
-    ),
-    onTap: () => _open(e),
-  );
-
-  Widget _moveTile(Move m) => ListTile(
-    leading: SizedBox(
-      width: 48,
-      child: Center(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Image.asset(typeIconPath(m.type), width: 32, height: 32),
-        ),
-      ),
-    ),
-    title: Row(
-      children: [
-        Flexible(child: Text(m.name)),
-        const SizedBox(width: 6),
-        CategoryIcon(m.category, size: 18),
-      ],
-    ),
-    subtitle: m.inScarlet ? null : const Text('Not in Scarlet'),
-    trailing: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          width: 76,
-          child: Text(
-            style: const TextStyle(fontSize: 14),
-            '${m.power ?? '—'} · ${m.accuracy == null ? '—' : '${m.accuracy}%'}',
-            textAlign: TextAlign.end,
-          ),
-        ),
-      ],
-    ),
-    onTap: () => _open(m),
-  );
 }

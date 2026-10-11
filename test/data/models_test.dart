@@ -45,4 +45,14 @@ void main() {
     expect(dex.chainFor(tauros), isNull);
     expect(dex.chainFor(dex[133])!.from(133).length, 8);
   });
+
+  test('isFinalStage follows per-form evolution edges', () {
+    final dex = realDex();
+    PokemonEntry named(String n) => dex.entries.firstWhere((e) => e.name == n);
+    expect(dex.isFinalStage(named('Arcanine')), isTrue);
+    expect(dex.isFinalStage(named('Growlithe')), isFalse);
+    expect(dex.isFinalStage(named('Growlithe (Hisuian)')), isFalse);
+    expect(dex.isFinalStage(named('Tauros')), isTrue, reason: 'no evolution');
+    expect(dex.isFinalStage(named('Eevee')), isFalse);
+  });
 }

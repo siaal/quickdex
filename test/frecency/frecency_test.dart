@@ -28,6 +28,14 @@ void main() {
     expect(f.score(25), closeTo(1.5, 1e-9));
   });
 
+  test('lastVisit is the latest visit time, null when never visited', () {
+    final f = FrecencyStore(clock: clock)..visit(25);
+    now = now.add(const Duration(hours: 5));
+    f.visit(25);
+    expect(f.lastVisit(25), now);
+    expect(f.lastVisit(26), isNull);
+  });
+
   test('remove then restore round-trips the record', () {
     final f = FrecencyStore(clock: clock)
       ..visit(25)

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'data/loader.dart';
 import 'data/moves.dart';
 import 'frecency/frecency.dart';
+import 'team/team.dart';
 import 'ui/app.dart';
 import 'ui/search_screen.dart';
 
@@ -26,6 +27,11 @@ Future<void> main() async {
       frecency: store(FrecencyStore.prefsKey),
       moves: moves,
       moveFrecency: store(FrecencyStore.movesPrefsKey),
+      team: Team.fromJson(
+        prefs.getString(Team.prefsKey),
+        dex,
+        onChanged: (json) => prefs.setString(Team.prefsKey, json),
+      ),
       initialSearchMode:
           SearchMode.values.asNameMap()[prefs.getString(_modeKey)] ??
           SearchMode.all,

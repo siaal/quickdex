@@ -124,6 +124,90 @@ void main() {
     expect(find.byKey(const Key('def-0.5-steel')), findsOneWidget);
   });
 
+  testWidgets('strengths column lists STAB super-effective types', (
+    tester,
+  ) async {
+    await pumpLauncher(tester, idOf('Gyarados')); // Water/Flying
+    for (final t in ['fire', 'ground', 'rock', 'grass', 'fighting', 'bug']) {
+      expect(find.byKey(Key('off-$t')), findsOneWidget, reason: t);
+    }
+    expect(find.byKey(const Key('off-water')), findsNothing);
+    final def = tester.getRect(find.byKey(const Key('defense-column')));
+    final off = tester.getRect(find.byKey(const Key('strength-column')));
+    expect(off.left, greaterThan(def.right), reason: 'side by side');
+  });
+
+  testWidgets('4× sits in the Weak to section, tinted strong red', (
+    tester,
+  ) async {
+    await pumpLauncher(tester, idOf('Gyarados'));
+    final weak = find.byKey(const Key('def-section-Weak to'));
+    for (final k in ['def-4.0-electric', 'def-2.0-rock']) {
+      expect(
+        find.descendant(of: weak, matching: find.byKey(Key(k))),
+        findsOneWidget,
+        reason: k,
+      );
+    }
+    expect(find.text('Type defenses'), findsOneWidget);
+    final box = tester.widget<Container>(
+      find.descendant(of: weak, matching: find.byType(Container)).first,
+    );
+    final color = (box.decoration! as BoxDecoration).color!;
+    expect(color.r, greaterThan(color.g));
+    expect(color.a, closeTo(0.4, 0.01), reason: 'strong tint for 4×');
+  });
+
+  testWidgets(
+    'wrapped matchup badges stay in a column right of the multiplier',
+    (tester) async {
+      tester.view.physicalSize = const Size(400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pumpLauncher(tester, idOf('Golem'));
+      final section = find.byKey(const Key('def-section-Resistant to'));
+      final label = tester.getRect(
+        find.descendant(of: section, matching: find.text('½×')),
+      );
+      final badges = [
+        for (final t in ['normal', 'fire', 'flying', 'rock'])
+          tester.getRect(find.byKey(Key('def-0.5-$t'))),
+      ]..sort((a, b) => a.top.compareTo(b.top));
+      expect(
+        badges.map((r) => r.top).toSet().length,
+        greaterThan(1),
+        reason: 'Golem\'s ½× row should wrap at phone width',
+      );
+      final left = badges.first.left;
+      for (final b in badges) {
+        expect(b.left, greaterThanOrEqualTo(label.right));
+      }
+      expect(
+        badges.where((b) => b.top > badges.first.top).first.left,
+        left,
+        reason: 'wrapped line starts under the first badge',
+      );
+      expect(
+        label.center.dy,
+        moreOrLessEquals(badges.first.center.dy, epsilon: 1),
+        reason: 'label is centred on the first line of badges',
+      );
+    },
+  );
+
+  testWidgets('without onOpenType, type pills are not tappable', (
+    tester,
+  ) async {
+    await pumpLauncher(tester, 25);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('type-electric')),
+        matching: find.byType(GestureDetector),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('Shedinja defence table', (tester) async {
     await pumpLauncher(tester, idOf('Shedinja'));
     for (final t in ['fire', 'flying', 'rock', 'ghost', 'dark']) {

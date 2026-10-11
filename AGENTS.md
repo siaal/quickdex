@@ -26,15 +26,23 @@
   Guard. An entry gets a guard only if *all* its abilities (hidden included) share the
   immunity and the chart doesn't already make it 0× (so Rotom-Fan gets none).
 - Search (`lib/search/`) is synchronous over all entries on every keystroke. Ranking:
-  frecent first by score, then match tier (prefix > word prefix > substring), then dex
+  an empty query lists visited entries by last visit (`FrecencyScores.lastVisit`);
+  a typed one puts frecent first by score. Then match tier (prefix > word prefix >
+  substring), then dex
   order. `SearchIndex<T extends Searchable>` runs per kind; the single
   `lib/ui/search_screen.dart` (Pokémon | All | Moves toggle, mode persisted under
-  `search.mode`) merges kinds with `mergeHits` (Pokémon win ties). One `search-field`;
+  `search.mode`) merges kinds with `mergeHits` (Pokémon win ties; pass `byRecency` for empty queries). One `search-field`;
   move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, Pokémon rows `row-<id>`.
 - Moves (`assets/data/moves.json`, `lib/data/moves.dart`) load in the background at
   launch; move results and learnset tables appear once loaded. Move flags and `contact` come
   from Showdown's moves.json (`.cache/showdown/`, downloaded once; delete to refresh), since
   PokéAPI lacks Gen 9 flags; the build cross-checks the two and fails on disagreement.
+- Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds six nullable
+  `TeamSlot`s (entry id, ability id, ≤4 move ids), saved in shared_preferences under
+  `team.v1`; unknown ids are dropped on load. `resolveMember` applies the chosen
+  ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
+  guaranteed guard only) and takes attack types from damaging moves, falling back to
+  STAB. `analyseTeam` gives one `TypeMatchup` row per type.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1`. A visit is credited to the
   entry opened from search (on page open), not to forms/evolutions swapped to after.

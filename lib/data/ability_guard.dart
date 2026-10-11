@@ -30,6 +30,16 @@ const _immunityAbilities = <String, Set<String>>{
 /// Wonder Guard blocks every type that isn't super effective.
 const _wonderGuard = 'wonder-guard';
 
+/// Attacking types [a] blocks for an entry with chart [defense] (Wonder Guard:
+/// everything not super effective); empty if it grants no immunity.
+Set<String> abilityImmunities(Ability a, Map<String, double> defense) =>
+    a.key == _wonderGuard
+    ? {
+        for (final t in defense.keys)
+          if (defense[t]! < 2) t,
+      }
+    : _immunityAbilities[a.key] ?? const {};
+
 AbilityGuard? guaranteedGuard(
   List<Ability> abilities,
   Map<String, double> defense,
@@ -37,13 +47,8 @@ AbilityGuard? guaranteedGuard(
   assert(abilities.isNotEmpty, 'entry has no abilities');
   Set<String>? common;
   for (final a in abilities) {
-    final immune = a.key == _wonderGuard
-        ? {
-            for (final t in defense.keys)
-              if (defense[t]! < 2) t,
-          }
-        : _immunityAbilities[a.key];
-    if (immune == null) {
+    final immune = abilityImmunities(a, defense);
+    if (immune.isEmpty) {
       return null; // one ability without an immunity breaks the guarantee
     }
     common = common == null ? immune : common.intersection(immune);
