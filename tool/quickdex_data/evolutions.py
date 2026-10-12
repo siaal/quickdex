@@ -21,6 +21,9 @@ TRIGGER_LABELS = {
 STYLE = {"agile-style-move": " in Agile Style", "strong-style-move": " in Strong Style"}
 RELATIVE_STATS = {"1": "Atk > Def", "0": "Atk = Def", "-1": "Atk < Def"}
 GENDERS = {"1": "female", "2": "male"}
+# Gen 8+ friendship-evolution threshold. PokéAPI still carries the old Gen 2-7 value
+# (220) on some rows, e.g. Pichu, so the number is fixed here, not read from data.
+SCARLET_FRIENDSHIP = 160
 
 
 class Names:
@@ -32,6 +35,11 @@ class Names:
         self.types = {t["id"]: t["identifier"].capitalize() for t in db.rows("types")}
         self.regions = {r["id"]: r["identifier"].capitalize() for r in db.rows("regions")}
         self.triggers = {r["id"]: r["identifier"] for r in db.rows("evolution_triggers")}
+        # nature_bitmask bit (id - 1) -> English name, alphabetical.
+        nature_names = db.english_names("nature_names", "nature_id")
+        self.natures = sorted(((int(i) - 1, nature_names[i]) for i in nature_names),
+                              key=lambda bn: bn[1])
+        self.forms = db.english_names("pokemon_form_names", "pokemon_form_id", "form_name")
 
 
 def render_method(r: dict[str, str], n: Names) -> str | None:
@@ -84,7 +92,7 @@ def render_method(r: dict[str, str], n: Names) -> str | None:
     if has("known_move_type_id"):
         cond.append(f"knows a {n.types[r['known_move_type_id']]} move")
     if has("minimum_happiness"):
-        cond.append("high friendship")
+        cond.append(f"friendship {SCARLET_FRIENDSHIP}+")
     if has("minimum_affection"):
         cond.append("high affection")
     if has("minimum_beauty"):
@@ -112,7 +120,11 @@ def render_method(r: dict[str, str], n: Names) -> str | None:
     if has("minimum_steps"):
         cond.append(f"after {r['minimum_steps']} Let's Go steps")
     if has("nature_bitmask"):
-        cond.append("nature-dependent")
+        mask = int(r["nature_bitmask"])
+        natures = ", ".join(name for bit, name in n.natures if mask >> bit & 1)
+        assert natures, r["id"]
+        form = n.forms.get(r["evolved_pokemon_form_id"], "")
+        cond.append(f"{form} if {natures}" if form else f"if {natures}")
     if has("percentage_chance"):
         cond.append(f"{r['percentage_chance']}% chance")
     text = ", ".join([head, *cond])

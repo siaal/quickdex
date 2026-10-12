@@ -87,8 +87,10 @@ tool/overrides.json ───► hand-curated fixes for anything the gaps check 
      and pushed startup past 150 ms on the Pixel 7. Changed 2026-10-07.)
 3. **Builds evolution trees** keyed by chain id. Each edge carries a short method string
    rendered from `pokemon_evolution.csv`: `Lv. 16`, `Thunder Stone`,
-   `Trade w/ Metal Coat`, `High friendship, day`, etc. Regional evolution variants
-   point at the correct form entry where the data allows.
+   `Trade w/ Metal Coat`, `Level up, friendship 160+, day`, etc. Regional evolution variants
+   point at the correct form entry where the data allows. Methods give the actual numbers
+   so the sheet works as a cheatsheet: friendship is always Scarlet's 160 (PokéAPI still
+   has 220 on some rows), and Toxtricity lists which natures give Amped vs Low Key.
 4. **Converts artwork** with `cwebp` into two sizes per entry:
    - `assets/art/full/<id>.webp`, 256 px (Pokémon page)
    - `assets/art/thumb/<id>.webp`, 128 px (search rows and the evolution sheet; a 48 dp

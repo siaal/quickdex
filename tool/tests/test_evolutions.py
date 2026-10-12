@@ -39,9 +39,28 @@ def test_trade_held_item(chains, by_name):
 
 
 def test_friendship_time_method(chains, by_name):
-    method = _edges(chains, by_name, "Eevee")[(133, 196)]
-    assert "high friendship" in method
-    assert "day" in method
+    assert _edges(chains, by_name, "Eevee")[(133, 196)] == "Level up, friendship 160+, day"
+
+
+def test_friendship_is_scarlets_160_even_where_data_says_220(chains, by_name):
+    # PokéAPI has 220 (the Gen 2-7 threshold) on Pichu's rows; Gen 8+ uses 160.
+    assert _edges(chains, by_name, "Pichu")[(172, 25)] == "Level up, friendship 160+"
+    assert "high friendship" not in json.dumps(chains[0])
+
+
+def test_sylveon_needs_fairy_move_and_friendship(chains, by_name):
+    assert (_edges(chains, by_name, "Eevee")[(133, 700)]
+            == "Level up, knows a Fairy move, friendship 160+")
+
+
+def test_toxtricity_lists_natures_per_form(chains, by_name):
+    method = _edges(chains, by_name, "Toxel")[(848, 849)]
+    amped, low_key = method.split(" / ")
+    assert amped.startswith("Lv. 30, Amped Form if Adamant, Brave, Docile, Hardy, ")
+    assert amped.endswith("Rash, Sassy")
+    assert low_key.startswith("Lv. 30, Low Key Form if Bashful, Bold, Calm, ")
+    assert low_key.endswith("Serious, Timid")
+    assert "nature-dependent" not in method
 
 
 def test_time_of_day_has_no_hyphen(chains, by_name):
