@@ -14,8 +14,8 @@ class TeamMember {
   /// no ability chosen, only a guaranteed immunity (all abilities) counts.
   final Map<String, double> defense;
 
-  /// Types of the chosen damaging moves, or the entry's own types when none
-  /// are chosen (or moves haven't loaded).
+  /// Types of the chosen damaging moves that aren't hidden, or the entry's own
+  /// types when there are none (or moves haven't loaded).
   final List<String> attackTypes;
 }
 
@@ -39,6 +39,8 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
       final m = moves.byId[id];
       if (m == null) {
         trace('team.member.unknown_move', {'slot': i, 'move': id});
+      } else if (s.hidden.contains(id)) {
+        trace('team.member.hidden_move', {'slot': i, 'move': id});
       } else if (m.category != MoveCategory.status &&
           !moveTypes.contains(m.type)) {
         moveTypes.add(m.type);

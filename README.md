@@ -21,7 +21,8 @@ Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
   grid with frozen headers, pinch-zoom and row/column highlight.
 - **Team Planner:** six slots; tap one to pick a Pokémon, its ability and up to four
   moves (level-up moves are suggested; typing searches every move; long-press or
-  right-click a move to read what it does). Below, each
+  right-click a move to read what it does; the eye button leaves a move out of the
+  matchups without removing it, e.g. a U-turn that doesn't define them). Below, each
   attacking type shows how many members are weak, resist or are immune (the chosen
   ability's immunity counts, e.g. Levitate), and how many hit it super-effectively
   with their damaging moves (or their own types if no moves are picked). A row is red

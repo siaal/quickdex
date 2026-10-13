@@ -45,6 +45,26 @@ void main() {
       expect(t[1]!.ability, isNull);
     });
 
+    test(
+      'hidden moves round-trip; hidden ids not in the moves are dropped',
+      () {
+        final golem = named('Golem');
+        final t = Team(onChanged: (_) {});
+        t[0] = TeamSlot(golem.id, moves: [1, 2], hidden: {2});
+        expect(Team.fromJson(t.toJson(), dex)[0]!.hidden, {2});
+        final stray = Team.fromJson(
+          '[{"p":${golem.id},"m":[1],"h":[1,7]}]',
+          dex,
+        );
+        expect(stray[0]!.hidden, {1});
+        expect(
+          Team.fromJson('[{"p":${golem.id},"m":[1]}]', dex)[0]!.hidden,
+          isEmpty,
+          reason: 'teams saved before hiding existed',
+        );
+      },
+    );
+
     test('corrupt or missing JSON gives an empty team', () {
       expect(Team.fromJson('{not json', dex).isEmpty, isTrue);
       expect(Team.fromJson('[{"p":"x"}]', dex).isEmpty, isTrue);
@@ -96,6 +116,24 @@ void main() {
         moves,
       );
       expect(onlyStatus.attackTypes, golem.types);
+      final hidden = resolveMember(
+        0,
+        TeamSlot(
+          golem.id,
+          moves: [move('flamethrower'), move('u-turn')],
+          hidden: {move('u-turn')},
+        ),
+        dex,
+        moves,
+      );
+      expect(hidden.attackTypes, ['fire'], reason: 'hidden U-turn ignored');
+      final allHidden = resolveMember(
+        0,
+        TeamSlot(golem.id, moves: [move('u-turn')], hidden: {move('u-turn')}),
+        dex,
+        moves,
+      );
+      expect(allHidden.attackTypes, golem.types);
       expect(
         resolveMember(0, TeamSlot(golem.id, moves: [1]), dex, null).attackTypes,
         golem.types,

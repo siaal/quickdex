@@ -100,9 +100,20 @@ void main() {
     expect(team[0]!.moves, [move('earthquake')]);
     expect(find.byKey(const Key('team-move-1')), findsOneWidget);
 
+    await tester.tap(find.byKey(const Key('team-move-hide-0')));
+    await tester.pump();
+    expect(team[0]!.moves, [move('earthquake')], reason: 'still filled');
+    expect(team[0]!.hidden, {move('earthquake')});
+    await tester.tap(find.byKey(const Key('team-move-hide-0')));
+    await tester.pump();
+    expect(team[0]!.hidden, isEmpty);
+
+    await tester.tap(find.byKey(const Key('team-move-hide-0')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('team-move-clear-0')));
     await tester.pump();
     expect(team[0]!.moves, isEmpty);
+    expect(team[0]!.hidden, isEmpty, reason: 'cleared move forgets hidden');
 
     await tester.tap(find.byKey(const Key('team-remove')));
     await tester.pumpAndSettle();

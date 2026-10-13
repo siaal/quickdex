@@ -7,8 +7,16 @@ import '../trace.dart';
 
 /// One team member: a Pokémon entry, its chosen ability and up to four moves.
 class TeamSlot {
-  TeamSlot(this.pokemon, {this.ability, this.moves = const []})
-    : assert(moves.length <= maxMoves, 'at most $maxMoves moves: $moves');
+  TeamSlot(
+    this.pokemon, {
+    this.ability,
+    this.moves = const [],
+    this.hidden = const {},
+  }) : assert(moves.length <= maxMoves, 'at most $maxMoves moves: $moves'),
+       assert(
+         moves.toSet().containsAll(hidden),
+         'hidden $hidden not in $moves',
+       );
 
   static const maxMoves = 4;
 
@@ -21,16 +29,26 @@ class TeamSlot {
   /// Move ids in slot order, no gaps.
   final List<int> moves;
 
-  TeamSlot copyWith({int? ability, List<int>? moves}) => TeamSlot(
-    pokemon,
-    ability: ability ?? this.ability,
-    moves: moves ?? this.moves,
-  );
+  /// Move ids (a subset of [moves]) left out of the team analysis, e.g. a
+  /// U-turn that doesn't define the matchup.
+  final Set<int> hidden;
+
+  /// Replacing [moves] keeps only the hidden ids still among them.
+  TeamSlot copyWith({int? ability, List<int>? moves, Set<int>? hidden}) {
+    final m = moves ?? this.moves;
+    return TeamSlot(
+      pokemon,
+      ability: ability ?? this.ability,
+      moves: m,
+      hidden: (hidden ?? this.hidden).intersection(m.toSet()),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
     'p': pokemon,
     if (ability != null) 'a': ability,
     'm': moves,
+    if (hidden.isNotEmpty) 'h': hidden.toList(),
   };
 }
 
@@ -68,11 +86,16 @@ class Team extends ChangeNotifier {
           trace('team.load.unknown_ability', {'slot': i, 'ability': ability});
           ability = null;
         }
-        final moves = (j['m'] as List).cast<int>();
+        final moves = (j['m'] as List).cast<int>().take(TeamSlot.maxMoves);
+        final hidden = ((j['h'] as List?) ?? const []).cast<int>().toSet();
+        if (!moves.toSet().containsAll(hidden)) {
+          trace('team.load.stray_hidden', {'slot': i, 'hidden': hidden.length});
+        }
         slots[i] = TeamSlot(
           e.id,
           ability: ability,
-          moves: moves.take(TeamSlot.maxMoves).toList(),
+          moves: moves.toList(),
+          hidden: hidden.intersection(moves.toSet()),
         );
       }
       trace('team.load.ok', {'filled': slots.nonNulls.length});

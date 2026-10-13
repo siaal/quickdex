@@ -38,7 +38,8 @@
   from Showdown's moves.json (`.cache/showdown/`, downloaded once; delete to refresh), since
   PokéAPI lacks Gen 9 flags; the build cross-checks the two and fails on disagreement.
 - Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds six nullable
-  `TeamSlot`s (entry id, ability id, ≤4 move ids), saved in shared_preferences under
+  `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move ids ignored by the
+  analysis), saved in shared_preferences under
   `team.v1`; unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
   guaranteed guard only) and takes attack types from damaging moves, falling back to

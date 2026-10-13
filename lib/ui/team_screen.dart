@@ -437,7 +437,8 @@ class _SlotCard extends StatelessWidget {
 }
 
 /// Edit one slot: change the Pokémon, pick its ability and up to four moves
-/// (`team-move-<k>`, cleared with `team-move-clear-<k>`), or remove it.
+/// (`team-move-<k>`, cleared with `team-move-clear-<k>`, left out of the
+/// analysis with `team-move-hide-<k>`), or remove it.
 class TeamSlotPage extends StatelessWidget {
   const TeamSlotPage({
     super.key,
@@ -594,13 +595,41 @@ class TeamSlotPage extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: MoveTile(
-                    dexMoves.byId[s.moves[k]]!,
-                    key: Key('team-move-$k'),
-                    onTap: () => _pickMove(context, s, k),
-                    onDetails: () =>
-                        showMoveDetails(context, dexMoves.byId[s.moves[k]]!),
+                  child: Opacity(
+                    opacity: s.hidden.contains(s.moves[k]) ? 0.4 : 1,
+                    child: MoveTile(
+                      dexMoves.byId[s.moves[k]]!,
+                      key: Key('team-move-$k'),
+                      onTap: () => _pickMove(context, s, k),
+                      onDetails: () =>
+                          showMoveDetails(context, dexMoves.byId[s.moves[k]]!),
+                    ),
                   ),
+                ),
+                // Hidden moves stay in the slot but don't count in matchups.
+                IconButton(
+                  key: Key('team-move-hide-$k'),
+                  tooltip: s.hidden.contains(s.moves[k])
+                      ? 'Count in matchups'
+                      : 'Leave out of matchups',
+                  icon: Icon(
+                    s.hidden.contains(s.moves[k])
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                  ),
+                  onPressed: () {
+                    final id = s.moves[k];
+                    final hide = !s.hidden.contains(id);
+                    trace(hide ? 'team.move.hide' : 'team.move.show', {
+                      'slot': slot,
+                      'k': k,
+                    });
+                    team[slot] = s.copyWith(
+                      hidden: hide
+                          ? {...s.hidden, id}
+                          : ({...s.hidden}..remove(id)),
+                    );
+                  },
                 ),
                 IconButton(
                   key: Key('team-move-clear-$k'),
