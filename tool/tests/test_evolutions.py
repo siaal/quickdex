@@ -4,11 +4,12 @@ import pytest
 from conftest import ROOT
 
 from quickdex_data.evolutions import build_chains
+from quickdex_data.games import EMERALD, SCARLET
 
 
 @pytest.fixture(scope="session")
 def chains(db, built):
-    chains, gaps = build_chains(db, built.entries, {})
+    chains, gaps = build_chains(db, built.entries, {}, SCARLET)
     return chains, gaps
 
 
@@ -76,6 +77,26 @@ def test_non_evolving_species_has_no_chain(chains, by_name):
     assert str(by_name["Tauros"].chain) not in chains[0]
 
 
+@pytest.fixture(scope="session")
+def em_chains(db, emerald):
+    return build_chains(db, emerald.entries, {}, EMERALD)
+
+
+def test_emerald_evolutions_are_gen_3s(em_chains, em_name):
+    chains, gaps = em_chains
+    assert gaps == []
+    eevee = {k: v for k, v in _edges(em_chains, em_name, "Eevee").items() if k[0] == 133}
+    assert eevee == {(133, 134): "Water Stone", (133, 135): "Thunder Stone",
+                     (133, 136): "Fire Stone",
+                     (133, 196): "Level up, friendship 220+, day",
+                     (133, 197): "Level up, friendship 220+, night"}
+    # No Alolan Raichu (Thunder Stone in Alola) merged into the plain edge.
+    assert _edges(em_chains, em_name, "Pikachu")[(25, 26)] == "Thunder Stone"
+    assert _edges(em_chains, em_name, "Feebas")[(349, 350)] == "Level up, Beauty 170+"
+    # Magneton -> Magnezone is Gen 4: Magneton ends its chain.
+    assert {e["to"] for e in chains[str(em_name["Magnemite"].chain)]["edges"]} == {82}
+
+
 def test_every_method_override_matches_an_edge(chains):
     overrides = json.loads((ROOT / "tool" / "overrides.json").read_text())
     edges = {f"{e['from']}->{e['to']}" for c in chains[0].values() for e in c["edges"]}
@@ -84,5 +105,5 @@ def test_every_method_override_matches_an_edge(chains):
 
 def test_no_unrenderable_methods_after_overrides(db, built):
     overrides = json.loads((ROOT / "tool" / "overrides.json").read_text())
-    _, gaps = build_chains(db, built.entries, overrides["methods"])
+    _, gaps = build_chains(db, built.entries, overrides["methods"], SCARLET)
     assert gaps == []

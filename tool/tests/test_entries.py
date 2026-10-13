@@ -53,6 +53,35 @@ def test_scarlet_regional_dex_numbers(by_id, by_name):
     assert by_name["Sprigatito"].to_json()["region"] == ["Paldea", 1]
 
 
+def test_emerald_has_every_gen_1_to_3_species_and_only_gen_3_forms(emerald, em_name):
+    species = {e.dex for e in emerald.entries}
+    assert species == set(range(1, 387))
+    assert "Raichu (Alolan)" not in em_name
+    assert em_name["Raichu"].forms == [26]
+    deoxys = [e.name for e in emerald.entries if e.dex == 386]
+    assert deoxys == ["Deoxys", "Deoxys (Attack)", "Deoxys (Defense)", "Deoxys (Speed)"]
+    assert len([e for e in emerald.entries if e.dex == 351]) == 4  # Castform weathers
+
+
+def test_emerald_uses_gen_3_types_stats_and_abilities(em_name, by_name, db):
+    assert em_name["Clefairy"].types == ["normal"]
+    assert by_name["Clefairy"].types == ["fairy"]
+    assert em_name["Butterfree"].stats[3] == 80  # Sp. Atk, 90 from Gen 6
+    assert by_name["Butterfree"].stats[3] == 90
+    levitate = 26
+    assert em_name["Gengar"].abilities == [levitate]  # Cursed Body from Gen 7
+    assert em_name["Clefairy"].abilities == [56]  # Cute Charm; Magic Guard from Gen 4
+    assert all(e.hidden is None for e in em_name.values())
+    gen = {r["id"]: int(r["generation_id"]) for r in db.rows("abilities")}
+    assert all(gen[str(a)] <= 3 for e in em_name.values() for a in e.abilities)
+
+
+def test_emerald_regional_dex_is_hoenn(em_name):
+    assert em_name["Treecko"].region == ("Hoenn", 1)
+    assert em_name["Pikachu"].region == ("Hoenn", 156)
+    assert em_name["Bulbasaur"].region is None
+
+
 def test_label_overrides(by_id):
     assert by_id[10177].name == "Darmanitan (Galarian)"
     assert by_id[10136].name == "Minior (Core)"

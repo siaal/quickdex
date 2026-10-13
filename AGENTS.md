@@ -14,6 +14,14 @@
   `sources` (git clones in `.cache/`) → `entries` (form rule) → `typechart` →
   `evolutions` → `art`. `build_data.py` wires them together, applies
   `tool/overrides.json`, and fails on any gap.
+- Games (`tool/quickdex_data/games.py`, `lib/data/game.dart`): the app shows one game at
+  a time. Every pipeline builder takes a `Game` and writes `assets/data/<key>/`; "as of
+  this game" comes from PokéAPI's `*_past` tables (hold until and including their
+  generation) and `*_changelog` tables (hold the values from before their version
+  group), via `Eras`. Adding a game = a `Game` entry + a pubspec asset line. The app
+  loads one `GameSession` (`lib/ui/game_host.dart`); switching rebuilds `QuickDexApp`
+  keyed by game. `GameScope` gives widgets the game's name. Per-game prefs keys come
+  from `GameInfo.prefsKey` (Scarlet keeps the unsuffixed originals).
 - `assets/` is generated **and committed**. Never hand-edit it; rerun `make data`.
   The output is deterministic, so a rerun with no source changes leaves `git status`
   clean.
@@ -33,24 +41,29 @@
   `lib/ui/search_screen.dart` (Pokémon | All | Moves toggle, mode persisted under
   `search.mode`) merges kinds with `mergeHits` (Pokémon win ties; pass `byRecency` for empty queries). One `search-field`;
   move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, Pokémon rows `row-<id>`.
-- Moves (`assets/data/moves.json`, `lib/data/moves.dart`) load in the background at
+- Moves (`assets/data/<game>/moves.json`, `lib/data/moves.dart`) load in the background at
   launch; move results and learnset tables appear once loaded. Move flags and `contact` come
   from Showdown's moves.json (`.cache/showdown/`, downloaded once; delete to refresh), since
   PokéAPI lacks Gen 9 flags; the build cross-checks the two and fails on disagreement.
+  Before Gen 4 a damaging move's category follows its type; Curse is type `unknown`
+  (shown as ???) in Gen 2–4.
 - Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds six nullable
   `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move ids ignored by the
   analysis), saved in shared_preferences under
-  `team.v1`; unknown ids are dropped on load. `resolveMember` applies the chosen
+  `team.v1` (`team.v1.<game>` for games other than Scarlet); unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
   guaranteed guard only) and takes attack types from damaging moves, falling back to
   STAB. `analyseTeam` gives one `TypeMatchup` row per type;
   its `edges` (doublings dealt minus taken, 0× = 3 halvings) drive the row tint.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
-  half-life, in shared_preferences under `frecency.v1`. A visit is credited to the
+  half-life, in shared_preferences under `frecency.v1` (per game, like the team). A visit is credited to the
   entry opened from search (on page open), not to forms/evolutions swapped to after.
 
 ## Conventions
 
+- Widget tests that load assets inside a test (e.g. a game switch) must use a fresh
+  `PlatformAssetBundle()`: `rootBundle` caches load futures, and one created in an
+  earlier test's fake-async zone never completes.
 - Data contract: `pokedex.json` and `types.json` shapes are defined in
   `tool/build_data.py` and `tool/quickdex_data/entries.py` (`Entry.to_json`). The Dart
   side is `lib/data/models.dart`. Change both together.

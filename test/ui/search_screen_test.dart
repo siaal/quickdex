@@ -28,6 +28,7 @@ void main() {
     List<int> visited = const [],
     SearchMode mode = SearchMode.pokemon,
     FrecencyStore? store,
+    VoidCallback? onOpenSettings,
   }) async {
     final f = store ?? FrecencyStore(clock: () => DateTime.utc(2026, 10, 7));
     moveFrecency = FrecencyStore(clock: () => DateTime.utc(2026, 10, 7));
@@ -45,6 +46,7 @@ void main() {
           moveFrecency: moveFrecency,
           initialMode: mode,
           onModeChanged: modeChanges.add,
+          onOpenSettings: onOpenSettings,
         ),
       ),
     );
@@ -75,6 +77,36 @@ void main() {
 
     await type(tester, 'a'); // matches both Bulbasaur and Pikachu
     expect(rowY(tester, 25), lessThan(rowY(tester, 1)), reason: 'frecency');
+  });
+
+  testWidgets('toggle left-aligned, settings cog right-aligned on its row', (
+    tester,
+  ) async {
+    await pump(tester);
+    expect(find.byKey(const Key('search-settings')), findsNothing);
+    var opened = 0;
+    await pump(tester, onOpenSettings: () => opened++);
+    final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    final natural = tester.getSize(find.byKey(const Key('search-mode')));
+    final toggle = tester.getRect(find.byKey(const Key('search-mode')));
+    expect(
+      tester
+          .getSize(
+            find.ancestor(
+              of: find.byKey(const Key("search-mode")),
+              matching: find.byType(FittedBox),
+            ),
+          )
+          .width,
+      natural.width,
+      reason: 'not scaled down when it fits',
+    );
+    final cog = tester.getRect(find.byKey(const Key('search-settings')));
+    expect(toggle.left, 12);
+    expect(cog.right, width - 12);
+    expect(cog.center.dy, closeTo(toggle.center.dy, 1));
+    await tester.tap(find.byKey(const Key('search-settings')));
+    expect(opened, 1);
   });
 
   testWidgets('mode toggle sits above the search field', (tester) async {

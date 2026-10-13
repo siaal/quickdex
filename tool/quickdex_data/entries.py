@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 
 from .csvdb import ENGLISH, CsvDb, SchemaError
+from .games import Eras, Game
 
 log = logging.getLogger("quickdex.entries")
 
@@ -11,9 +12,7 @@ DROP_SUBSTRINGS = ("-mega", "-gmax", "-primal", "-totem", "-eternamax")
 STAT_IDS = ("1", "2", "3", "4", "5", "6")  # hp, atk, def, spa, spd, spe
 # Labels PokéAPI's English names render awkwardly once the other forms are dropped.
 LABEL_OVERRIDES = {"darmanitan-galar-standard": "Galarian", "minior-red": "Core"}
-# Scarlet/Violet's in-game dexes (pokedexes.csv id -> label), in display preference:
-# a species in several shows its first.
-SV_DEXES = (("31", "Paldea"), ("32", "Kitakami"), ("33", "Blueberry"))
+HIDDEN_ABILITIES_FROM = 5
 
 
 @dataclass
@@ -30,7 +29,7 @@ class Entry:
     hidden: int | None  # hidden ability id
     catch_rate: int
     weight: int  # hectograms, as PokéAPI stores it
-    region: tuple[str, int] | None = None  # Scarlet regional dex (label, number)
+    region: tuple[str, int] | None = None  # the game's regional dex (label, number)
     forms: list[int] = field(default_factory=list)
 
     def to_json(self) -> dict:
@@ -73,11 +72,35 @@ def _name_drop_reason(identifier: str, form: dict[str, str]) -> str | None:
     return None
 
 
-def build_entries(db: CsvDb) -> EntryBuild:
-    pokemon = db.rows("pokemon", ("id", "identifier", "species_id", "is_default", "weight"))
+def _nearest_past(rows: list[dict[str, str]], eras: Eras, key: tuple[str, ...]
+                  ) -> dict[tuple[str, ...], list[dict[str, str]]]:
+    """`*_past` rows grouped by `key`, keeping only the nearest generation at or after
+    the game's (a past row holds until and including its generation)."""
+    best: dict[tuple[str, ...], int] = {}
+    for r in rows:
+        gen = int(r["generation_id"])
+        k = tuple(r[c] for c in key)
+        if eras.past_applies(gen) and gen < best.get(k, 99):
+            best[k] = gen
+    out: dict[tuple[str, ...], list[dict[str, str]]] = defaultdict(list)
+    for r in rows:
+        k = tuple(r[c] for c in key)
+        if best.get(k) == int(r["generation_id"]):
+            out[k].append(r)
+    return out
+
+
+def build_entries(db: CsvDb, game: Game) -> EntryBuild:
+    eras = Eras(db, game)
+    species_gen = {r["id"]: int(r["generation_id"])
+                   for r in db.rows("pokemon_species", ("id", "generation_id"))}
+    pokemon = [p for p in db.rows("pokemon", ("id", "identifier", "species_id",
+                                              "is_default", "weight"))
+               if species_gen[p["species_id"]] <= game.generation]
     default_form: dict[str, dict[str, str]] = {}
     for f in db.rows("pokemon_forms",
-                     ("id", "pokemon_id", "is_default", "is_mega", "form_order")):
+                     ("id", "pokemon_id", "is_default", "is_mega", "form_order",
+                      "introduced_in_version_group_id")):
         # Some pokemon (Koraidon/Miraidon ride modes) have no is_default=1 form row;
         # their first form row stands in.
         if f["is_default"] == "1" or f["pokemon_id"] not in default_form:
@@ -87,18 +110,44 @@ def build_entries(db: CsvDb) -> EntryBuild:
     for r in sorted(db.rows("pokemon_types", ("pokemon_id", "type_id", "slot")),
                     key=lambda r: int(r["slot"])):
         types[r["pokemon_id"]].append(type_ident[r["type_id"]])
+    for (pid,), rows in _nearest_past(
+            db.rows("pokemon_types_past", ("pokemon_id", "generation_id", "type_id", "slot")),
+            eras, ("pokemon_id",)).items():
+        types[pid] = [type_ident[r["type_id"]] for r in sorted(rows, key=lambda r: r["slot"])]
+        log.debug("entries.build.past_types %s %s", pid, types[pid])
     stats: dict[str, dict[str, int]] = defaultdict(dict)
     for r in db.rows("pokemon_stats", ("pokemon_id", "stat_id", "base_stat")):
         stats[r["pokemon_id"]][r["stat_id"]] = int(r["base_stat"])
+    for (pid, stat), (r, *_) in _nearest_past(
+            db.rows("pokemon_stats_past", ("pokemon_id", "generation_id", "stat_id",
+                                           "base_stat")),
+            eras, ("pokemon_id", "stat_id")).items():
+        if stat in STAT_IDS:  # Gen 1's Special (9) never reaches here
+            log.debug("entries.build.past_stat %s stat=%s %s", pid, stat, r["base_stat"])
+            stats[pid][stat] = int(r["base_stat"])
+    # slot -> (hidden, ability id or "" for "no ability in this slot")
+    slots: dict[str, dict[str, tuple[bool, str]]] = defaultdict(dict)
+    for r in db.rows("pokemon_abilities", ("pokemon_id", "ability_id", "is_hidden", "slot")):
+        slots[r["pokemon_id"]][r["slot"]] = (r["is_hidden"] == "1", r["ability_id"])
+    for (pid, slot), (r, *_) in _nearest_past(
+            db.rows("pokemon_abilities_past", ("pokemon_id", "generation_id", "ability_id",
+                                               "is_hidden", "slot")),
+            eras, ("pokemon_id", "slot")).items():
+        log.debug("entries.build.past_ability %s slot=%s %r", pid, slot, r["ability_id"])
+        slots[pid][slot] = (r["is_hidden"] == "1", r["ability_id"])
+    ability_gen = {r["id"]: int(r["generation_id"])
+                   for r in db.rows("abilities", ("id", "generation_id"))}
     abilities: dict[str, list[int]] = defaultdict(list)
     hidden: dict[str, int] = {}
-    for r in sorted(db.rows("pokemon_abilities",
-                            ("pokemon_id", "ability_id", "is_hidden", "slot")),
-                    key=lambda r: int(r["slot"])):
-        if r["is_hidden"] == "1":
-            hidden[r["pokemon_id"]] = int(r["ability_id"])
-        else:
-            abilities[r["pokemon_id"]].append(int(r["ability_id"]))
+    for pid, by_slot in slots.items():
+        for slot in sorted(by_slot, key=int):
+            is_hidden, a = by_slot[slot]
+            if not a or (is_hidden and game.generation < HIDDEN_ABILITIES_FROM):
+                continue
+            if is_hidden:
+                hidden[pid] = int(a)
+            else:
+                abilities[pid].append(int(a))
     species_names = db.english_names("pokemon_species_names", "pokemon_species_id")
     form_names = {r["pokemon_form_id"]: r
                   for r in db.rows("pokemon_form_names",
@@ -111,7 +160,7 @@ def build_entries(db: CsvDb) -> EntryBuild:
         sv_numbers[r["species_id"]][r["pokedex_id"]] = int(r["pokedex_number"])
 
     def region_for(sid: str) -> tuple[str, int] | None:
-        for dex_id, label in SV_DEXES:
+        for dex_id, label in game.dexes:
             if dex_id in sv_numbers[sid]:
                 return label, sv_numbers[sid][dex_id]
         log.debug("entries.region.none species=%s", sid)
@@ -139,8 +188,13 @@ def build_entries(db: CsvDb) -> EntryBuild:
         pid, ident, sid = p["id"], p["identifier"], p["species_id"]
         is_default = p["is_default"] == "1"
         form = default_form[pid]
-        if not is_default:
+        introduced = eras.vg_generation[form["introduced_in_version_group_id"]]
+        if is_default:
+            assert introduced <= game.generation, (ident, game.key)
+        else:
             reason = _name_drop_reason(ident, form)
+            if reason is None and introduced > game.generation:
+                reason = f"introduced in Gen {introduced}"
             if reason is None and signature(pid) in kept_signatures[sid]:
                 reason = "same types+stats as default or an earlier form"
             if reason:
@@ -163,6 +217,11 @@ def build_entries(db: CsvDb) -> EntryBuild:
         name = species if is_default else f"{species} ({label})"
         if not abilities.get(pid):
             raise SchemaError(f"pokemon {pid} ({ident}) has no non-hidden ability")
+        late = [a for a in [*abilities[pid], hidden.get(pid)]
+                if a is not None and ability_gen[str(a)] > game.generation]
+        if late:
+            raise SchemaError(f"pokemon {pid} ({ident}) has abilities {late} from after "
+                              f"Gen {game.generation}; pokemon_abilities_past lacks a row")
         entry = Entry(id=int(pid), dex=int(sid), name=name, species=species, form=label,
                       types=list(t), stats=list(s),
                       chain=int(species_rows[sid]["evolution_chain_id"]),

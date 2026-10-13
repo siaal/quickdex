@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../search/searchable.dart';
 import '../trace.dart';
+import 'game.dart';
 
 enum MoveCategory { physical, special, status }
 
@@ -22,7 +23,7 @@ class Move implements Searchable {
     required this.target,
     required this.contact,
     required this.flags,
-    required this.inScarlet,
+    required this.inGame,
     required this.text,
     required this.description,
   });
@@ -41,7 +42,7 @@ class Move implements Searchable {
     target: j['target'] as String,
     contact: j['contact'] as bool,
     flags: (j['flags'] as List).cast<String>(),
-    inScarlet: j['sv'] as bool,
+    inGame: j['in_game'] as bool,
     text: j['text'] as String?,
     description: j['desc'] as String?,
   );
@@ -53,6 +54,8 @@ class Move implements Searchable {
   final String key;
   @override
   final String name;
+
+  /// `unknown` is the ??? type (Curse before Gen 5).
   final String type;
   final MoveCategory category;
 
@@ -70,12 +73,15 @@ class Move implements Searchable {
 
   /// Punch, Sound, Dance, …; contact is [contact].
   final List<String> flags;
-  final bool inScarlet;
 
-  /// In-game text (Scarlet's when it has one).
+  /// Whether any Pokémon learns it in the loaded game (else tagged "Not in …").
+  final bool inGame;
+
+  /// In-game text (the loaded game's when it has one).
   final String? text;
 
-  /// PokéAPI's long description; may predate later mechanics changes.
+  /// PokéAPI's long description; may predate later mechanics changes. For an
+  /// old game it starts with an "In Emerald:"-style paragraph of differences.
   final String? description;
 
   @override
@@ -92,13 +98,13 @@ class Learnset {
           (level: m[0] as int, move: m[1] as int),
       ]);
 
-  /// Null for Scarlet; otherwise the older game the data comes from.
+  /// Null for the loaded game; otherwise the older game the data comes from.
   final String? game;
   final List<({int level, int move})> moves;
 }
 
 class MoveDex {
-  MoveDex(this.moves, [this.learnsets = const {}])
+  MoveDex(this.moves, [this.learnsets = const {}, this.game = GameInfo.scarlet])
     : byId = {for (final m in moves) m.id: m};
 
   factory MoveDex.parse(String json) {
@@ -112,8 +118,11 @@ class MoveDex {
         for (final e in (j['learnsets'] as Map<String, dynamic>).entries)
           int.parse(e.key): Learnset.fromJson(e.value as Map<String, dynamic>),
       },
+      GameInfo.fromJson(j['game'] as Map<String, dynamic>),
     );
   }
+
+  final GameInfo game;
 
   /// Sorted by name.
   final List<Move> moves;
@@ -137,13 +146,18 @@ class MoveDex {
   }
 }
 
-Future<MoveDex> loadMoves(AssetBundle bundle) async {
+Future<MoveDex> loadMoves(
+  AssetBundle bundle, [
+  GameInfo game = GameInfo.scarlet,
+]) async {
   final sw = Stopwatch()..start();
   final moves = MoveDex.parse(
-    await bundle.loadString('assets/data/moves.json'),
+    await bundle.loadString('${game.dataDir}/moves.json'),
   );
   moves.assertInvariants();
+  assert(moves.game == game, 'loaded ${moves.game} for $game');
   trace('startup.moves.done', {
+    'game': game.key,
     'ms': sw.elapsedMilliseconds,
     'moves': moves.moves.length,
   });

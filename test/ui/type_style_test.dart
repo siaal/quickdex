@@ -16,6 +16,18 @@ void main() {
     expect(typeColors['normal'], const Color(0xFF9FA19F));
   });
 
+  testWidgets('the ??? type (Gen 2–4 Curse) has a colour, label and icon', (
+    tester,
+  ) async {
+    expect(typeLabel('unknown'), '???');
+    expect(typeAbbr('unknown'), '???');
+    await tester.pumpWidget(
+      const MaterialApp(home: TypeBadge('unknown', icon: true)),
+    );
+    expect(find.text('???'), findsOne);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('badges use the hard-coded text colour', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

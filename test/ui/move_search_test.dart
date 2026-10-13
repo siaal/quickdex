@@ -84,7 +84,7 @@ void main() {
     expect(find.textContaining('Selected Pokémon'), findsOneWidget);
     expect(find.textContaining('strong electric blast'), findsOneWidget);
     expect(find.textContaining('Inflicts regular damage.'), findsOneWidget);
-    expect(find.byKey(const Key('move-not-sv')), findsNothing);
+    expect(find.byKey(const Key('move-not-in-game')), findsNothing);
   });
 
   testWidgets('priority shown when non-zero; flags listed', (tester) async {
@@ -157,7 +157,7 @@ void main() {
   testWidgets('Not in Scarlet tag', (tester) async {
     await pump(tester);
     await open(tester, 'return', 'Return');
-    expect(find.byKey(const Key('move-not-sv')), findsOneWidget);
+    expect(find.byKey(const Key('move-not-in-game')), findsOneWidget);
   });
 
   testWidgets('visiting makes a move frecent and swipeable', (tester) async {

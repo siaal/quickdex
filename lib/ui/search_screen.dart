@@ -18,7 +18,7 @@ enum SearchMode { pokemon, all, moves }
 /// Live search over Pokémon and/or moves: with nothing typed, recently visited
 /// first; once typed, frecent hits first; a mode toggle sits
 /// above the field so results never cover it. Frecent rows swipe away with Undo.
-/// Keys: `search-mode`, `mode-<mode>`, `search-field`; Pokémon rows `row-<id>` /
+/// Keys: `search-mode`, `mode-<mode>`, `search-settings`, `search-field`; Pokémon rows `row-<id>` /
 /// `dismiss-<id>`, move rows `move-row-<id>` / `move-dismiss-<id>`.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({
@@ -32,6 +32,7 @@ class SearchScreen extends StatefulWidget {
     this.onModeChanged,
     this.focusRequests,
     this.onOpenType,
+    this.onOpenSettings,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
@@ -49,6 +50,9 @@ class SearchScreen extends StatefulWidget {
 
   /// Passed to Pokémon pages: open a tapped type pill in the Type Chart.
   final ValueChanged<String>? onOpenType;
+
+  /// The cog right of the mode toggle; no cog when null.
+  final VoidCallback? onOpenSettings;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -208,29 +212,51 @@ class _SearchScreenState extends State<SearchScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-              child: SegmentedButton<SearchMode>(
-                key: const Key('search-mode'),
-                showSelectedIcon: false,
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                segments: const [
-                  ButtonSegment(
-                    value: SearchMode.pokemon,
-                    label: Text('Pokémon', key: Key('mode-pokemon')),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Shrinks rather than overflowing the cog at large font sizes.
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: SegmentedButton<SearchMode>(
+                        key: const Key('search-mode'),
+                        showSelectedIcon: false,
+                        style: const ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        segments: const [
+                          ButtonSegment(
+                            value: SearchMode.pokemon,
+                            label: Text('Pokémon', key: Key('mode-pokemon')),
+                          ),
+                          ButtonSegment(
+                            value: SearchMode.all,
+                            label: Text('All', key: Key('mode-all')),
+                          ),
+                          ButtonSegment(
+                            value: SearchMode.moves,
+                            label: Text('Moves', key: Key('mode-moves')),
+                          ),
+                        ],
+                        selected: {_mode},
+                        onSelectionChanged: (s) => _setMode(s.single),
+                      ),
+                    ),
                   ),
-                  ButtonSegment(
-                    value: SearchMode.all,
-                    label: Text('All', key: Key('mode-all')),
-                  ),
-                  ButtonSegment(
-                    value: SearchMode.moves,
-                    label: Text('Moves', key: Key('mode-moves')),
-                  ),
+                  if (widget.onOpenSettings case final open?)
+                    IconButton(
+                      key: const Key('search-settings'),
+                      tooltip: 'Settings',
+                      icon: const Icon(Icons.settings),
+                      onPressed: () {
+                        trace('search.settings.tap');
+                        open();
+                      },
+                    ),
                 ],
-                selected: {_mode},
-                onSelectionChanged: (s) => _setMode(s.single),
               ),
             ),
             Padding(

@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:quickdex/data/models.dart';
 
 Pokedex realDex() => Pokedex.parse(
-  File('assets/data/pokedex.json').readAsStringSync(),
-  File('assets/data/types.json').readAsStringSync(),
+  File('assets/data/scarlet/pokedex.json').readAsStringSync(),
+  File('assets/data/scarlet/types.json').readAsStringSync(),
 );
 
 void main() {

@@ -5,7 +5,7 @@ import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/search/search_index.dart';
 
 MoveDex realMoves() =>
-    MoveDex.parse(File('assets/data/moves.json').readAsStringSync());
+    MoveDex.parse(File('assets/data/scarlet/moves.json').readAsStringSync());
 
 class _NoScores implements FrecencyScores {
   @override
@@ -33,7 +33,7 @@ void main() {
       (t.power, t.accuracy, t.pp, t.priority, t.chance),
       (90, 100, 15, 0, 10),
     );
-    expect(t.inScarlet, isTrue);
+    expect(t.inGame, isTrue);
     expect(t.flags, isEmpty);
     expect(t.contact, isFalse);
     expect(t.text, contains('paralysis'));
@@ -45,7 +45,7 @@ void main() {
     expect((sd.power, sd.accuracy), (null, null));
     expect(named('Glaive Rush').contact, isTrue, reason: 'Gen 9, via Showdown');
     expect(named('Glaive Rush').description, isNull);
-    expect(named('Return').inScarlet, isFalse);
+    expect(named('Return').inGame, isFalse);
   });
 
   test(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/moves.dart';
 import 'art.dart';
 import 'category_badge.dart';
+import 'game_scope.dart';
 
 /// List row for a move: type icon, name, category, and power · accuracy.
 class MoveTile extends StatelessWidget {
@@ -33,7 +34,7 @@ class MoveTile extends StatelessWidget {
           CategoryIcon(m.category, size: 18),
         ],
       ),
-      subtitle: m.inScarlet ? null : const Text('Not in Scarlet'),
+      subtitle: m.inGame ? null : Text('Not in ${GameScope.of(context).name}'),
       trailing: SizedBox(
         width: 76,
         child: Text(

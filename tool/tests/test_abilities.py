@@ -1,4 +1,5 @@
 from quickdex_data.abilities import build_abilities
+from quickdex_data.games import EMERALD, SCARLET
 
 
 def test_entry_abilities_in_slot_order_with_hidden(by_name):
@@ -24,7 +25,7 @@ def test_catch_rate_and_weight(by_name):
 
 
 def test_ability_table_covers_every_entry_ability(db, built):
-    table = build_abilities(db, built.entries)
+    table = build_abilities(db, built.entries, SCARLET)
     used = {a for e in built.entries for a in [*e.abilities, e.hidden] if a is not None}
     assert set(table) == {str(a) for a in used}
     lev = table["26"]
@@ -34,8 +35,26 @@ def test_ability_table_covers_every_entry_ability(db, built):
     assert all(v["effect"] and v["name"] and v["description"] for v in table.values())
 
 
+def test_emerald_abilities_carry_notes_on_how_they_differed(db, emerald):
+    table = build_abilities(db, emerald.entries, EMERALD)
+    rod = table["31"]  # Lightning Rod: immunity only from Gen 5
+    assert rod["effect"] == "Draws electrical moves."  # Emerald's own text
+    first, *_ = rod["description"].split("\n\n")
+    before_dp = ("• Does not affect non-damaging Electric moves, i.e. Thunder Wave. "
+                 "Increases the frequency of Match Call calls on the overworld if any party "
+                 "Pokémon has this ability.")
+    before_bw = ("• Redirects Electric moves without negating them or granting any "
+                 "Special Attack boost. Does not redirect Hidden Power.")
+    assert first.splitlines() == ["In Emerald:", before_dp, before_bw]
+    lev = table["26"]  # unchanged since: modern text, no notes
+    assert lev["effect"] == "Evades Ground moves."
+    assert not lev["description"].startswith("In Emerald")
+    scarlet = build_abilities(db, emerald.entries, SCARLET)
+    assert not any(v["description"].startswith("In ") for v in scarlet.values())
+
+
 def test_description_keeps_paragraphs_but_collapses_spaces(db, built):
-    lev = build_abilities(db, built.entries)["26"]["description"]
+    lev = build_abilities(db, built.entries, SCARLET)["26"]["description"]
     assert "\n\nThis ability is disabled during Gravity" in lev
     assert "Iron Ball. This ability is not disabled" in lev  # was double-spaced
     assert "  " not in lev

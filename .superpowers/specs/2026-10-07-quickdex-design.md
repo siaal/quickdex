@@ -113,6 +113,55 @@ Bulbapedia.
 
 The generated `assets/` are committed, so app builds never need the network.
 
+#### Game versions (added 2026-10-12)
+
+The app shows one game at a time instead of every version side by side (the reverse of
+Bulbapedia). `tool/quickdex_data/games.py` lists the games; each `Game` has a key, a name,
+its generation and version group, its regional dexes, the version groups its learnsets
+fall back to, and its friendship threshold. `make data` writes one bundle per game,
+`assets/data/<game>/{pokedex,types,moves}.json`, plus `assets/data/games.json` (key and
+name of each, for the picker). Artwork and type icons are shared.
+
+A game of generation *g* gets:
+
+- **Types:** those introduced by *g* (no Fairy before Gen 6). Chart cells from
+  `type_efficacy_past` override the current ones; a past row holds until (and
+  including) its `generation_id`, so the nearest row at or after *g* wins. Gen 2–5 have
+  Ghost and Dark at ½× against Steel.
+- **Pokémon:** species introduced by *g*, and only forms whose
+  `introduced_in_version_group` is in generation ≤ *g* (Deoxys formes, Castform
+  in Gen 3; no regional forms). The user asked for every species of the generation,
+  including those that can't be caught in that game. Types, base stats and ability
+  slots come from the `*_past` tables the same way (Clefairy is Normal in Gen 3). Before
+  Gen 5 there are no hidden abilities.
+- **Abilities:** for an old game, the bold line is that game's in-game text and the
+  description is `ability_changelog_prose` for the first change after the game, falling
+  back to the current long effect.
+- **Moves:** those introduced by *g*. Type, power, PP, accuracy, priority, target, effect
+  and effect chance come from `move_changelog`: each row holds the old values before
+  its version group, so the earliest row after the game wins, per column. Before Gen 4
+  the damage class follows the type (Physical: Normal, Fighting, Flying, Poison, Ground,
+  Rock, Bug, Ghost, Steel). The in-game text is the game's own (else the latest earlier
+  one); descriptions use `move_effect_changelog_prose` the same way as abilities.
+  Contact and other flags stay Showdown's current ones. A move is tagged "Not in
+  <game>" when no Pokémon learns it there (Scarlet only, in practice).
+- **Learnsets:** the game's version group, else its fallbacks (labelled "From …").
+- **Evolutions:** edges to species outside the game are dropped, and a row needing an
+  item or move from a later generation is skipped. Friendship uses the game's threshold
+  (160 from Gen 8, 220 before).
+- **Ability immunities** (Dart, `ability_guard.dart`): Lightning Rod and Storm Drain only
+  grant immunity from Gen 5.
+
+The Emerald bundle: 386 species with their Gen 3 forms, 354 moves, 17 types, Hoenn dex
+numbers ("Hoenn #001 · #252"), Emerald learnsets, friendship 220.
+
+In the app, the game is chosen from a settings cog at the right of the Search screen's
+mode toggle (the menu has only the game for now). It's saved under the prefs key `game`
+(default Scarlet), and only that game's bundle is loaded at startup. Choosing another game
+loads its bundle and rebuilds the app shell around it, dropping the old data; the user
+lands on Search. The team and frecency are per game: Scarlet keeps the original prefs
+keys (`team.v1`, `frecency.v1`, `frecency.moves.v1`), other games append `.<key>`.
+
 ### 2. App structure (Flutter)
 
 **Startup:** load `pokedex.json` and `types.json` once and build the LUTs:

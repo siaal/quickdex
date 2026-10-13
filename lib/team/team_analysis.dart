@@ -24,7 +24,7 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
   final defense = Map.of(e.defense);
   final Set<String> immune;
   if (s.ability case final a?) {
-    immune = abilityImmunities(dex.abilities[a]!, e.defense);
+    immune = abilityImmunities(dex.abilities[a]!, e.defense, dex.game.gen);
   } else {
     immune = e.guard?.types.toSet() ?? const {};
   }

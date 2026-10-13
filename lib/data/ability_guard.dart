@@ -12,7 +12,9 @@ class AbilityGuard {
   final List<String> types;
 }
 
-/// Abilities that make attacking types deal no damage (Gen 9).
+/// Abilities that make attacking types deal no damage (Gen 9). An ability only
+/// exists in games of its generation onwards, so only changes to existing
+/// abilities need [_immuneFrom].
 const _immunityAbilities = <String, Set<String>>{
   'levitate': {'ground'},
   'earth-eater': {'ground'},
@@ -27,27 +29,39 @@ const _immunityAbilities = <String, Set<String>>{
   'sap-sipper': {'grass'},
 };
 
+/// Generation an ability started granting immunity: Lightning Rod and Storm
+/// Drain only redirected moves before Gen 5.
+const _immuneFrom = <String, int>{'lightning-rod': 5, 'storm-drain': 5};
+
 /// Wonder Guard blocks every type that isn't super effective.
 const _wonderGuard = 'wonder-guard';
 
-/// Attacking types [a] blocks for an entry with chart [defense] (Wonder Guard:
-/// everything not super effective); empty if it grants no immunity.
-Set<String> abilityImmunities(Ability a, Map<String, double> defense) =>
-    a.key == _wonderGuard
-    ? {
-        for (final t in defense.keys)
-          if (defense[t]! < 2) t,
-      }
-    : _immunityAbilities[a.key] ?? const {};
+/// Attacking types [a] blocks in a Gen [gen] game for an entry with chart
+/// [defense] (Wonder Guard: everything not super effective); empty if it
+/// grants no immunity.
+Set<String> abilityImmunities(Ability a, Map<String, double> defense, int gen) {
+  if (a.key == _wonderGuard) {
+    return {
+      for (final t in defense.keys)
+        if (defense[t]! < 2) t,
+    };
+  }
+  if (gen < (_immuneFrom[a.key] ?? 0)) {
+    trace('ability.immunity.not_yet', {'ability': a.key, 'gen': gen});
+    return const {};
+  }
+  return _immunityAbilities[a.key] ?? const {};
+}
 
 AbilityGuard? guaranteedGuard(
   List<Ability> abilities,
   Map<String, double> defense,
+  int gen,
 ) {
   assert(abilities.isNotEmpty, 'entry has no abilities');
   Set<String>? common;
   for (final a in abilities) {
-    final immune = abilityImmunities(a, defense);
+    final immune = abilityImmunities(a, defense, gen);
     if (immune.isEmpty) {
       return null; // one ability without an immunity breaks the guarantee
     }

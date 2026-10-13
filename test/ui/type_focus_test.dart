@@ -11,8 +11,8 @@ import 'package:quickdex/ui/type_focus.dart';
 import 'package:quickdex/ui/type_tile.dart';
 
 TypeChart realChart() => Pokedex.parse(
-  File('assets/data/pokedex.json').readAsStringSync(),
-  File('assets/data/types.json').readAsStringSync(),
+  File('assets/data/scarlet/pokedex.json').readAsStringSync(),
+  File('assets/data/scarlet/types.json').readAsStringSync(),
 ).types;
 
 void main() {

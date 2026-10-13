@@ -41,6 +41,20 @@ def convert_art(entries: list[Entry], src_dir: Path, out_dir: Path,
     return gaps
 
 
+# The ??? type (Curse in Gen 2-4) has no icon in the sprites repo: a plain square in
+# its traditional colour, the size of the others.
+UNKNOWN_TYPE_COLOUR = (0x68, 0xA0, 0x90)
+
+
+def draw_unknown_type_icon(out_dir: Path) -> None:
+    from PIL import Image, ImageDraw
+
+    im = Image.new("RGBA", (60, 60), (0, 0, 0, 0))
+    ImageDraw.Draw(im).rounded_rectangle((0, 0, 59, 59), radius=12,
+                                         fill=UNKNOWN_TYPE_COLOUR)
+    im.save(out_dir / "unknown.png", optimize=True)
+
+
 def copy_type_icons(type_idents: dict[str, str], src_dir: Path, out_dir: Path) -> list[str]:
     """Copy Scarlet/Violet type icons (`<type id>.png`) to `out_dir/<identifier>.png`."""
     out_dir.mkdir(parents=True, exist_ok=True)

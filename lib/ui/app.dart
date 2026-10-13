@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/game.dart';
 import '../data/models.dart';
 import '../data/moves.dart';
 import '../frecency/frecency.dart';
@@ -10,6 +11,7 @@ import '../team/team.dart';
 import '../trace.dart';
 import 'pokemon_page.dart';
 import 'search_screen.dart';
+import 'settings_screen.dart';
 import 'team_screen.dart';
 import 'type_chart_screen.dart';
 import 'type_focus.dart';
@@ -24,6 +26,8 @@ class QuickDexApp extends StatelessWidget {
     required this.team,
     this.initialSearchMode = SearchMode.all,
     this.onSearchModeChanged,
+    this.games = const [],
+    this.onGameChanged,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
@@ -34,6 +38,10 @@ class QuickDexApp extends StatelessWidget {
   final FrecencyStore moveFrecency;
   final SearchMode initialSearchMode;
   final ValueChanged<SearchMode>? onSearchModeChanged;
+
+  /// For the settings page; without [onGameChanged] there's no settings cog.
+  final List<GameInfo> games;
+  final ValueChanged<GameInfo>? onGameChanged;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -52,6 +60,8 @@ class QuickDexApp extends StatelessWidget {
       team: team,
       initialSearchMode: initialSearchMode,
       onSearchModeChanged: onSearchModeChanged,
+      games: games,
+      onGameChanged: onGameChanged,
     ),
   );
 }
@@ -66,6 +76,8 @@ class HomeShell extends StatefulWidget {
     required this.team,
     this.initialSearchMode = SearchMode.all,
     this.onSearchModeChanged,
+    this.games = const [],
+    this.onGameChanged,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
@@ -74,6 +86,8 @@ class HomeShell extends StatefulWidget {
   final FrecencyStore moveFrecency;
   final SearchMode initialSearchMode;
   final ValueChanged<SearchMode>? onSearchModeChanged;
+  final List<GameInfo> games;
+  final ValueChanged<GameInfo>? onGameChanged;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -113,6 +127,18 @@ class _HomeShellState extends State<HomeShell> {
           moveFrecency: widget.moveFrecency,
           onOpenType: _openType,
         ),
+      ),
+    );
+  }
+
+  /// From the Search screen's cog: the settings page, within the Search tab.
+  void _openSettings() {
+    final onGameChanged = widget.onGameChanged!;
+    trace('shell.settings.open', {'game': widget.dex.game.key});
+    _navigators[0].currentState?.push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            SettingsScreen(games: widget.games, onGameChanged: onGameChanged),
       ),
     );
   }
@@ -178,6 +204,9 @@ class _HomeShellState extends State<HomeShell> {
                 onModeChanged: widget.onSearchModeChanged,
                 focusRequests: _searchFocusRequests,
                 onOpenType: _openType,
+                onOpenSettings: widget.onGameChanged == null
+                    ? null
+                    : _openSettings,
               ),
             ),
             _tabNavigator(

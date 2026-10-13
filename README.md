@@ -1,10 +1,15 @@
 # QuickDex
 
-Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
+Offline, low-latency Pokédex for Android. It shows one game at a time: Scarlet (Gen 9)
+or Emerald (Gen 3), picked from the cog on the Search screen. Each game has its own
+types, typings, stats, abilities, moves and evolutions as they were in that game, and
+its own team and recents.
+
 
 - **Search:** one search for Pokémon and moves, with a Pokémon | All | Moves toggle
-  above the field (the last mode is remembered). Pokémon show their Scarlet in-game dex
-  number (Paldea, Kitakami or Blueberry) next to the National one, and either finds them. With nothing typed, the list
+  above the field (the last mode is remembered), with the settings cog on its right.
+  Pokémon show the game's regional dex number (Scarlet: Paldea, Kitakami or Blueberry;
+  Emerald: Hoenn) next to the National one, and either finds them. With nothing typed, the list
   shows what you opened most recently first; once you type, results are ranked by
   frecency (your team and the current zone float to the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
   base stats, type defences (Bulbapedia grouping, each group on a red/green tint) beside what its
@@ -13,11 +18,13 @@ Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
   jump straight to it).
 - **Moves** (in Search): every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
-  text and a longer description. Moves not in Scarlet are tagged.
+  text and a longer description (for Emerald, led by how the effect differed back then).
+  Moves no Pokémon learns in the game are tagged "Not in <game>".
 - **Type Chart:** a Focus tab (pick a type, toggle Attacker/Defender;
   long-press or right-click a second type for a dual-type defender or two-type STAB
   coverage; result pills work the same way), a Finder tab (pick one or two types to list every Pokémon
-  with them, filter by name, optionally highest evolution only) and a full 18×18
+  with them, filter by name, optionally highest evolution only) and a full 18×18 (17×17
+  in Emerald)
   grid with frozen headers, pinch-zoom and row/column highlight.
 - **Team Planner:** six slots; tap one to pick a Pokémon, its ability and up to four
   moves (level-up moves are suggested; typing searches every move; long-press or
@@ -77,11 +84,16 @@ Without `key.properties` outside CI, release builds fall back to the debug key.
 
 `tool/build_data.py` reads the PokéAPI CSVs and official artwork and writes:
 
-- `assets/data/pokedex.json`: entries (types, stats, forms, chain id, abilities,
-  catch rate, weight), evolution chains, and ability descriptions
-- `assets/data/types.json`: the 18×18 chart
+- `assets/data/games.json`: the games (key, name, generation), from
+  `tool/quickdex_data/games.py`
+- per game, `assets/data/<game>/`:
+  - `pokedex.json`: entries (types, stats, forms, chain id, abilities, catch rate,
+    weight), evolution chains, and ability descriptions
+  - `types.json`: the game's type chart (18×18; 17×17 before Fairy)
+  - `moves.json`: moves and level-up learnsets
 - `assets/art/full/<id>.webp` (256px) and `assets/art/thumb/<id>.webp` (128px)
-- `assets/art/types/<type>.png`: Scarlet/Violet type icons (60px)
+- `assets/art/types/<type>.png`: Scarlet/Violet type icons (60px), plus a drawn grey
+  one for ??? (Curse's type in Gen 2–4); shared by all games, like the artwork
 
 Each entry's defence multipliers are derived from `types.json` when the app loads.
 If every ability a Pokémon can have grants an immunity (Gastly's Levitate,

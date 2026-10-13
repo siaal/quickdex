@@ -19,6 +19,8 @@ const typeColors = <String, Color>{
   'dark': Color(0xFF705746),
   'steel': Color(0xFFB7B7CE),
   'fairy': Color(0xFFD685AD),
+  // ??? (Curse in Gen 2-4), in its traditional teal-grey.
+  'unknown': Color(0xFF68A090),
 };
 
 /// Types whose colour is too bright for white text: white contrast below 2.3:1
@@ -30,5 +32,7 @@ const darkTextTypes = {'electric', 'ice', 'ground', 'steel', 'grass', 'bug'};
 Color typeTextColor(String t) =>
     darkTextTypes.contains(t) ? Colors.black : Colors.white;
 
-String typeLabel(String t) => t[0].toUpperCase() + t.substring(1);
-String typeAbbr(String t) => t.substring(0, 3).toUpperCase();
+String typeLabel(String t) =>
+    t == 'unknown' ? '???' : t[0].toUpperCase() + t.substring(1);
+String typeAbbr(String t) =>
+    t == 'unknown' ? '???' : t.substring(0, 3).toUpperCase();

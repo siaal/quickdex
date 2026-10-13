@@ -4,6 +4,7 @@ import pytest
 
 from quickdex_data.csvdb import CsvDb
 from quickdex_data.entries import build_entries
+from quickdex_data.games import EMERALD, SCARLET
 
 ROOT = Path(__file__).resolve().parents[2]
 CSV_DIR = ROOT / ".cache" / "pokeapi" / "data" / "v2" / "csv"
@@ -18,7 +19,7 @@ def db() -> CsvDb:
 
 @pytest.fixture(scope="session")
 def built(db):
-    return build_entries(db)
+    return build_entries(db, SCARLET)
 
 
 @pytest.fixture(scope="session")
@@ -29,3 +30,13 @@ def by_name(built):
 @pytest.fixture(scope="session")
 def by_id(built):
     return {e.id: e for e in built.entries}
+
+
+@pytest.fixture(scope="session")
+def emerald(db):
+    return build_entries(db, EMERALD)
+
+
+@pytest.fixture(scope="session")
+def em_name(emerald):
+    return {e.name: e for e in emerald.entries}

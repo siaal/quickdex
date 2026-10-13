@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../search/searchable.dart';
 import 'ability_guard.dart';
+import 'game.dart';
 
 class Ability {
   const Ability(this.key, this.name, this.effect, [this.description = '']);
@@ -105,8 +106,8 @@ class PokemonEntry implements Searchable {
   /// Immunity granted by every ability this entry can have, if any.
   final AbilityGuard? guard;
 
-  /// Scarlet's in-game dex (Paldea, then Kitakami, then Blueberry); null if the
-  /// species is in none of them.
+  /// The game's in-game dex (Scarlet: Paldea, then Kitakami, then Blueberry;
+  /// Emerald: Hoenn); null if the species is in none of them.
   final ({String name, int number})? region;
 
   double get weightKg => weight / 10;
@@ -114,7 +115,7 @@ class PokemonEntry implements Searchable {
   @override
   List<int> get numbers => [dex, ?region?.number];
 
-  /// e.g. "Paldea #074 · #025"; just the national "#063" if not in Scarlet.
+  /// e.g. "Paldea #074 · #025"; just the national "#063" if in no regional dex.
   String get dexLabel {
     String pad(int n) => '#${n.toString().padLeft(3, '0')}';
     final r = region;
@@ -200,10 +201,12 @@ class Pokedex {
     required this.chains,
     required this.types,
     this.abilities = const {},
+    this.game = GameInfo.scarlet,
   }) : byId = {for (final e in entries) e.id: e};
 
   factory Pokedex.parse(String pokedexJson, String typesJson) {
     final dex = jsonDecode(pokedexJson) as Map<String, dynamic>;
+    final game = GameInfo.fromJson(dex['game'] as Map<String, dynamic>);
     final types = TypeChart.fromJson(
       jsonDecode(typesJson) as Map<String, dynamic>,
     );
@@ -212,7 +215,11 @@ class Pokedex {
           MapEntry(int.parse(k), Ability.fromJson(v as Map<String, dynamic>)),
     );
     AbilityGuard? guardFor(List<int> ids, Map<String, double> defense) =>
-        guaranteedGuard([for (final a in ids) abilities[a]!], defense);
+        guaranteedGuard(
+          [for (final a in ids) abilities[a]!],
+          defense,
+          game.gen,
+        );
     // Entries sharing a typing share one (read-only) defence map.
     final defenseCache = <String, Map<String, double>>{};
     Map<String, double> defenseFor(List<String> t) =>
@@ -223,6 +230,7 @@ class Pokedex {
           PokemonEntry.fromJson(e, defenseFor, guardFor),
       ],
       abilities: abilities,
+      game: game,
       chains: (dex['chains'] as Map<String, dynamic>).map(
         (k, v) => MapEntry(
           int.parse(k),
@@ -238,6 +246,7 @@ class Pokedex {
   final Map<int, EvoChain> chains;
   final TypeChart types;
   final Map<int, Ability> abilities;
+  final GameInfo game;
 
   PokemonEntry operator [](int id) => byId[id]!;
 
@@ -257,11 +266,17 @@ class Pokedex {
   void assertInvariants() {
     assert(() {
       assert(byId.length == entries.length, 'duplicate entry ids');
-      assert(types.order.length == 18, 'expected 18 types');
+      assert(
+        types.order.length == (game.gen >= 6 ? 18 : 17),
+        'expected 18 types from Gen 6 (Fairy), else 17',
+      );
       for (final e in entries) {
         assert(e.forms.contains(e.id), '${e.name}: forms must include itself');
         assert(e.forms.every(byId.containsKey), '${e.name}: unknown form id');
-        assert(e.defense.length == 18, '${e.name}: defense must have 18 keys');
+        assert(
+          e.defense.length == types.order.length,
+          '${e.name}: defense must cover every type',
+        );
         assert(e.stats.length == 6, '${e.name}: expected 6 stats');
         assert(e.abilities.isNotEmpty, '${e.name}: no abilities');
         assert(

@@ -4,6 +4,7 @@ import '../data/moves.dart';
 import '../frecency/frecency.dart';
 import '../trace.dart';
 import 'category_badge.dart';
+import 'game_scope.dart';
 import 'type_badge.dart';
 
 class MovePage extends StatefulWidget {
@@ -85,10 +86,10 @@ class MoveDetails extends StatelessWidget {
         Row(
           children: [
             TypeBadge(m.type, key: const Key('move-type'), icon: true),
-            if (!m.inScarlet) ...[
+            if (!m.inGame) ...[
               const SizedBox(width: 6),
               Container(
-                key: const Key('move-not-sv'),
+                key: const Key('move-not-in-game'),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 4,
@@ -98,7 +99,7 @@ class MoveDetails extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'Not in Scarlet',
+                  'Not in ${GameScope.of(context).name}',
                   style: TextStyle(color: theme.hintColor),
                 ),
               ),

@@ -3,10 +3,9 @@ from collections import defaultdict
 
 from .csvdb import CsvDb, SchemaError
 from .entries import Entry
+from .games import Eras, Game
 
 log = logging.getLogger("quickdex.evolutions")
-
-SV_VERSION_GROUP = "25"
 
 TRIGGER_LABELS = {
     "spin": "Spin around holding a Sweet",
@@ -21,13 +20,13 @@ TRIGGER_LABELS = {
 STYLE = {"agile-style-move": " in Agile Style", "strong-style-move": " in Strong Style"}
 RELATIVE_STATS = {"1": "Atk > Def", "0": "Atk = Def", "-1": "Atk < Def"}
 GENDERS = {"1": "female", "2": "male"}
-# Gen 8+ friendship-evolution threshold. PokéAPI still carries the old Gen 2-7 value
-# (220) on some rows, e.g. Pichu, so the number is fixed here, not read from data.
-SCARLET_FRIENDSHIP = 160
 
 
 class Names:
-    def __init__(self, db: CsvDb):
+    # The friendship threshold is the game's (Game.friendship): PokéAPI rows carry
+    # 220 or 160 depending on when they were added, not on the game.
+    def __init__(self, db: CsvDb, game: Game):
+        self.friendship = game.friendship
         self.items = db.english_names("item_names", "item_id")
         self.moves = db.english_names("move_names", "move_id")
         self.locations = db.english_names("location_names", "location_id")
@@ -92,11 +91,11 @@ def render_method(r: dict[str, str], n: Names) -> str | None:
     if has("known_move_type_id"):
         cond.append(f"knows a {n.types[r['known_move_type_id']]} move")
     if has("minimum_happiness"):
-        cond.append(f"friendship {SCARLET_FRIENDSHIP}+")
+        cond.append(f"friendship {n.friendship}+")
     if has("minimum_affection"):
         cond.append("high affection")
     if has("minimum_beauty"):
-        cond.append("high Beauty")
+        cond.append(f"Beauty {r['minimum_beauty']}+")
     if has("time_of_day"):
         cond.append(r["time_of_day"].replace("-", " "))
     if has("location_id"):
@@ -133,24 +132,55 @@ def render_method(r: dict[str, str], n: Names) -> str | None:
     return text
 
 
-def _select_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    sv = [r for r in rows if r["version_group_id"] == SV_VERSION_GROUP]
-    if sv:
-        return sv
+def _select_rows(rows: list[dict[str, str]], game: Game) -> list[dict[str, str]]:
+    own = [r for r in rows if r["version_group_id"] == game.version_group]
+    if own:
+        return own
     default = [r for r in rows if r["is_default"] == "1"]
     return default or rows
 
 
-def build_chains(db: CsvDb, entries: list[Entry],
-                 method_overrides: dict[str, str]) -> tuple[dict[str, dict], list[str]]:
+class _Exists:
+    """Whether an evolution row's requirements existed by the game's generation."""
+
+    def __init__(self, db: CsvDb, game: Game):
+        self.gen = game.generation
+        self.eras = Eras(db, game)
+        self.item: dict[str, int] = {}
+        for r in db.rows("item_game_indices", ("item_id", "generation_id")):
+            g = int(r["generation_id"])
+            self.item[r["item_id"]] = min(g, self.item.get(r["item_id"], g))
+        self.move = {r["id"]: int(r["generation_id"]) for r in db.rows("moves")}
+        self.type = {r["id"]: int(r["generation_id"]) for r in db.rows("types")}
+        self.species = {r["id"]: int(r["generation_id"]) for r in db.rows("pokemon_species")}
+        self.region = {r["main_region_id"]: int(r["id"]) for r in db.rows("generations")}
+
+    def missing(self, r: dict[str, str]) -> str | None:
+        if self.eras.vg_generation[r["version_group_id"]] > self.gen:
+            return "row added later"
+        checks = (("trigger_item_id", self.item), ("held_item_id", self.item),
+                  ("known_move_id", self.move), ("used_move_id", self.move),
+                  ("known_move_type_id", self.type), ("party_species_id", self.species),
+                  ("trade_species_id", self.species), ("region_id", self.region))
+        for col, gens in checks:
+            v = r.get(col, "")
+            if v and gens.get(v, 0) > self.gen:
+                return f"{col}={v} is from Gen {gens[v]}"
+        return None
+
+
+def build_chains(db: CsvDb, entries: list[Entry], method_overrides: dict[str, str],
+                 game: Game) -> tuple[dict[str, dict], list[str]]:
     kept = {e.id for e in entries}
+    kept_species = {str(e.dex) for e in entries}
+    exists = _Exists(db, game)
     order = {e.id: i for i, e in enumerate(entries)}
     entry_chain = {e.id: e.chain for e in entries}
     species = {r["id"]: r for r in db.rows("pokemon_species", ("id", "evolves_from_species_id"))}
     form_to_pokemon = {f["id"]: f["pokemon_id"] for f in db.rows("pokemon_forms")}
     default_pokemon = {p["species_id"]: p["id"] for p in db.rows("pokemon")
                        if p["is_default"] == "1"}
-    names = Names(db)
+    names = Names(db, game)
 
     def resolve(form_id: str, species_id: str) -> int:
         pid = form_to_pokemon.get(form_id) if form_id else None
@@ -169,13 +199,23 @@ def build_chains(db: CsvDb, entries: list[Entry],
         from_sid = species[to_sid]["evolves_from_species_id"]
         if not from_sid:
             raise SchemaError(f"evolution row {r['id']} targets species {to_sid} with no parent")
+        if to_sid not in kept_species or from_sid not in kept_species:
+            continue
         seen_species.add(to_sid)
         key = (resolve(r["required_pokemon_form_id"], from_sid),
                resolve(r["evolved_pokemon_form_id"], to_sid))
+        # An edge whose every row is skipped stays, row-less, and is reported as a gap.
+        grouped.setdefault(key, [])
+        why = exists.missing(r)
+        if why:
+            log.debug("evolutions.build.row_not_in_game %s row=%s %s", game.key, r["id"], why)
+            continue
         grouped[key].append(r)
 
     gaps: list[str] = []
     for sid, s in species.items():
+        if sid not in kept_species or s["evolves_from_species_id"] not in kept_species:
+            continue
         if s["evolves_from_species_id"] and sid not in seen_species:
             key = (int(default_pokemon[s["evolves_from_species_id"]]), int(default_pokemon[sid]))
             log.debug("evolutions.build.species_without_rows %s", sid)
@@ -188,7 +228,8 @@ def build_chains(db: CsvDb, entries: list[Entry],
             log.debug("evolutions.build.override %s->%s", frm, to)
             method: str | None = override
         else:
-            rendered = [render_method(r, names) for r in _select_rows(rows)] if rows else [None]
+            rendered = ([render_method(r, names) for r in _select_rows(rows, game)]
+                        if rows else [None])
             method = None if None in rendered else " / ".join(dict.fromkeys(rendered))
         if method is None:
             gaps.append(f"evolution {frm}->{to}: no renderable method "

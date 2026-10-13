@@ -3,28 +3,36 @@ import logging
 from collections import defaultdict
 from pathlib import Path
 
+from .abilities import clean_paragraphs, era_notes
 from .csvdb import ENGLISH, CsvDb, SchemaError
+from .games import Eras, Game
 
 log = logging.getLogger("quickdex.moves")
 
-SV_VERSION_GROUP = "25"
-# Seen in Scarlet without any Pokémon learning them.
-SV_EXTRA = {"struggle", "behemoth-blade", "behemoth-bash", "blazing-torque",
-            "wicked-torque", "noxious-torque", "combat-torque", "magical-torque"}
 # Showdown flag -> label; only flags that matter when reading a move. Contact is
 # emitted separately as a bool. PokéAPI's move_flag_map lacks every Gen 9 and many
-# Gen 7-8 moves, so flags come from Showdown, cross-checked against PokéAPI.
+# Gen 7-8 moves, so flags come from Showdown, cross-checked against PokéAPI. They're
+# today's flags in every game.
 FLAG_LABELS = {"punch": "Punch", "sound": "Sound", "powder": "Powder", "bite": "Bite",
                "pulse": "Pulse", "bullet": "Bullet", "dance": "Dance"}
 # PokéAPI move_flags id -> Showdown flag, for the cross-check.
 POKEAPI_FLAGS = {"1": "contact", "8": "punch", "9": "sound", "15": "powder", "16": "bite",
                  "17": "pulse", "18": "bullet", "21": "dance"}
 TARGET_FALLBACK = {"fainting-pokemon": "Fainted party Pokémon"}
+# Before the Gen 4 physical/special split a damaging move's class came from its type.
+SPLIT_GENERATION = 4
+PHYSICAL_TYPES = {"normal", "fighting", "flying", "poison", "ground", "rock", "bug",
+                  "ghost", "steel"}
+# move_changelog columns: each row holds the values from before its version group.
+CHANGELOG_COLUMNS = ("type_id", "power", "pp", "accuracy", "priority", "target_id",
+                     "effect_id", "effect_chance")
 
 
-def _excluded(m: dict[str, str]) -> str | None:
+def _excluded(m: dict[str, str], game: Game) -> str | None:
     if int(m["id"]) > 10000:
         return "shadow"
+    if int(m["generation_id"]) > game.generation:
+        return f"introduced in Gen {m['generation_id']}"
     if m["identifier"].startswith("max-"):
         return "max"
     # Z-Moves are the Gen 7 1-PP moves (Struggle is Gen 1, Revival Blessing Gen 9).
@@ -50,13 +58,56 @@ def load_showdown(path: Path) -> dict[int, set[str]]:
     return out
 
 
+def _as_of_game(db: CsvDb, eras: Eras) -> dict[str, dict[str, str]]:
+    """Move id -> changelog columns as they were in the game (only those that differ).
+    For each column the earliest change after the game holds the game's value."""
+    best: dict[tuple[str, str], tuple[int, str]] = {}
+    for r in db.rows("move_changelog", ("move_id", "changed_in_version_group_id",
+                                        *CHANGELOG_COLUMNS)):
+        vg = r["changed_in_version_group_id"]
+        if not eras.after_game(vg):
+            continue
+        for col in CHANGELOG_COLUMNS:
+            key = (r["move_id"], col)
+            if r[col] != "" and (key not in best or eras.order[vg] < best[key][0]):
+                best[key] = (eras.order[vg], r[col])
+    out: dict[str, dict[str, str]] = defaultdict(dict)
+    for (mid, col), (_, value) in best.items():
+        out[mid][col] = value
+    return out
+
+
+# Scarlet's placeholder for moves it lists but won't let you use.
+UNUSABLE_TEXT = "This move can't be used."
+
+
+def _game_text(db: CsvDb, eras: Eras) -> dict[str, str]:
+    """Move id -> English in-game text: the game's own, else the latest from a version
+    group of its generation or earlier. Placeholder texts don't count."""
+    best: dict[str, tuple[tuple[bool, int], str]] = {}
+    gen = eras.game.generation
+    for r in db.rows("move_flavor_text", ("move_id", "version_group_id", "language_id",
+                                          "flavor_text")):
+        vg = r["version_group_id"]
+        if r["language_id"] != ENGLISH or eras.vg_generation[vg] > gen:
+            continue
+        if r["flavor_text"].startswith(UNUSABLE_TEXT):
+            continue
+        rank = (vg == eras.game.version_group, eras.order[vg])
+        if r["move_id"] not in best or rank > best[r["move_id"]][0]:
+            best[r["move_id"]] = (rank, r["flavor_text"])
+    return {mid: text for mid, (_, text) in best.items()}
+
+
 def build_moves(db: CsvDb, desc_overrides: dict[str, str],
-                showdown: dict[int, set[str]]) -> list[dict]:
-    """Every move a player can see in battle, sorted by English name.
+                showdown: dict[int, set[str]], game: Game) -> list[dict]:
+    """Every move a player can see in battle in `game`, as it was there, sorted by
+    English name.
 
     `desc_overrides` maps move identifier -> hand-written long description;
     `showdown` is move number -> flags, from `load_showdown`.
     """
+    eras = Eras(db, game)
     types = {r["id"]: r["identifier"] for r in db.rows("types", ("id", "identifier"))}
     classes = {r["id"]: r["identifier"]
                for r in db.rows("move_damage_classes", ("id", "identifier"))}
@@ -64,40 +115,51 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str],
     target_names = db.english_names("move_target_prose", "move_target_id")
     names = db.english_names("move_names", "move_id")
     long = db.english_names("move_effect_prose", "move_effect_id", "effect")
-    sv = {r["move_id"] for r in db.rows("pokemon_moves", ("move_id", "version_group_id"))
-          if r["version_group_id"] == SV_VERSION_GROUP}
+    change_prose = db.english_names("move_effect_changelog_prose",
+                                    "move_effect_changelog_id", "effect")
+    effect_changes: dict[str, list[tuple[int, str]]] = defaultdict(list)
+    for r in db.rows("move_effect_changelog", ("id", "effect_id", "changed_in_version_group_id")):
+        vg = r["changed_in_version_group_id"]
+        if eras.after_game(vg) and r["id"] in change_prose:
+            effect_changes[r["effect_id"]].append((eras.order[vg], change_prose[r["id"]]))
+    in_game = {r["move_id"] for r in db.rows("pokemon_moves", ("move_id", "version_group_id"))
+               if r["version_group_id"] == game.version_group}
     pokeapi_flags: dict[str, set[str]] = defaultdict(set)
     for r in db.rows("move_flag_map", ("move_id", "move_flag_id")):
         pokeapi_flags[r["move_id"]].add(POKEAPI_FLAGS.get(r["move_flag_id"], ""))
-    # Latest English in-game text per move (Scarlet/Violet when it has one).
-    text: dict[str, tuple[int, str]] = {}
-    for r in db.rows("move_flavor_text", ("move_id", "version_group_id", "language_id",
-                                          "flavor_text")):
-        vg = int(r["version_group_id"])
-        if r["language_id"] == ENGLISH and vg >= text.get(r["move_id"], (-1, ""))[0]:
-            text[r["move_id"]] = (vg, r["flavor_text"])
+    text = _game_text(db, eras)
+    past = _as_of_game(db, eras)
 
-    unused = set(desc_overrides)
+    rows = db.rows("moves", ("id", "identifier", "generation_id", "type_id", "power", "pp",
+                             "accuracy", "priority", "target_id", "damage_class_id",
+                             "effect_id", "effect_chance"))
+    unknown = set(desc_overrides) - {m["identifier"] for m in rows}
+    if unknown:
+        raise SchemaError(f"move description overrides match no move: {sorted(unknown)}")
     out = []
-    for m in db.rows("moves", ("id", "identifier", "generation_id", "type_id", "power", "pp", "accuracy",
-                               "priority", "target_id", "damage_class_id", "effect_id",
-                               "effect_chance")):
+    for m in rows:
         mid, key = m["id"], m["identifier"]
-        reason = _excluded(m)
+        reason = _excluded(m, game)
         if reason:
-            log.debug("moves.build.drop %s reason=%s", key, reason)
+            log.debug("moves.build.drop %s %s reason=%s", game.key, key, reason)
             continue
+        if past.get(mid):
+            log.debug("moves.build.as_of_game %s %s %s", game.key, key, past[mid])
+        m = {**m, **past.get(mid, {})}
         if mid not in names:
             raise SchemaError(f"move {mid} ({key}) lacks an English name")
         if mid not in text:
-            log.debug("moves.build.no_text %s", key)
+            log.debug("moves.build.no_text %s %s", game.key, key)
         target_key = target_ids[m["target_id"]]
         desc = desc_overrides.get(key)
-        unused.discard(key)
         if desc is None and m["effect_id"] in long:
-            desc = "\n\n".join(_clean(p) for p in long[m["effect_id"]].split("\n\n") if p.strip())
+            desc = clean_paragraphs(long[m["effect_id"]])
+        notes = era_notes(game, effect_changes[m["effect_id"]])
+        if notes:
+            log.debug("moves.build.era_notes %s %s", game.key, key)
+            desc = f"{notes}\n\n{desc}" if desc else notes
         if desc is None:
-            log.debug("moves.build.no_description %s", key)
+            log.debug("moves.build.no_description %s %s", game.key, key)
         flags = showdown.get(int(mid))
         if flags is None:
             raise SchemaError(f"move {mid} ({key}) is missing from Showdown's moves")
@@ -106,9 +168,13 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str],
                               f"{sorted(pokeapi_flags[mid] - {''})} vs Showdown {sorted(flags)}")
         if mid not in pokeapi_flags:
             log.debug("moves.build.flags_from_showdown_only %s", key)
+        move_type = types[m["type_id"]]
+        cat = classes[m["damage_class_id"]]
+        if game.generation < SPLIT_GENERATION and cat != "status":
+            cat = "physical" if move_type in PHYSICAL_TYPES else "special"
         out.append({
-            "id": int(mid), "key": key, "name": names[mid], "type": types[m["type_id"]],
-            "cat": classes[m["damage_class_id"]],
+            "id": int(mid), "key": key, "name": names[mid], "type": move_type,
+            "cat": cat,
             "power": int(m["power"]) if m["power"] else None,
             "acc": int(m["accuracy"]) if m["accuracy"] else None,
             "pp": int(m["pp"]) if m["pp"] else None,
@@ -117,35 +183,31 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str],
             "target": target_names.get(m["target_id"]) or TARGET_FALLBACK[target_key],
             "contact": "contact" in flags,
             "flags": [label for f, label in FLAG_LABELS.items() if f in flags],
-            "sv": mid in sv or key in SV_EXTRA,
-            "text": _clean(text[mid][1]) if mid in text else None,
+            "in_game": mid in in_game or key in game.extra_moves,
+            "text": _clean(text[mid]) if mid in text else None,
             "desc": desc,
         })
-    if unused:
-        raise SchemaError(f"move description overrides match no move: {sorted(unused)}")
     out.sort(key=lambda m: m["name"])
     return out
 
 
 LEVEL_UP = "1"
-# Fallback games for Pokémon not in Scarlet, labelled on the page, most preferred
-# first: Sword/Shield's learnsets are what Scarlet's derive from, BDSP keeps Gen 4
-# ones. Legends games and Champions are left out: their move systems differ.
-FALLBACK_GAMES = {"20": "Sword/Shield", "23": "Brilliant Diamond/Shining Pearl",
-                  "18": "Ultra Sun/Ultra Moon", "17": "Sun/Moon", "19": "Let's Go"}
-_PREFERENCE = list(FALLBACK_GAMES)
 
 
-def build_learnsets(db: CsvDb, entry_ids: list[int], move_ids: set[int]) -> dict[str, dict]:
+def build_learnsets(db: CsvDb, entry_ids: list[int], move_ids: set[int],
+                    game: Game) -> dict[str, dict]:
     """Level-up learnset per entry id: `{"game": None | fallback label,
-    "moves": [[level, move id], ...]}`, level 0 = learned on evolution."""
+    "moves": [[level, move id], ...]}`, level 0 = learned on evolution. Pokémon the
+    game lacks use its first fallback game that has them."""
+    fallbacks = dict(game.fallback_games)
+    preference = [game.version_group, *fallbacks]
     wanted = {str(i) for i in entry_ids}
     rows: dict[str, dict[str, list[tuple[int, int, int]]]] = defaultdict(lambda: defaultdict(list))
     for r in db.rows("pokemon_moves", ("pokemon_id", "version_group_id", "move_id",
                                        "pokemon_move_method_id", "level", "order")):
         vg = r["version_group_id"]
         if (r["pokemon_move_method_id"] != LEVEL_UP or r["pokemon_id"] not in wanted
-                or (vg != SV_VERSION_GROUP and vg not in FALLBACK_GAMES)):
+                or vg not in preference):
             continue
         rows[r["pokemon_id"]][vg].append(
             (int(r["level"]), int(r["order"] or 0), int(r["move_id"])))
@@ -153,13 +215,14 @@ def build_learnsets(db: CsvDb, entry_ids: list[int], move_ids: set[int]) -> dict
     for pid in sorted(wanted, key=int):
         by_game = rows.get(pid)
         if not by_game:
-            raise SchemaError(f"pokemon {pid} has no level-up learnset in any supported game")
-        vg = SV_VERSION_GROUP if SV_VERSION_GROUP in by_game else min(by_game, key=_PREFERENCE.index)
-        if vg != SV_VERSION_GROUP:
-            log.debug("moves.learnset.fallback %s game=%s", pid, vg)
+            raise SchemaError(f"pokemon {pid} has no level-up learnset in {game.name} "
+                              f"or its fallbacks")
+        vg = min(by_game, key=preference.index)
+        if vg != game.version_group:
+            log.debug("moves.learnset.fallback %s %s game=%s", game.key, pid, vg)
         moves = [[lv, mid] for lv, _, mid in sorted(by_game[vg])]
         unknown = {mid for _, mid in moves} - move_ids
         if unknown:
             raise SchemaError(f"pokemon {pid} learns moves not in moves.json: {unknown}")
-        out[pid] = {"game": FALLBACK_GAMES.get(vg), "moves": moves}
+        out[pid] = {"game": fallbacks.get(vg), "moves": moves}
     return out
