@@ -42,7 +42,8 @@
   `team.v1`; unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
   guaranteed guard only) and takes attack types from damaging moves, falling back to
-  STAB. `analyseTeam` gives one `TypeMatchup` row per type.
+  STAB. `analyseTeam` gives one `TypeMatchup` row per type;
+  its `edges` (doublings dealt minus taken, 0× = 3 halvings) drive the row tint.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1`. A visit is credited to the
   entry opened from search (on page open), not to forms/evolutions swapped to after.

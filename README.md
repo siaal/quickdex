@@ -24,7 +24,10 @@ Offline, low-latency Pokédex for Android (Gen 9 / Scarlet data):
   right-click a move to read what it does). Below, each
   attacking type shows how many members are weak, resist or are immune (the chosen
   ability's immunity counts, e.g. Levitate), and how many hit it super-effectively
-  with their damaging moves (or their own types if no moves are picked). Tap a type for
+  with their damaging moves (or their own types if no moves are picked). A row is red
+  when more members lose that matchup than win it, green when more win (each member
+  compares what it deals with what it takes, so resisting counts as winning and taking
+  2× while dealing 2× is even). Tap a type for
   each member's multipliers; tap a column header to sort by it (again to reverse).
   Long-press or right-click a slot to go straight to the Pokémon chooser, or a type
   pill to open it in the Type Chart as a defender. The team is saved on the device.

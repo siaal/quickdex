@@ -9,6 +9,7 @@ import 'package:quickdex/frecency/frecency.dart';
 import 'package:quickdex/search/search_index.dart';
 import 'package:quickdex/team/team.dart';
 import 'package:quickdex/ui/team_screen.dart';
+import 'package:quickdex/ui/matchup_section.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -130,14 +131,14 @@ void main() {
     expect(cellText(tester, 'team-weak-ground'), '1');
     expect(cellText(tester, 'team-weak-water'), '1');
     expect(cellText(tester, 'team-hitters-fire'), '1');
-    final weakGrass = tester.widget<Container>(
-      find.byKey(const Key('team-weak-grass')),
-    );
-    expect(
-      (weakGrass.decoration! as BoxDecoration).color,
-      isNull,
-      reason: 'Golem weak, Bronzong resists: not a hole',
-    );
+    Color? rowTint(String t) =>
+        tester.widget<ColoredBox>(find.byKey(Key('team-tint-$t'))).color;
+    // Water: Golem takes 4× deals 1× (behind); Bronzong takes and deals 1× (even).
+    expect(rowTint('water'), matchupTint(2, defending: true));
+    // Normal: both resist it and deal 1× (ahead).
+    expect(rowTint('normal'), matchupTint(2, defending: false));
+    // Grass: Golem takes 4× deals 1× (behind); Bronzong takes ½× deals 1× (ahead).
+    expect(rowTint('grass'), Colors.transparent);
     expect(find.byKey(const Key('team-detail-water')), findsNothing);
     await tester.tap(find.byKey(const Key('team-row-water')));
     await tester.pump();

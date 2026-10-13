@@ -103,6 +103,40 @@ void main() {
       );
     });
 
+    test(
+      'ahead/behind: deals minus takes, in doubling steps; 0× is 3 steps',
+      () {
+        // takes 2 deals 2 (even), takes ½ deals 1 (ahead), immune (ahead),
+        // takes 1 deals ½ (behind), takes 0 deals 0 (even).
+        final r = TypeMatchup(
+          'x',
+          const [2, 0.5, 0, 1, 0],
+          const [2, 1, 1, 0.5, 0],
+        );
+        expect(r.edges, [0, 1, 3, -1, 0]);
+        expect((r.ahead, r.behind), (2, 1));
+      },
+    );
+
+    test(
+      'Toxapex is ahead of Fighting without hitting it super-effectively',
+      () {
+        final members = [
+          resolveMember(0, TeamSlot(named('Toxapex').id), dex, moves),
+          resolveMember(1, TeamSlot(named('Annihilape').id), dex, moves),
+        ];
+        final rows = {
+          for (final r in analyseTeam(members, dex.types)) r.type: r,
+        };
+        expect(rows['fighting']!.edges.first, greaterThan(0));
+        expect(
+          rows['normal']!.edges.last,
+          greaterThanOrEqualTo(3),
+          reason: 'immune',
+        );
+      },
+    );
+
     test('counts weak/resist/immune and super-effective hitters per type', () {
       final members = [
         resolveMember(0, TeamSlot(named('Golem').id), dex, moves),

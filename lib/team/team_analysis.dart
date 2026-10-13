@@ -71,6 +71,29 @@ class TypeMatchup {
 
   /// Members that hit [type] super-effectively.
   int get hitters => offense.where((m) => m > 1).length;
+
+  /// Each member's edge over [type]: doublings dealt minus doublings taken,
+  /// with 0× counting as three halvings. Positive = ahead, negative = behind;
+  /// takes 2× and deals 2× is even.
+  List<double> get edges => [
+    for (var i = 0; i < defense.length; i++)
+      _steps(offense[i]) - _steps(defense[i]),
+  ];
+
+  int get ahead => edges.where((e) => e > 0).length;
+  int get behind => edges.where((e) => e < 0).length;
+
+  static double _steps(double m) {
+    assert(const [0, 0.25, 0.5, 1, 2, 4].contains(m), 'multiplier $m');
+    return switch (m) {
+      0 => -3,
+      0.25 => -2,
+      0.5 => -1,
+      2 => 1,
+      4 => 2,
+      _ => 0,
+    };
+  }
 }
 
 /// One row per type in chart order.

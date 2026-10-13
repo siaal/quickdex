@@ -258,41 +258,40 @@ class _TeamScreenState extends State<TeamScreen> {
             trace('team.row.toggle', {'type': r.type});
             setState(() => _expanded = _expanded == r.type ? null : r.type);
           },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: _typeColumn,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: TypeBadge(
-                      r.type,
-                      compact: true,
-                      key: Key('team-type-${r.type}'),
-                      onAdd: _openType(r.type, 'attacking'),
+          // Red when more members are behind this type than ahead of it,
+          // green when more are ahead (see TypeMatchup.edges).
+          child: ColoredBox(
+            key: Key('team-tint-${r.type}'),
+            color: _rowTint(r),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: _typeColumn,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TypeBadge(
+                        r.type,
+                        compact: true,
+                        key: Key('team-type-${r.type}'),
+                        onAdd: _openType(r.type, 'attacking'),
+                      ),
                     ),
                   ),
-                ),
-                // More weak than not is a hole in the team's defence.
-                cell(
-                  '${r.weak}',
-                  key: Key('team-weak-${r.type}'),
-                  tint: r.weak > r.resist + r.immune
-                      ? matchupTint(r.weak >= 3 ? 4 : 2, defending: true)
-                      : null,
-                ),
-                cell('${r.resist}'),
-                cell('${r.immune}'),
-                // No one hitting it super-effectively is a coverage gap.
-                cell(
-                  '${r.hitters}',
-                  key: Key('team-hitters-${r.type}'),
-                  tint: r.hitters == 0
-                      ? matchupTint(0.5, defending: false)
-                      : matchupTint(2, defending: false),
-                ),
-              ],
+                  cell('${r.weak}', key: Key('team-weak-${r.type}')),
+                  cell('${r.resist}'),
+                  cell('${r.immune}'),
+                  // No one hitting it super-effectively is a coverage gap.
+                  cell(
+                    '${r.hitters}',
+                    key: Key('team-hitters-${r.type}'),
+                    tint: r.hitters == 0
+                        ? matchupTint(0.5, defending: false)
+                        : matchupTint(2, defending: false),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -302,6 +301,21 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   static const _typeColumn = 84.0;
+
+  static Color _rowTint(TypeMatchup r) {
+    final net = r.ahead - r.behind;
+    trace('team.row.tint', {
+      'type': r.type,
+      'ahead': r.ahead,
+      'behind': r.behind,
+    });
+    if (net == 0) return Colors.transparent;
+    // matchupTint as an attacker: 2×/4× green, ½×/¼× red.
+    return matchupTint(
+      net > 0 ? (net >= 3 ? 4 : 2) : (net <= -3 ? 0.25 : 0.5),
+      defending: false,
+    );
+  }
 
   VoidCallback? _openType(String t, String from) {
     final open = widget.onOpenType;
