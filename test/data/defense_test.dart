@@ -74,6 +74,20 @@ void main() {
     expect(extremeMultiplier([2, 0]), 0);
   });
 
+  test('matchupTint: taking 0× is the greenest, then ¼×, then ½×', () {
+    final immune = matchupTint(0, defending: true);
+    final quarter = matchupTint(0.25, defending: true);
+    final half = matchupTint(0.5, defending: true);
+    for (final c in [immune, quarter, half]) {
+      expect(c.g, greaterThan(c.r), reason: 'green: $c');
+    }
+    expect(immune.a, greaterThan(quarter.a));
+    expect(quarter.a, greaterThan(half.a));
+    // Dealing 0× is no good to the attacker: stays grey.
+    final noEffect = matchupTint(0, defending: false);
+    expect(noEffect.g, closeTo(noEffect.r, 0.01));
+  });
+
   test('multLabel', () {
     expect(multLabel(0.25), '¼×');
     expect(multLabel(0.5), '½×');

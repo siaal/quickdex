@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 /// Translucent background for a matchup section, coloured by whether the
 /// multiplier is good or bad for the viewer: as a [defending] type, 4×/2× are
-/// red; as an attacker, 2× is green. 0× is grey either way, as in the grid.
+/// red; as an attacker, 2× is green. Taking 0× is the greenest of all (½× <
+/// ¼× < 0×); dealing 0× is grey, as in the grid.
 Color matchupTint(double m, {required bool defending}) {
   final good = defending ? m < 1 : m > 1;
   final strong = m == 4 || m == 0.25;
+  if (m == 0 && defending) return Colors.green.withValues(alpha: 0.6);
   if (m == 0) return Colors.grey.withValues(alpha: 0.3);
   if (m == 1) return Colors.transparent;
   return (good ? Colors.green : Colors.red).withValues(
