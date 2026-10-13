@@ -89,18 +89,28 @@ class Move implements Searchable {
 }
 
 /// Level-up moves of one Pokémon entry, in level order; level 0 = on evolution.
+/// Games whose TMs unlock by badge (Scrambled Scarlet) also list [tms].
 class Learnset {
-  const Learnset(this.game, this.moves);
+  const Learnset(this.game, this.moves, [this.tms = const []]);
 
-  factory Learnset.fromJson(Map<String, dynamic> j) =>
-      Learnset(j['game'] as String?, [
-        for (final m in (j['moves'] as List).cast<List<dynamic>>())
-          (level: m[0] as int, move: m[1] as int),
-      ]);
+  factory Learnset.fromJson(Map<String, dynamic> j) => Learnset(
+    j['game'] as String?,
+    [
+      for (final m in (j['moves'] as List).cast<List<dynamic>>())
+        (level: m[0] as int, move: m[1] as int),
+    ],
+    [
+      for (final m in ((j['tms'] as List?) ?? const []).cast<List<dynamic>>())
+        (badges: m[0] as int, move: m[1] as int),
+    ],
+  );
 
   /// Null for the loaded game; otherwise the older game the data comes from.
   final String? game;
   final List<({int level, int move})> moves;
+
+  /// TM moves by the badge count that unlocks them, fewest badges first.
+  final List<({int badges, int move})> tms;
 }
 
 class MoveDex {

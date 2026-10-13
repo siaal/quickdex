@@ -18,6 +18,8 @@ class Game:
     friendship: int = 220  # Gen 8 lowered it to 160
     # Moves seen in the game without any Pokémon learning them there.
     extra_moves: frozenset[str] = frozenset()
+    # A romhack read from the Doozdex sheet (scrambled.py) rather than PokéAPI.
+    doozdex: bool = False
 
 
 SCARLET = Game(
@@ -41,7 +43,13 @@ EMERALD = Game(
     extra_moves=frozenset({"struggle"}),
 )
 
-GAMES = (SCARLET, EMERALD)
+# The Scrambled Scarlet romhack: Scarlet with the Doozdex's changes (scrambled.py).
+SCRAMBLED = Game(
+    key="scrambled", name="Scrambled Scarlet", generation=9, version_group="25",
+    dexes=SCARLET.dexes, friendship=160, doozdex=True,
+)
+
+GAMES = (SCARLET, EMERALD, SCRAMBLED)
 
 
 class Eras:

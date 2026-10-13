@@ -1,9 +1,10 @@
 # QuickDex
 
-Offline, low-latency Pokédex for Android. It shows one game at a time: Scarlet (Gen 9)
-or Emerald (Gen 3), picked from the cog on the Search screen. Each game has its own
-types, typings, stats, abilities, moves and evolutions as they were in that game, and
-its own team and recents.
+Offline, low-latency Pokédex for Android. It shows one game at a time: Scarlet (Gen 9),
+Emerald (Gen 3) or the Scrambled Scarlet romhack, picked from the cog on the Search
+screen. Each game has its own types, typings, stats, abilities, moves and evolutions as
+they were in that game, and its own team and recents. Scrambled Scarlet's data comes
+from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by badge.
 
 
 - **Search:** one search for Pokémon and moves, with a Pokémon | All | Moves toggle
@@ -49,7 +50,7 @@ Everything is bundled. The app has no network permission.
 
 | Command | What it does |
 |---|---|
-| `make data` | Rebuild `assets/` from PokéAPI dumps and Showdown's move flags (cached in `.cache/`) |
+| `make data` | Rebuild `assets/` from PokéAPI dumps, Showdown's move flags and the Doozdex sheet (cached in `.cache/`) |
 | `make icon` | Regenerate Android/Windows/Linux app icons from `tool/icon/foreground.svg` (needs rsvg-convert, ImageMagick) |
 | `make test` | pytest (`tool/tests`) + `flutter test` |
 | `make analyze` | ruff + `flutter analyze` |
@@ -92,6 +93,12 @@ Without `key.properties` outside CI, release builds fall back to the debug key.
   - `types.json`: the game's type chart (18×18; 17×17 before Fairy)
   - `moves.json`: moves and level-up learnsets
 - `assets/art/full/<id>.webp` (256px) and `assets/art/thumb/<id>.webp` (128px)
+- Scrambled Scarlet (`tool/quickdex_data/scrambled.py`): Scarlet's data with the
+  Doozdex sheet's changes. The sheet is hand-written, so the build fails on anything
+  it can't match; fix those in `tool/overrides.json` under `scrambled`. Its pages are
+  cached in `.cache/doozdex/` (delete to refresh). Renamed moves and abilities keep the
+  vanilla id/key they replace. Stats are vanilla + the sheet's per-stat changes, unless
+  its stat bar picture and its total both say otherwise.
 - `assets/art/types/<type>.png`: Scarlet/Violet type icons (60px), plus a drawn grey
   one for ??? (Curse's type in Gen 2–4); shared by all games, like the artwork
 

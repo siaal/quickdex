@@ -6,5 +6,50 @@
     "868->869": "Spin around holding a Sweet",
     "924->925": "Lv. 25 in battle"
   },
-  "move_descriptions": {}
+  "move_descriptions": {},
+  "scrambled": {
+    "entry_names": {
+      "Ogerpon (Base)": 1017,
+      "Hattenna": 856,
+      "Ice Face Form": 875,
+      "Noice Face Form": 10185,
+      "Basculegion-F": 10248,
+      "Basculegion-M": 902,
+      "Pink Core": 10136,
+      "Palafin": 10256
+    },
+    "new_forms": {
+      "\"Sunny\" Form": ["Vivillon", "Sunny"],
+      "\"Stormy\" Form": ["Vivillon", "Stormy"],
+      "\"Snowy\" Form": ["Vivillon", "Snowy"],
+      "\"Sandy\" Form": ["Vivillon", "Sandy"]
+    },
+    "ability_names": {
+      "Endurance (Suction Cups for Red Card/Roar)": "Endurance (Suction Cups)",
+      "Changes to Core form at the end of the turn if below half HP. Can't be statused while in Meteor form.": null,
+      "Turns into... (Once Disguise is busted)": null
+    },
+    "learnset_fixes": {
+      "+Lo": null,
+      "oves": null,
+      "GE": null,
+      "ad": null,
+      "2": null,
+      "Thunde": null,
+      "gets that TM,": null,
+      "Malamar gets": null,
+      "learn that move,": null,
+      "get that move,": null,
+      "Facad": "Facade",
+      "Swo Swords Dance": "Swords Dance",
+      "+Magnet Risese": "Magnet Rise",
+      "+Iron Defen": "Iron Defense",
+      "Rest & plit": "Rest & Sleep Talk",
+      "Dual Screens": null,
+      "+Dual Screens": null,
+      "+Dual Screens*": null,
+      "Psycho Warp": null,
+      "Noxious Torque": null
+    }
+  }
 }

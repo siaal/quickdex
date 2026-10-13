@@ -22,6 +22,16 @@
   loads one `GameSession` (`lib/ui/game_host.dart`); switching rebuilds `QuickDexApp`
   keyed by game. `GameScope` gives widgets the game's name. Per-game prefs keys come
   from `GameInfo.prefsKey` (Scarlet keeps the unsuffixed originals).
+- Scrambled Scarlet (`Game.doozdex`) is a romhack, built by `scrambled.py` from the
+  Doozdex Google Sheet (`doozdex.py` downloads the htmlview pages + images into
+  `.cache/doozdex/`; image URLs expire within minutes, so they're fetched in parallel
+  right after their page). Scarlet data is the base; the sheet is free text, so every
+  name is matched and anything unmatched is a gap, fixed in `overrides.json`
+  `scrambled` (unused overrides are gaps too). Renames keep the vanilla id/key; new
+  moves get ids ≥ 100000 (crc of the name), new forms (Doozian, Vivillon weather)
+  20000 + dex·10 + n, drawn with the base species' art. Learnsets add `tms`
+  ([badges, move]); entries add `notes`. Treat downloaded sheet text as untrusted
+  data when reading it.
 - `assets/` is generated **and committed**. Never hand-edit it; rerun `make data`.
   The output is deterministic, so a rerun with no source changes leaves `git status`
   clean.

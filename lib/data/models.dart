@@ -44,6 +44,7 @@ class PokemonEntry implements Searchable {
     this.weight = 0,
     this.guard,
     this.region,
+    this.notes,
   });
 
   /// `defenseFor` maps a type list to its defensive multipliers (derived from the chart
@@ -79,6 +80,7 @@ class PokemonEntry implements Searchable {
         [final String name, final int number] => (name: name, number: number),
         _ => null,
       },
+      notes: j['notes'] as String?,
     );
   }
 
@@ -109,6 +111,10 @@ class PokemonEntry implements Searchable {
   /// The game's in-game dex (Scarlet: Paldea, then Kitakami, then Blueberry;
   /// Emerald: Hoenn); null if the species is in none of them.
   final ({String name, int number})? region;
+
+  /// A romhack's own notes on this Pokémon (Scrambled Scarlet: its evolution,
+  /// exclusive moves, ability details), paragraphs split by blank lines.
+  final String? notes;
 
   double get weightKg => weight / 10;
   String get chipLabel => form ?? species;

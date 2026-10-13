@@ -4,14 +4,17 @@ import json
 import logging
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from quickdex_data.abilities import build_abilities
 from quickdex_data.art import convert_art, copy_type_icons, draw_unknown_type_icon
 from quickdex_data.csvdb import CsvDb
+from quickdex_data.doozdex import ensure_doozdex
 from quickdex_data.entries import Entry, build_entries
 from quickdex_data.evolutions import build_chains
 from quickdex_data.games import GAMES, Game
 from quickdex_data.moves import build_learnsets, build_moves, load_showdown
+from quickdex_data.scrambled import build_scrambled
 from quickdex_data.sources import ensure_showdown_moves, ensure_sources
 from quickdex_data.typechart import TYPE_ORDER, build_chart
 
@@ -40,6 +43,30 @@ def _dir_size(path: Path) -> int:
 
 def game_meta(game: Game) -> dict:
     return {"key": game.key, "name": game.name, "gen": game.generation}
+
+
+def build_scrambled_game(db: CsvDb, game: Game, overrides: dict,
+                         showdown: dict[int, set[str]], doozdex: Path, out: Path
+                         ) -> tuple[list[SimpleNamespace], list[str]]:
+    """Like build_game, for the Doozdex romhack. Its new forms use their base
+    species' artwork."""
+    s = build_scrambled(db, showdown, doozdex, overrides)
+    order, chart = build_chart(db, game)
+    print(f"\n== {game.name}")
+    art = [SimpleNamespace(id=e["id"], name=e["name"]) for e in s.entries]
+    overrides["art"].update({str(k): v for k, v in s.art.items()})
+    if s.gaps:
+        return art, s.gaps
+    meta = game_meta(game)
+    _write_json(out / game.key / "pokedex.json",
+                {"game": meta, "entries": s.entries, "chains": s.chains,
+                 "abilities": s.abilities})
+    _write_json(out / game.key / "types.json", {"order": order, "chart": chart})
+    _write_json(out / game.key / "moves.json",
+                {"game": meta, "moves": s.moves, "learnsets": s.learnsets})
+    print(f"{game.name}: {len(s.entries)} entries, {len(s.chains)} chains, "
+          f"{len(s.moves)} moves, {len(order)} types")
+    return art, []
 
 
 def build_game(db: CsvDb, game: Game, overrides: dict, showdown: dict[int, set[str]],
@@ -88,9 +115,13 @@ def main(argv: list[str] | None = None) -> int:
     showdown = load_showdown(ensure_showdown_moves(args.cache))
     data = ROOT / "assets" / "data"
     gaps: list[str] = []
-    art_entries: dict[int, Entry] = {}
+    art_entries: dict[int, Entry | SimpleNamespace] = {}
     for game in GAMES:
-        entries, game_gaps = build_game(db, game, overrides, showdown, data)
+        if game.doozdex:
+            entries, game_gaps = build_scrambled_game(
+                db, game, overrides, showdown, ensure_doozdex(args.cache), data)
+        else:
+            entries, game_gaps = build_game(db, game, overrides, showdown, data)
         gaps += [f"{game.name}: {g}" for g in game_gaps]
         art_entries.update((e.id, e) for e in entries)
     gaps += convert_art(sorted(art_entries.values(), key=lambda e: e.id), art_dir,

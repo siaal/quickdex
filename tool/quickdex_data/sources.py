@@ -59,6 +59,17 @@ def ensure_sources(cache: Path) -> tuple[Path, Path, Path]:
     return csv_dir, art_dir, icon_dir
 
 
+def download(url: str, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part")
+    # Showdown 403s Python's default User-Agent.
+    req = urllib.request.Request(url, headers={"User-Agent": "quickdex-data"})
+    with urllib.request.urlopen(req) as resp:
+        tmp.write_bytes(resp.read())
+    tmp.rename(path)
+
+
+
 def ensure_showdown_moves(cache: Path) -> Path:
     """Download Showdown's moves.json into `cache` once; delete it to refresh."""
     path = cache / "showdown" / "moves.json"
@@ -66,11 +77,5 @@ def ensure_showdown_moves(cache: Path) -> Path:
         log.debug("sources.showdown.cached")
         return path
     log.debug("sources.showdown.download")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".part")
-    # The server 403s Python's default User-Agent.
-    req = urllib.request.Request(SHOWDOWN_MOVES_URL, headers={"User-Agent": "quickdex-data"})
-    with urllib.request.urlopen(req) as resp:
-        tmp.write_bytes(resp.read())
-    tmp.rename(path)
+    download(SHOWDOWN_MOVES_URL, path)
     return path

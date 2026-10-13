@@ -62,6 +62,7 @@ flutter:
     # One bundle per game (tool/quickdex_data/games.py); asset dirs aren't recursive.
     - assets/data/scarlet/
     - assets/data/emerald/
+    - assets/data/scrambled/
     - assets/art/full/
     - assets/art/thumb/
     - assets/art/types/

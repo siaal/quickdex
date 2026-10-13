@@ -204,6 +204,10 @@ def build_chains(db: CsvDb, entries: list[Entry], method_overrides: dict[str, st
         seen_species.add(to_sid)
         key = (resolve(r["required_pokemon_form_id"], from_sid),
                resolve(r["evolved_pokemon_form_id"], to_sid))
+        if key[0] not in kept or key[1] not in kept:
+            # Only when the default form itself isn't kept (Scrambled Scarlet).
+            log.debug("evolutions.build.endpoint_not_kept %s %s", game.key, key)
+            continue
         # An edge whose every row is skipped stays, row-less, and is reported as a gap.
         grouped.setdefault(key, [])
         why = exists.missing(r)
@@ -219,7 +223,8 @@ def build_chains(db: CsvDb, entries: list[Entry], method_overrides: dict[str, st
         if s["evolves_from_species_id"] and sid not in seen_species:
             key = (int(default_pokemon[s["evolves_from_species_id"]]), int(default_pokemon[sid]))
             log.debug("evolutions.build.species_without_rows %s", sid)
-            grouped.setdefault(key, [])
+            if key[0] in kept and key[1] in kept:
+                grouped.setdefault(key, [])
 
     chains: dict[int, dict] = defaultdict(lambda: {"roots": [], "edges": []})
     for (frm, to), rows in sorted(grouped.items()):

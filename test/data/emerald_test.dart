@@ -13,7 +13,7 @@ void main() {
   late MoveDex moves;
   setUpAll(() async {
     final games = await loadGames(rootBundle);
-    expect(games.map((g) => g.key), ['scarlet', 'emerald']);
+    expect(games.map((g) => g.key), ['scarlet', 'emerald', 'scrambled']);
     emerald = games[1];
     dex = await loadPokedex(rootBundle, emerald);
     moves = await loadMoves(rootBundle, emerald);

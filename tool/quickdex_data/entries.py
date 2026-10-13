@@ -90,7 +90,9 @@ def _nearest_past(rows: list[dict[str, str]], eras: Eras, key: tuple[str, ...]
     return out
 
 
-def build_entries(db: CsvDb, game: Game) -> EntryBuild:
+def build_entries(db: CsvDb, game: Game, keep_lookalikes: bool = False) -> EntryBuild:
+    """`keep_lookalikes` keeps forms that only look the same in vanilla data (a
+    romhack may tell them apart)."""
     eras = Eras(db, game)
     species_gen = {r["id"]: int(r["generation_id"])
                    for r in db.rows("pokemon_species", ("id", "generation_id"))}
@@ -195,7 +197,8 @@ def build_entries(db: CsvDb, game: Game) -> EntryBuild:
             reason = _name_drop_reason(ident, form)
             if reason is None and introduced > game.generation:
                 reason = f"introduced in Gen {introduced}"
-            if reason is None and signature(pid) in kept_signatures[sid]:
+            if (reason is None and not keep_lookalikes
+                    and signature(pid) in kept_signatures[sid]):
                 reason = "same types+stats as default or an earlier form"
             if reason:
                 log.debug("entries.build.drop %s reason=%s", ident, reason)

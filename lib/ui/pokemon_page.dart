@@ -199,6 +199,12 @@ class _PokemonPageState extends State<PokemonPage> {
             ],
             const SizedBox(height: 16),
             StatBars(stats: e.stats),
+            if (e.notes case final notes?) ...[
+              const SizedBox(height: 16),
+              Text('Notes', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 4),
+              SelectableText(notes, key: const Key('pokemon-notes')),
+            ],
             const SizedBox(height: 16),
             DefenseTable(
               defense: e.defense,
