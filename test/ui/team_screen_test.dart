@@ -37,12 +37,12 @@ void main() {
     tester.view.physicalSize = const Size(480, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final t = planner?.mine ?? team ?? Team();
+    final t = planner?.mine.team ?? team ?? Team();
     await tester.pumpWidget(
       MaterialApp(
         home: TeamScreen(
           dex: dex,
-          planner: planner ?? TeamPlanner(mine: t),
+          planner: planner ?? TeamPlanner(mine: TeamSide(team: t)),
           index: SearchIndex(dex.entries),
           frecency: FrecencyStore(),
           moves: Future.value(moves),
@@ -344,16 +344,16 @@ void main() {
       tester,
     ) async {
       final planner = TeamPlanner(
-        mine: Team(slots: slots(['Golem', 'Pikachu'])),
+        mine: TeamSide(team: Team(slots: slots(['Golem', 'Pikachu']))),
       );
       final team = await pump(tester, null, planner);
       await tapKey(tester, 'team-save');
       await tester.enterText(find.byKey(const Key('team-save-name')), 'Rocks');
       await tester.pump();
       await tapKey(tester, 'team-save-confirm');
-      final build = planner.builds.named('Rocks')!;
+      final build = planner.mine.builds.named('Rocks')!;
       expect(find.byKey(const Key('team-name')), findsOne);
-      expect(planner.buildFrecency.isFrecent(build.id), isTrue);
+      expect(planner.mine.frecency.isFrecent(build.id), isTrue);
 
       team[1] = null;
       await tester.pumpAndSettle();
@@ -368,7 +368,7 @@ void main() {
       );
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      expect(planner.builds.named('Rocks')!.slots[1], isNotNull);
+      expect(planner.mine.builds.named('Rocks')!.slots[1], isNotNull);
 
       await tapKey(tester, 'team-load');
       await tapKey(tester, 'team-pick-row-${build.id}');
@@ -380,9 +380,9 @@ void main() {
 
     testWidgets('load lists builds most recently used first', (tester) async {
       final planner = TeamPlanner();
-      final a = planner.builds.save('Alpha', slots(['Golem']));
-      final b = planner.builds.save('Beta', slots(['Pikachu']));
-      planner.buildFrecency
+      final a = planner.mine.builds.save('Alpha', slots(['Golem']));
+      final b = planner.mine.builds.save('Beta', slots(['Pikachu']));
+      planner.mine.frecency
         ..visit(b.id)
         ..visit(a.id);
       await pump(tester, null, planner);
@@ -394,8 +394,8 @@ void main() {
 
     testWidgets('a build swipes away after confirming', (tester) async {
       final planner = TeamPlanner();
-      final a = planner.builds.save('Alpha', slots(['Golem']));
-      planner.buildFrecency.visit(a.id);
+      final a = planner.mine.builds.save('Alpha', slots(['Golem']));
+      planner.mine.frecency.visit(a.id);
       await pump(tester, null, planner);
       await tapKey(tester, 'team-load');
       await tester.drag(
@@ -404,39 +404,65 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tapKey(tester, 'build-delete-confirm');
-      expect(planner.builds.builds, isEmpty);
-      expect(planner.buildFrecency.isFrecent(a.id), isFalse);
+      expect(planner.mine.builds.builds, isEmpty);
+      expect(planner.mine.frecency.isFrecent(a.id), isFalse);
       expect(find.byKey(Key('team-pick-row-${a.id}')), findsNothing);
     });
 
-    testWidgets('Theirs is a separate team that loads boss teams only', (
+    testWidgets('Theirs saves and loads its own builds, plus boss teams', (
       tester,
     ) async {
       final boss = TeamBuild(7, 'Gym Leader · Lv. 20', slots(['Bronzong']));
       final planner = TeamPlanner(
-        mine: Team(slots: slots(['Golem'])),
-        bosses: [boss],
+        mine: TeamSide(team: Team(slots: slots(['Golem']))),
+        theirs: TeamSide(
+          builds: SavedBuilds(idBase: SavedBuilds.theirsIdBase),
+          presets: [boss],
+        ),
       );
-      planner.builds.save('Mine only', slots(['Pikachu']));
+      planner.mine.builds.save('Mine only', slots(['Pikachu']));
       await pump(tester, null, planner);
       await tester.tap(find.text('Theirs'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('team-empty')), findsOne);
-      expect(find.byKey(const Key('team-save')), findsNothing);
       await tapKey(tester, 'team-load');
       expect(find.text('Mine only'), findsNothing);
+      expect(
+        find.byKey(const Key('build-dismiss-7')),
+        findsNothing,
+        reason: 'boss teams cannot be deleted',
+      );
       await tapKey(tester, 'team-pick-row-7');
-      expect(planner.theirs[0]!.pokemon, named('Bronzong').id);
-      expect(planner.theirs.name, boss.name);
-      expect(planner.mine[0]!.pokemon, named('Golem').id, reason: 'untouched');
-      expect(planner.bossFrecency.isFrecent(7), isTrue);
+      final theirs = planner.theirs.team;
+      expect(theirs[0]!.pokemon, named('Bronzong').id);
+      expect(theirs.name, boss.name);
+      expect(planner.mine.team[0]!.pokemon, named('Golem').id);
+      expect(planner.theirs.frecency.isFrecent(7), isTrue);
+
+      await tapKey(tester, 'team-save');
+      await tester.enterText(find.byKey(const Key('team-save-name')), 'Iono');
+      await tester.pump();
+      await tapKey(tester, 'team-save-confirm');
+      final saved = planner.theirs.builds.named('Iono')!;
+      expect(saved.id, greaterThan(SavedBuilds.theirsIdBase));
+      expect(planner.mine.builds.named('Iono'), isNull);
+      await tapKey(tester, 'team-load');
+      expect(find.byKey(Key('team-pick-row-${saved.id}')), findsOne);
+      expect(find.byKey(Key('build-dismiss-${saved.id}')), findsOne);
     });
 
-    testWidgets('Theirs has no load button without boss teams', (tester) async {
+    testWidgets('save and load sit left of the Mine | Theirs toggle', (
+      tester,
+    ) async {
       await pump(tester);
-      await tester.tap(find.text('Theirs'));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('team-load')), findsNothing);
+      double left(String key) => tester.getTopLeft(find.byKey(Key(key))).dx;
+      expect(left('team-save'), lessThan(left('team-load')));
+      expect(left('team-load'), lessThan(left('team-side')));
+      expect(
+        tester.getTopRight(find.byKey(const Key('team-side'))).dx,
+        greaterThan(480 - 24),
+        reason: 'right-aligned',
+      );
     });
   });
 }

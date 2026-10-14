@@ -257,7 +257,11 @@ void main() {
         moves: Future.value(moves),
         moveFrecency: FrecencyStore(),
         planner: TeamPlanner(
-          mine: Team(slots: [TeamSlot(golem.id), null, null, null, null, null]),
+          mine: TeamSide(
+            team: Team(
+              slots: [TeamSlot(golem.id), null, null, null, null, null],
+            ),
+          ),
         ),
       ),
     );

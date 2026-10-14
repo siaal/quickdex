@@ -39,9 +39,9 @@ List<TeamBuild> bossBuilds(Pokedex dex) => [
 
 /// The user's saved builds, persisted as JSON through [onChanged]. Names are
 /// unique ignoring case and spacing: saving under an existing name overwrites
-/// it.
+/// it. New ids are above [idBase], so they can't collide with presets below it.
 class SavedBuilds extends ChangeNotifier {
-  SavedBuilds({List<TeamBuild>? builds, this.onChanged})
+  SavedBuilds({List<TeamBuild>? builds, this.onChanged, this.idBase = 0})
     : _builds = builds ?? [];
 
   /// Corrupt JSON gives no builds; slots are cleaned as in [Team.parseSlots].
@@ -49,10 +49,11 @@ class SavedBuilds extends ChangeNotifier {
     String? raw,
     Pokedex dex, {
     void Function(String json)? onChanged,
+    int idBase = 0,
   }) {
     if (raw == null) {
       trace('builds.load.empty');
-      return SavedBuilds(onChanged: onChanged);
+      return SavedBuilds(onChanged: onChanged, idBase: idBase);
     }
     try {
       final builds = [
@@ -64,16 +65,21 @@ class SavedBuilds extends ChangeNotifier {
           ),
       ];
       trace('builds.load.ok', {'count': builds.length});
-      return SavedBuilds(builds: builds, onChanged: onChanged);
+      return SavedBuilds(builds: builds, onChanged: onChanged, idBase: idBase);
     } catch (e) {
       trace('builds.load.corrupt', {'error': e.runtimeType.toString()});
-      return SavedBuilds(onChanged: onChanged);
+      return SavedBuilds(onChanged: onChanged, idBase: idBase);
     }
   }
 
   static const prefsKey = 'team.builds.v1';
+  static const theirsPrefsKey = 'team.theirs.builds.v1';
+
+  /// Above every boss id (a crc mod 1e9), for the Theirs side's builds.
+  static const theirsIdBase = 1000000000;
 
   final void Function(String json)? onChanged;
+  final int idBase;
   final List<TeamBuild> _builds;
 
   /// In the order first saved.
@@ -90,7 +96,7 @@ class SavedBuilds extends ChangeNotifier {
     assert(name.trim().isNotEmpty, 'a build needs a name');
     final old = named(name);
     final build = TeamBuild(
-      old?.id ?? _builds.fold(0, (m, b) => b.id > m ? b.id : m) + 1,
+      old?.id ?? _builds.fold(idBase, (m, b) => b.id > m ? b.id : m) + 1,
       name.trim(),
       List.of(slots),
     );
@@ -129,30 +135,43 @@ class SavedBuilds extends ChangeNotifier {
   }
 }
 
-/// Everything the Team Planner keeps for one game: your team and theirs, your
-/// saved builds and the boss teams, each list with its own frecency.
-class TeamPlanner {
-  TeamPlanner({
-    Team? mine,
-    Team? theirs,
+/// One side of the Team Planner: its team, the builds saved from it, and
+/// read-only [presets] (boss teams) also offered when loading. Saved builds
+/// and presets share one frecency, so ids must not collide.
+class TeamSide {
+  TeamSide({
+    Team? team,
     SavedBuilds? builds,
-    FrecencyStore? buildFrecency,
-    this.bosses = const [],
-    FrecencyStore? bossFrecency,
-  }) : mine = mine ?? Team(),
-       theirs = theirs ?? Team(),
+    FrecencyStore? frecency,
+    this.presets = const [],
+  }) : team = team ?? Team(),
        builds = builds ?? SavedBuilds(),
-       buildFrecency = buildFrecency ?? FrecencyStore(),
-       bossFrecency = bossFrecency ?? FrecencyStore();
+       frecency = frecency ?? FrecencyStore(),
+       assert(
+         presets.every((p) => p.id <= (builds?.idBase ?? 0)),
+         'preset ids must sit below the saved builds\' idBase',
+       );
+
+  final Team team;
+  final SavedBuilds builds;
+  final FrecencyStore frecency;
+  final List<TeamBuild> presets;
+
+  /// Saved builds first, then presets.
+  List<TeamBuild> get loadable => [...builds.builds, ...presets];
+}
+
+/// Everything the Team Planner keeps for one game: your side and theirs (whose
+/// presets are the game's boss teams).
+class TeamPlanner {
+  TeamPlanner({TeamSide? mine, TeamSide? theirs})
+    : mine = mine ?? TeamSide(),
+      theirs = theirs ?? TeamSide();
 
   static const theirsPrefsKey = 'team.theirs.v1';
   static const buildFrecencyPrefsKey = 'frecency.builds.v1';
-  static const bossFrecencyPrefsKey = 'frecency.bosses.v1';
+  static const theirsFrecencyPrefsKey = 'frecency.theirs.v1';
 
-  final Team mine;
-  final Team theirs;
-  final SavedBuilds builds;
-  final FrecencyStore buildFrecency;
-  final List<TeamBuild> bosses;
-  final FrecencyStore bossFrecency;
+  final TeamSide mine;
+  final TeamSide theirs;
 }

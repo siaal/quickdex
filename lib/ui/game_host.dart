@@ -52,7 +52,16 @@ class GameSession {
       );
     }
 
-    final buildsKey = game.prefsKey(SavedBuilds.prefsKey);
+    SavedBuilds builds(String base, [int idBase = 0]) {
+      final key = game.prefsKey(base);
+      return SavedBuilds.fromJson(
+        prefs.getString(key),
+        dex,
+        onChanged: (json) => prefs.setString(key, json),
+        idBase: idBase,
+      );
+    }
+
     return GameSession._(
       game,
       dex,
@@ -60,16 +69,17 @@ class GameSession {
       store(FrecencyStore.prefsKey),
       store(FrecencyStore.movesPrefsKey),
       TeamPlanner(
-        mine: team(Team.prefsKey),
-        theirs: team(TeamPlanner.theirsPrefsKey),
-        builds: SavedBuilds.fromJson(
-          prefs.getString(buildsKey),
-          dex,
-          onChanged: (json) => prefs.setString(buildsKey, json),
+        mine: TeamSide(
+          team: team(Team.prefsKey),
+          builds: builds(SavedBuilds.prefsKey),
+          frecency: store(TeamPlanner.buildFrecencyPrefsKey),
         ),
-        buildFrecency: store(TeamPlanner.buildFrecencyPrefsKey),
-        bosses: bossBuilds(dex),
-        bossFrecency: store(TeamPlanner.bossFrecencyPrefsKey),
+        theirs: TeamSide(
+          team: team(TeamPlanner.theirsPrefsKey),
+          builds: builds(SavedBuilds.theirsPrefsKey, SavedBuilds.theirsIdBase),
+          frecency: store(TeamPlanner.theirsFrecencyPrefsKey),
+          presets: bossBuilds(dex),
+        ),
       ),
     );
   }
