@@ -190,6 +190,19 @@ void main() {
     expect(find.byKey(const Key('dismiss-25')), findsOneWidget);
   });
 
+  testWidgets('the undo snackbar goes away within 5 seconds', (tester) async {
+    await pump(tester, visited: [25, 25]);
+    await tester.drag(
+      find.byKey(const Key('dismiss-25')),
+      const Offset(-600, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsOne);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
   testWidgets('non-frecent rows cannot be swiped', (tester) async {
     await pump(tester, visited: [25]);
     expect(find.byKey(const Key('row-1')), findsOneWidget);

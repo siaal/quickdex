@@ -197,6 +197,8 @@ class _TeamScreenState extends State<TeamScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text('Loaded ${build.name}'),
+          // An action would otherwise keep it up until dismissed.
+          persist: false,
           action: SnackBarAction(
             label: 'Undo',
             onPressed: () {

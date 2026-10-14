@@ -191,6 +191,8 @@ class _SearchScreenState extends State<SearchScreen> {
     messenger.showSnackBar(
       SnackBar(
         content: Text('Removed ${e.name} from recents'),
+        // An action would otherwise keep it up until dismissed.
+        persist: false,
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () {

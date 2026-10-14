@@ -376,6 +376,13 @@ void main() {
       await tester.tap(find.text('Undo'));
       await tester.pumpAndSettle();
       expect(team[1], isNull);
+
+      await tapKey(tester, 'team-load');
+      await tapKey(tester, 'team-pick-row-${build.id}');
+      expect(find.byType(SnackBar), findsOne);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing, reason: 'gone within 5 s');
     });
 
     testWidgets('load lists builds most recently used first', (tester) async {
