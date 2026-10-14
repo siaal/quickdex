@@ -6,8 +6,10 @@ import 'matchup_section.dart';
 import 'type_badge.dart';
 
 /// Two columns: what hits this Pokémon (defenses, keys `def-<m>-<type>` /
-/// `def-guard-<type>`) and what its own types hit super-effectively (strengths,
-/// keys `off-<type>`). Each multiplier is a tinted [MatchupSection].
+/// `def-guard-<type>`) and how well its own types hit (strengths, keys
+/// `off-<type>`): super effective, then the types both its types are resisted by
+/// (`off-section-weak`) or can't touch (`off-section-none`), shown only when
+/// non-empty. Each multiplier is a tinted [MatchupSection].
 class DefenseTable extends StatelessWidget {
   const DefenseTable({
     super.key,
@@ -77,14 +79,43 @@ class DefenseTable extends StatelessWidget {
       ),
   ];
 
+  List<String> _hitAt(double m) => [
+    for (final t in order)
+      if (coverage[t] == m) t,
+  ];
+
+  List<Widget> _weakHits() => [
+    for (final (key, label, m) in const [
+      ('off-section-weak', 'Not very effective', 0.5),
+      ('off-section-none', 'No effect', 0.0),
+    ])
+      if (_hitAt(m) case final types when types.isNotEmpty)
+        MatchupSection(
+          key: Key(key),
+          label: label,
+          tint: matchupTint(m, defending: false),
+          rows: [
+            (
+              multLabel(m),
+              [
+                for (final t in types)
+                  TypeBadge(
+                    t,
+                    compact: true,
+                    key: Key('off-$t'),
+                    onTap: _open(t),
+                  ),
+              ],
+            ),
+          ],
+        ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     assert(coverage.length == order.length, 'coverage must cover every type');
     final theme = Theme.of(context);
-    final strong = [
-      for (final t in order)
-        if (coverage[t] == 2) t,
-    ];
+    final strong = _hitAt(2);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -130,6 +161,7 @@ class DefenseTable extends StatelessWidget {
                         ),
                     ],
                   ),
+                  ..._weakHits(),
                 ],
               ),
             ),

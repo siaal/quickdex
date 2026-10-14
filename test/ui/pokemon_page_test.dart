@@ -137,6 +137,34 @@ void main() {
     expect(off.left, greaterThan(def.right), reason: 'side by side');
   });
 
+  testWidgets('strengths also list resisted and immune types', (tester) async {
+    Finder inSection(String s, String t) => find.descendant(
+      of: find.byKey(Key(s)),
+      matching: find.byKey(Key('off-$t')),
+    );
+    await pumpLauncher(tester, idOf('Snorlax')); // Normal
+    expect(inSection('off-section', 'rock'), findsNothing);
+    expect(inSection('off-section-weak', 'rock'), findsOneWidget);
+    expect(inSection('off-section-weak', 'steel'), findsOneWidget);
+    expect(inSection('off-section-none', 'ghost'), findsOneWidget);
+    expect(find.byKey(const Key('off-fire')), findsNothing, reason: '1×');
+  });
+
+  testWidgets('a dual type lists a hit only at its better STAB', (
+    tester,
+  ) async {
+    // Dual types list a type only if neither STAB does better: Gengar's
+    // Ghost hits Steel 1×, so Poison's 0× doesn't put Steel in "No effect".
+    await pumpLauncher(tester, idOf('Gengar')); // Ghost/Poison
+    expect(find.byKey(const Key('off-steel')), findsNothing);
+    expect(find.byKey(const Key('off-section-none')), findsNothing);
+    expect(
+      find.byKey(const Key('off-dark')),
+      findsNothing,
+      reason: 'Poison 1×',
+    );
+  });
+
   testWidgets('4× sits in the Weak to section, tinted strong red', (
     tester,
   ) async {

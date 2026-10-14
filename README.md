@@ -14,7 +14,7 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   shows what you opened most recently first; once you type, results are ranked by
   frecency (your team and the current zone float to the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
   base stats, type defences (Bulbapedia grouping, each group on a red/green tint) beside what its
-  own types hit super-effectively (tap any type pill to open it in the Type Chart as a
+  own types hit super-effectively, not very effectively or not at all (tap any type pill to open it in the Type Chart as a
   defender), form switching, level-up moves, and an Evo sheet (or drag from Evo and release on an evolution to
   jump straight to it).
 - **Moves** (in Search): every move; each page shows type, category,
