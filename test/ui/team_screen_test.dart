@@ -477,7 +477,7 @@ void main() {
 
       /// Drawn lines as (your slot, their slot, your hit, their hit).
       List<(int, int, double, double)> lines(WidgetTester tester) => [
-        for (final (l, _, _, _)
+        for (final (l, _, _)
             in tester
                 .widgetList<CustomPaint>(
                   find.descendant(

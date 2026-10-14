@@ -9,11 +9,8 @@ import 'art.dart';
 /// Your team (left) against theirs (right), as sprites. Tap one to draw a line
 /// to each Pokémon on the other side, coloured by how hard you hit them and
 /// how hard they hit you. Tiles are `versus-mine-<slot>` /
-/// `versus-theirs-<slot>`; the lines are on [VersusLinesPainter].
-///
-/// Two line styles are on trial: odd lines (1st, 3rd, 5th from the top) are
-/// split, each half starting at its attacker; even lines are two parallel
-/// lines, yours on top.
+/// `versus-theirs-<slot>`; the lines are on [VersusLinesPainter]. Each line
+/// is split at its midpoint, each half coloured by the hit from its end.
 class VersusView extends StatefulWidget {
   const VersusView({super.key, required this.mine, required this.theirs});
   final List<TeamMember> mine;
@@ -65,7 +62,7 @@ class _VersusViewState extends State<VersusView> {
         // Line ends: the inner edge of each tile, at its row's centre.
         Offset mineEnd(int r) => Offset(w, r * h + h / 2);
         Offset theirEnd(int r) => Offset(width - w, r * h + h / 2);
-        final lines = <(VersusLine, Offset, Offset, bool)>[];
+        final lines = <(VersusLine, Offset, Offset)>[];
         if (p != null && row >= 0) {
           final other = p.mine ? widget.theirs : widget.mine;
           for (var j = 0; j < other.length; j++) {
@@ -80,8 +77,6 @@ class _VersusViewState extends State<VersusView> {
               ),
               mineEnd(mi),
               theirEnd(ti),
-              // Odd = split, even = parallel; 1-based from the top.
-              j.isEven,
             ));
           }
         }
@@ -157,24 +152,15 @@ Color lineColor(double m, {required bool mine}) {
 class VersusLinesPainter extends CustomPainter {
   VersusLinesPainter(this.lines);
 
-  /// Each line, its ends (your side first) and whether it's drawn split.
-  final List<(VersusLine, Offset, Offset, bool)> lines;
+  /// Each line and its ends, your side first.
+  final List<(VersusLine, Offset, Offset)> lines;
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final (l, a, b, split) in lines) {
-      if (split) {
-        final mid = Offset.lerp(a, b, 0.5)!;
-        _stroke(canvas, a, mid, l.mineHit, mine: true);
-        _stroke(canvas, mid, b, l.theirHit, mine: false);
-      } else {
-        final d = b - a;
-        // Unit normal pointing up the screen, so yours is the top line.
-        var n = Offset(-d.dy, d.dx) / d.distance;
-        if (n.dy > 0) n = -n;
-        _stroke(canvas, a + n * 3, b + n * 3, l.mineHit, mine: true);
-        _stroke(canvas, a - n * 3, b - n * 3, l.theirHit, mine: false);
-      }
+    for (final (l, a, b) in lines) {
+      final mid = Offset.lerp(a, b, 0.5)!;
+      _stroke(canvas, a, mid, l.mineHit, mine: true);
+      _stroke(canvas, mid, b, l.theirHit, mine: false);
     }
   }
 
