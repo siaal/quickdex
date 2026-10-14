@@ -16,6 +16,7 @@ import 'move_tile.dart';
 import 'pokemon_tile.dart';
 import 'type_badge.dart';
 import 'type_style.dart';
+import 'versus_view.dart';
 
 /// Six slots (`team-slot-<i>`) and the team's matchups: per attacking type,
 /// how many members are weak / resist / immune, and how many hit it
@@ -296,12 +297,43 @@ class _TeamScreenState extends State<TeamScreen> {
           ],
         ),
         const SizedBox(height: 16),
+        if (_side == _Side.theirs && members.isNotEmpty)
+          ..._versus(context, members, moves),
         if (members.isEmpty)
           const Text('Add Pokémon to see team matchups', key: Key('team-empty'))
         else
           ..._matchups(context, members),
       ],
     );
+  }
+
+  /// Your team against [theirs], above their type table.
+  List<Widget> _versus(
+    BuildContext context,
+    List<TeamMember> theirs,
+    MoveDex? moves,
+  ) {
+    final mineTeam = widget.planner.mine.team;
+    final mine = [
+      for (var i = 0; i < Team.size; i++)
+        if (mineTeam[i] case final s?) resolveMember(i, s, widget.dex, moves),
+    ];
+    final theme = Theme.of(context);
+    return [
+      Text('Versus', style: theme.textTheme.titleMedium),
+      const SizedBox(height: 4),
+      if (mine.isEmpty)
+        const Text('Add Pokémon on Mine to compare', key: Key('versus-empty'))
+      else ...[
+        Text(
+          'Tap a Pokémon to compare: you on the left, them on the right.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        VersusView(key: const Key('versus'), mine: mine, theirs: theirs),
+      ],
+      const SizedBox(height: 16),
+    ];
   }
 
   List<Widget> _matchups(BuildContext context, List<TeamMember> members) {

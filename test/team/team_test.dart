@@ -95,6 +95,30 @@ void main() {
   });
 
   group('analysis', () {
+    test('hit is the best multiplier either way, ability included', () {
+      TeamMember member(
+        String name, {
+        String? ab,
+        List<String> mv = const [],
+      }) => resolveMember(
+        0,
+        TeamSlot(
+          named(name).id,
+          ability: ab == null ? null : ability(ab),
+          moves: [for (final k in mv) move(k)],
+        ),
+        dex,
+        moves,
+      );
+      final golem = member('Golem'); // rock/ground STAB
+      final pelipper = member('Pelipper'); // water/flying
+      expect(hit(golem, pelipper), 2, reason: 'rock 2× beats ground 0×');
+      expect(hit(pelipper, golem), 4);
+      final quake = member('Garchomp', mv: ['earthquake']);
+      expect(hit(quake, member('Bronzong', ab: 'heatproof')), 2);
+      expect(hit(quake, member('Bronzong', ab: 'levitate')), 0);
+    });
+
     test('the chosen ability adds its immunity', () {
       final bronzong = named('Bronzong');
       expect(bronzong.defense['ground'], 2, reason: 'chart alone');

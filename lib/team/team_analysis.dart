@@ -56,6 +56,16 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
   return TeamMember(i, e, defense, attack);
 }
 
+/// How hard [attacker] hits [defender]: the best multiplier any of its attack
+/// types deals, counting the defender's ability immunity (as [analyseTeam]
+/// does).
+double hit(TeamMember attacker, TeamMember defender) {
+  assert(attacker.attackTypes.isNotEmpty, 'every member has attack types');
+  return attacker.attackTypes
+      .map((t) => defender.defense[t]!)
+      .reduce((x, y) => x > y ? x : y);
+}
+
 /// The team against one type: as attacker (defense) and defender (offense).
 class TypeMatchup {
   const TypeMatchup(this.type, this.defense, this.offense);

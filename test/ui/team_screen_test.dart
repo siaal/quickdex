@@ -458,6 +458,69 @@ void main() {
       expect(find.byKey(Key('build-dismiss-${saved.id}')), findsOne);
     });
 
+    group('versus', () {
+      Future<TeamPlanner> theirsPage(
+        WidgetTester tester, {
+        List<String> mine = const ['Golem', 'Pikachu'],
+        List<String> theirs = const ['Pelipper', 'Bronzong'],
+      }) async {
+        final planner = TeamPlanner(
+          mine: TeamSide(team: Team(slots: slots(mine))),
+          theirs: TeamSide(team: Team(slots: slots(theirs))),
+        );
+        await pump(tester, null, planner);
+        await tester.tap(find.text('Theirs'));
+        await tester.pumpAndSettle();
+        return planner;
+      }
+
+      String label(WidgetTester tester, String key) =>
+          tester.widget<Text>(find.byKey(Key(key))).data!;
+
+      testWidgets('only on Theirs, above the type table', (tester) async {
+        await theirsPage(tester);
+        expect(find.byKey(const Key('versus')), findsOne);
+        expect(
+          tester.getTopLeft(find.byKey(const Key('versus'))).dy,
+          lessThan(tester.getTopLeft(find.text('Team matchups')).dy),
+        );
+        await tester.tap(find.text('Mine'));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('versus')), findsNothing);
+      });
+
+      testWidgets('tapping yours labels each line both ways; again clears', (
+        tester,
+      ) async {
+        await theirsPage(tester);
+        expect(find.byKey(const Key('versus-0-0-mine')), findsNothing);
+        await tester.tap(find.byKey(const Key('versus-mine-0'))); // Golem
+        await tester.pump();
+        expect(label(tester, 'versus-0-0-mine'), '2×'); // vs Pelipper
+        expect(label(tester, 'versus-0-0-theirs'), '4×');
+        expect(label(tester, 'versus-0-1-mine'), '2×'); // vs Bronzong
+        expect(find.byKey(const Key('versus-1-0-mine')), findsNothing);
+        await tester.tap(find.byKey(const Key('versus-mine-0')));
+        await tester.pump();
+        expect(find.byKey(const Key('versus-0-0-mine')), findsNothing);
+      });
+
+      testWidgets('tapping theirs draws to each of yours', (tester) async {
+        await theirsPage(tester);
+        await tester.tap(find.byKey(const Key('versus-theirs-0'))); // Pelipper
+        await tester.pump();
+        expect(label(tester, 'versus-0-0-theirs'), '4×'); // on Golem
+        expect(label(tester, 'versus-1-0-mine'), '4×'); // Pikachu
+        expect(label(tester, 'versus-1-0-theirs'), '1×');
+      });
+
+      testWidgets('with Mine empty it says so', (tester) async {
+        await theirsPage(tester, mine: const []);
+        expect(find.byKey(const Key('versus-empty')), findsOne);
+        expect(find.byKey(const Key('versus')), findsNothing);
+      });
+    });
+
     testWidgets('save and load sit left of the Mine | Theirs toggle', (
       tester,
     ) async {

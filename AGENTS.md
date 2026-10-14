@@ -74,6 +74,10 @@
   name/level/path mod 1e9 so frecency survives data rebuilds; Theirs' saved build ids
   start above `SavedBuilds.theirsIdBase` (1e9) so they never collide. A slot keeps any ability the dex
   knows, not just its species', since bosses break that rule.
+  Theirs shows `VersusView` (`lib/ui/versus_view.dart`) above its type table: per
+  pair, `hit(attacker, defender)` (best multiplier of the attacker's `attackTypes`
+  against the defender's ability-aware `defense`), both ways. Odd lines split, even
+  lines parallel is a deliberate A/B trial; collapse to one style once the owner picks.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1` (per game, like the team). A visit is credited to the
   entry opened from search (on page open), not to forms/evolutions swapped to after.

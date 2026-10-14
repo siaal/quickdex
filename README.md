@@ -33,7 +33,12 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   it); Load lists that side's builds most recently used first, typing ranks them like
   search, and a loaded team can be undone from the snackbar; swipe a build away to
   delete it. In Scrambled Scarlet, Theirs can also load every boss team from the
-  Doozdex (gyms, rivals, Team Star, Titans, Elite 4, both paths). Each team has six slots; tap one to
+  Doozdex (gyms, rivals, Team Star, Titans, Elite 4, both paths). Theirs opens with
+  **Versus**: your team on the left, theirs on the right; tap one to draw a line to
+  each Pokémon opposite, labelled with how hard you hit them and they hit you (your
+  strong hits green, theirs red, neutral grey, resisted faded, immune dashed). Two
+  line styles are on trial: odd lines split in half (each half starts at its
+  attacker), even lines doubled (yours on top). Each team has six slots; tap one to
   pick a Pokémon, its ability and up to four
   moves (level-up moves are suggested; typing searches every move; long-press or
   right-click a move to read what it does; the eye button leaves a move out of the
