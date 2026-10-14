@@ -919,9 +919,7 @@ class BuildPicker extends StatelessWidget {
   Widget _tile(BuildContext context, TeamBuild b, VoidCallback onTap) {
     final tile = ListTile(
       title: Text(b.name),
-      subtitle: Text(
-        [for (final s in b.slots.nonNulls) dex[s.pokemon].name].join(', '),
-      ),
+      subtitle: BuildThumbs(team: b, dex: dex),
       onTap: onTap,
     );
     final delete = onDelete;
@@ -962,6 +960,29 @@ class BuildPicker extends StatelessWidget {
     ],
     tile: (b, onTap) => Builder(builder: (c) => _tile(c, b, onTap)),
     header: builds().isEmpty ? 'No saved builds yet' : null,
+  );
+}
+
+/// A build's Pokémon as thumbnails (`build-thumb-<build id>-<slot>`), wrapping
+/// onto a second line when there isn't room for all six.
+class BuildThumbs extends StatelessWidget {
+  const BuildThumbs({super.key, required this.team, required this.dex});
+  final TeamBuild team;
+  final Pokedex dex;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    children: [
+      for (final (i, s) in team.slots.indexed)
+        if (s != null)
+          Image.asset(
+            thumbPath(s.pokemon),
+            key: Key('build-thumb-${team.id}-$i'),
+            width: 40,
+            height: 40,
+            semanticLabel: dex[s.pokemon].name,
+          ),
+    ],
   );
 }
 
@@ -1037,14 +1058,7 @@ class _SaveDialogState extends State<_SaveDialog> {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         title: Text(b.name),
-                        subtitle: Text(
-                          [
-                            for (final s in b.slots.nonNulls)
-                              widget.dex[s.pokemon].name,
-                          ].join(', '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        subtitle: BuildThumbs(team: b, dex: widget.dex),
                         selected: b.name == name,
                         onTap: () {
                           trace('team.save.pick', {'id': b.id});

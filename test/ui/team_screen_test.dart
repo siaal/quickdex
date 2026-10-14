@@ -386,6 +386,7 @@ void main() {
       expect(planner.mine.builds.named('Rocks')!.slots[1], isNotNull);
 
       await tapKey(tester, 'team-load');
+      expect(find.byKey(Key('build-thumb-${build.id}-1')), findsOne);
       await tapKey(tester, 'team-pick-row-${build.id}');
       expect(team[1]!.pokemon, named('Pikachu').id);
       await tester.tap(find.text('Undo'));
@@ -421,6 +422,8 @@ void main() {
       double top(int id) =>
           tester.getTopLeft(find.byKey(Key('team-save-pick-$id'))).dy;
       expect(top(newer.id), lessThan(top(older.id)));
+      expect(find.byKey(Key('build-thumb-${older.id}-0')), findsOne);
+      expect(find.text('Golem'), findsNothing, reason: 'thumbnails, not names');
 
       await tester.enterText(find.byKey(const Key('team-save-name')), 'old');
       await tester.pump();
