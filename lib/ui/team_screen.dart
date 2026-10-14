@@ -5,6 +5,7 @@ import '../data/models.dart';
 import '../data/moves.dart';
 import '../search/search_index.dart';
 import '../search/searchable.dart';
+import '../team/builds.dart';
 import '../team/team.dart';
 import '../team/team_analysis.dart';
 import '../trace.dart';
@@ -24,7 +25,7 @@ class TeamScreen extends StatefulWidget {
   const TeamScreen({
     super.key,
     required this.dex,
-    required this.team,
+    required this.planner,
     required this.index,
     required this.frecency,
     required this.moves,
@@ -32,7 +33,7 @@ class TeamScreen extends StatefulWidget {
     this.onOpenType,
   });
   final Pokedex dex;
-  final Team team;
+  final TeamPlanner planner;
   final SearchIndex<PokemonEntry> index;
   final FrecencyScores frecency;
   final Future<MoveDex> moves;
@@ -48,8 +49,17 @@ class TeamScreen extends StatefulWidget {
 
 enum _SortColumn { type, weak, resist, immune, hitters }
 
+/// Your team, or the opponent's (`team-side`).
+enum _Side { mine, theirs }
+
 class _TeamScreenState extends State<TeamScreen> {
   String? _expanded;
+  _Side _side = _Side.mine;
+
+  Team get _team => switch (_side) {
+    _Side.mine => widget.planner.mine,
+    _Side.theirs => widget.planner.theirs,
+  };
 
   /// Null keeps chart order.
   _SortColumn? _sort;
@@ -105,13 +115,13 @@ class _TeamScreenState extends State<TeamScreen> {
       trace('team.choose.cancelled', {'slot': i});
       return false;
     }
-    widget.team[i] = TeamSlot(e.id, ability: e.abilities.first);
+    _team[i] = TeamSlot(e.id, ability: e.abilities.first);
     return true;
   }
 
   Future<void> _tapSlot(int i) async {
     final nav = Navigator.of(context);
-    if (widget.team[i] == null) {
+    if (_team[i] == null) {
       trace('team.tap.empty', {'slot': i});
       if (!await _choose(i)) return;
     } else {
@@ -121,7 +131,7 @@ class _TeamScreenState extends State<TeamScreen> {
       MaterialPageRoute<void>(
         builder: (_) => TeamSlotPage(
           dex: widget.dex,
-          team: widget.team,
+          team: _team,
           slot: i,
           index: widget.index,
           frecency: widget.frecency,
@@ -132,12 +142,110 @@ class _TeamScreenState extends State<TeamScreen> {
     );
   }
 
+  /// Saves your team as a build, named as it was loaded or saved unless
+  /// renamed; an existing name is overwritten.
+  Future<void> _save() async {
+    final builds = widget.planner.builds;
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _SaveDialog(initial: _team.name ?? '', builds: builds),
+    );
+    if (name == null) {
+      trace('team.save.cancelled');
+      return;
+    }
+    final build = builds.save(name, _team.slots);
+    widget.planner.buildFrecency.visit(build.id);
+    _team.name = build.name;
+  }
+
+  /// Replaces the shown team with a saved build (yours) or a boss team
+  /// (theirs), picked from a list ranked like search. Undoable.
+  Future<void> _load() async {
+    final p = widget.planner;
+    final mine = _side == _Side.mine;
+    final frecency = mine ? p.buildFrecency : p.bossFrecency;
+    final team = _team;
+    final build = await Navigator.of(context).push(
+      MaterialPageRoute<TeamBuild>(
+        builder: (_) => mine
+            ? BuildPicker(
+                builds: () => p.builds.builds,
+                frecency: frecency,
+                dex: widget.dex,
+                changes: p.builds,
+                onDelete: (b) {
+                  p.builds.delete(b.id);
+                  p.buildFrecency.remove(b.id);
+                },
+              )
+            : BuildPicker(
+                builds: () => p.bosses,
+                frecency: frecency,
+                dex: widget.dex,
+              ),
+      ),
+    );
+    if (build == null || !mounted) {
+      trace('team.load.cancelled', {'side': _side.name});
+      return;
+    }
+    trace('team.load.build', {'side': _side.name, 'id': build.id});
+    frecency.visit(build.id);
+    final (before, beforeName) = (team.slots, team.name);
+    team.load(build.slots, name: build.name);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Loaded ${build.name}'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () {
+              trace('team.load.undo', {'id': build.id});
+              team.load(before, name: beforeName);
+            },
+          ),
+        ),
+      );
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Team Planner')),
-    body: ListenableBuilder(
-      listenable: widget.team,
-      builder: (context, _) => FutureBuilder(
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _team,
+    builder: (context, _) => Scaffold(
+      appBar: AppBar(
+        title: SegmentedButton<_Side>(
+          key: const Key('team-side'),
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: _Side.mine, label: Text('Mine')),
+            ButtonSegment(value: _Side.theirs, label: Text('Theirs')),
+          ],
+          selected: {_side},
+          onSelectionChanged: (s) {
+            trace('team.side', {'side': s.single.name});
+            setState(() => _side = s.single);
+          },
+        ),
+        actions: [
+          if (_side == _Side.mine)
+            IconButton(
+              key: const Key('team-save'),
+              tooltip: 'Save build',
+              icon: const Icon(Icons.save_outlined),
+              onPressed: _team.isEmpty ? null : _save,
+            ),
+          if (_side == _Side.mine || widget.planner.bosses.isNotEmpty)
+            IconButton(
+              key: const Key('team-load'),
+              tooltip: _side == _Side.mine ? 'Load build' : 'Load boss team',
+              icon: const Icon(Icons.folder_open_outlined),
+              onPressed: _load,
+            ),
+        ],
+      ),
+      body: FutureBuilder(
         future: widget.moves,
         builder: (context, snap) => _body(context, snap.data),
       ),
@@ -147,12 +255,20 @@ class _TeamScreenState extends State<TeamScreen> {
   Widget _body(BuildContext context, MoveDex? moves) {
     final members = [
       for (var i = 0; i < Team.size; i++)
-        if (widget.team[i] case final s?)
-          resolveMember(i, s, widget.dex, moves),
+        if (_team[i] case final s?) resolveMember(i, s, widget.dex, moves),
     ];
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (_team.name case final name?)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              name,
+              key: const Key('team-name'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
         GridView.count(
           crossAxisCount: 3,
           shrinkWrap: true,
@@ -164,7 +280,7 @@ class _TeamScreenState extends State<TeamScreen> {
             for (var i = 0; i < Team.size; i++)
               _SlotCard(
                 key: Key('team-slot-$i'),
-                entry: switch (widget.team[i]) {
+                entry: switch (_team[i]) {
                   final s? => widget.dex[s.pokemon],
                   null => null,
                 },
@@ -661,6 +777,7 @@ class _Picker<T extends Searchable> extends StatefulWidget {
     required this.results,
     required this.tile,
     this.header,
+    this.changes,
   });
   final String title;
   final List<T> Function(String query) results;
@@ -668,6 +785,9 @@ class _Picker<T extends Searchable> extends StatefulWidget {
 
   /// Shown above the results when nothing is typed.
   final String? header;
+
+  /// Re-lists the results when it notifies (e.g. a build was deleted).
+  final Listenable? changes;
 
   @override
   State<_Picker<T>> createState() => _PickerState<T>();
@@ -684,6 +804,13 @@ class _PickerState<T extends Searchable> extends State<_Picker<T>> {
 
   @override
   Widget build(BuildContext context) {
+    final changes = widget.changes;
+    return changes == null
+        ? _page(context)
+        : ListenableBuilder(listenable: changes, builder: (c, _) => _page(c));
+  }
+
+  Widget _page(BuildContext context) {
     final results = widget.results(_query.text);
     final header = _query.text.isEmpty ? widget.header : null;
     return Scaffold(
@@ -725,6 +852,122 @@ class _PickerState<T extends Searchable> extends State<_Picker<T>> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Pick a build: nothing typed lists the most recently loaded first, typing
+/// ranks matches by frecency, as search does. With [onDelete], rows swipe away
+/// (`build-dismiss-<id>`) after a confirmation.
+class BuildPicker extends StatelessWidget {
+  const BuildPicker({
+    super.key,
+    required this.builds,
+    required this.frecency,
+    required this.dex,
+    this.changes,
+    this.onDelete,
+  });
+  final List<TeamBuild> Function() builds;
+  final FrecencyScores frecency;
+  final Pokedex dex;
+  final Listenable? changes;
+  final ValueChanged<TeamBuild>? onDelete;
+
+  Widget _tile(BuildContext context, TeamBuild b, VoidCallback onTap) {
+    final tile = ListTile(
+      title: Text(b.name),
+      subtitle: Text(
+        [for (final s in b.slots.nonNulls) dex[s.pokemon].name].join(', '),
+      ),
+      onTap: onTap,
+    );
+    final delete = onDelete;
+    if (delete == null) return tile;
+    return Dismissible(
+      key: Key('build-dismiss-${b.id}'),
+      confirmDismiss: (_) => showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: Text('Delete ${b.name}?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              key: const Key('build-delete-confirm'),
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        ),
+      ),
+      onDismissed: (_) {
+        trace('team.build.delete', {'id': b.id});
+        delete(b);
+      },
+      child: tile,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => _Picker<TeamBuild>(
+    title: onDelete == null ? 'Search boss teams' : 'Search builds',
+    changes: changes,
+    results: (q) => [
+      for (final h in SearchIndex(builds()).search(q, frecency)) h.entry,
+    ],
+    tile: (b, onTap) => Builder(builder: (c) => _tile(c, b, onTap)),
+    header: builds().isEmpty ? 'No saved builds yet' : null,
+  );
+}
+
+/// Name a build to save; pops with the name, or null if cancelled.
+class _SaveDialog extends StatefulWidget {
+  const _SaveDialog({required this.initial, required this.builds});
+  final String initial;
+  final SavedBuilds builds;
+
+  @override
+  State<_SaveDialog> createState() => _SaveDialogState();
+}
+
+class _SaveDialogState extends State<_SaveDialog> {
+  late final _name = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _name.text.trim();
+    final overwrites = widget.builds.named(name) != null;
+    void submit() => Navigator.of(context).pop(name);
+    return AlertDialog(
+      title: const Text('Save build'),
+      content: TextField(
+        key: const Key('team-save-name'),
+        controller: _name,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'Name'),
+        onChanged: (_) => setState(() {}),
+        onSubmitted: name.isEmpty ? null : (_) => submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('team-save-confirm'),
+          onPressed: name.isEmpty ? null : submit,
+          child: Text(overwrites ? 'Overwrite' : 'Save'),
+        ),
+      ],
     );
   }
 }

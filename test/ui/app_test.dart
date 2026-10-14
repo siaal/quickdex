@@ -6,6 +6,7 @@ import 'package:quickdex/data/loader.dart';
 import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/frecency/frecency.dart';
+import 'package:quickdex/team/builds.dart';
 import 'package:quickdex/team/team.dart';
 import 'package:quickdex/ui/app.dart';
 import 'package:quickdex/ui/search_screen.dart';
@@ -27,7 +28,7 @@ void main() {
         frecency: FrecencyStore(),
         moves: Future.value(moves),
         moveFrecency: FrecencyStore(),
-        team: Team(),
+        planner: TeamPlanner(),
       ),
     );
     await tester.pumpAndSettle();
@@ -255,7 +256,9 @@ void main() {
         frecency: FrecencyStore(),
         moves: Future.value(moves),
         moveFrecency: FrecencyStore(),
-        team: Team(slots: [TeamSlot(golem.id), null, null, null, null, null]),
+        planner: TeamPlanner(
+          mine: Team(slots: [TeamSlot(golem.id), null, null, null, null, null]),
+        ),
       ),
     );
     await tester.pumpAndSettle();

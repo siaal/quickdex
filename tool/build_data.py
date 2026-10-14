@@ -60,12 +60,12 @@ def build_scrambled_game(db: CsvDb, game: Game, overrides: dict,
     meta = game_meta(game)
     _write_json(out / game.key / "pokedex.json",
                 {"game": meta, "entries": s.entries, "chains": s.chains,
-                 "abilities": s.abilities})
+                 "abilities": s.abilities, "bosses": s.bosses})
     _write_json(out / game.key / "types.json", {"order": order, "chart": chart})
     _write_json(out / game.key / "moves.json",
                 {"game": meta, "moves": s.moves, "learnsets": s.learnsets})
     print(f"{game.name}: {len(s.entries)} entries, {len(s.chains)} chains, "
-          f"{len(s.moves)} moves, {len(order)} types")
+          f"{len(s.moves)} moves, {len(order)} types, {len(s.bosses)} boss teams")
     return art, []
 
 

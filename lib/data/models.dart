@@ -201,6 +201,41 @@ class TypeChart {
   }
 }
 
+/// A boss battle's team, as the game's data lists it (Scrambled Scarlet's
+/// Doozdex). [path] is "Vanilla" or "Reverse" when the fight differs between
+/// the two orders of the gyms, else null.
+class BossFight {
+  const BossFight({
+    required this.id,
+    required this.name,
+    required this.level,
+    required this.path,
+    required this.team,
+  });
+
+  factory BossFight.fromJson(Map<String, dynamic> j) => BossFight(
+    id: j['id'] as int,
+    name: j['name'] as String,
+    level: j['level'] as int,
+    path: j['path'] as String?,
+    team: [
+      for (final m in (j['team'] as List).cast<Map<String, dynamic>>())
+        (
+          pokemon: m['p'] as int,
+          ability: m['a'] as int?,
+          moves: (m['m'] as List).cast<int>(),
+        ),
+    ],
+  );
+
+  /// Stable across data rebuilds; the frecency key.
+  final int id;
+  final String name;
+  final int level;
+  final String? path;
+  final List<({int pokemon, int? ability, List<int> moves})> team;
+}
+
 class Pokedex {
   Pokedex({
     required this.entries,
@@ -208,6 +243,7 @@ class Pokedex {
     required this.types,
     this.abilities = const {},
     this.game = GameInfo.scarlet,
+    this.bosses = const [],
   }) : byId = {for (final e in entries) e.id: e};
 
   factory Pokedex.parse(String pokedexJson, String typesJson) {
@@ -237,6 +273,12 @@ class Pokedex {
       ],
       abilities: abilities,
       game: game,
+      bosses: [
+        for (final b
+            in ((dex['bosses'] as List?) ?? const [])
+                .cast<Map<String, dynamic>>())
+          BossFight.fromJson(b),
+      ],
       chains: (dex['chains'] as Map<String, dynamic>).map(
         (k, v) => MapEntry(
           int.parse(k),
@@ -253,6 +295,9 @@ class Pokedex {
   final TypeChart types;
   final Map<int, Ability> abilities;
   final GameInfo game;
+
+  /// Boss teams to load as the opponent's; empty for games without them.
+  final List<BossFight> bosses;
 
   PokemonEntry operator [](int id) => byId[id]!;
 
@@ -295,6 +340,20 @@ class Pokedex {
           assert(
             byId.containsKey(edge.from) && byId.containsKey(edge.to),
             'unknown chain node',
+          );
+        }
+      }
+      assert(
+        bosses.map((b) => b.id).toSet().length == bosses.length,
+        'duplicate boss ids',
+      );
+      for (final b in bosses) {
+        assert(b.team.isNotEmpty && b.team.length <= 6, '${b.name}: team size');
+        for (final m in b.team) {
+          assert(byId.containsKey(m.pokemon), '${b.name}: unknown Pokémon');
+          assert(
+            m.ability == null || abilities.containsKey(m.ability),
+            '${b.name}: unknown ability',
           );
         }
       }

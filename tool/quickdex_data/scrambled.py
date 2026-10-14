@@ -19,7 +19,9 @@ from .doozdex import (
     ABILITIES_TAB,
     MOVES_TAB,
     POKEMON_TABS,
+    REVERSE_BOSSES_TAB,
     TMS_TAB,
+    VANILLA_BOSSES_TAB,
     Cell,
     bar_lengths,
     cell,
@@ -700,6 +702,7 @@ class ScrambledBuild:
     learnsets: dict[str, dict]
     chains: dict[str, dict]
     art: dict[int, int]  # new entry id -> the id whose artwork it uses
+    bosses: list[dict]
     gaps: list[str]
 
 
@@ -707,6 +710,146 @@ def _clean_notes(text: str) -> str | None:
     paras = [re.sub(r"[ \t]+", " ", p).strip() for p in re.split(r"\n\s*\n|\s{6,}", text)]
     paras = [p for p in paras if p and not p.lower().startswith("click here")]
     return "\n\n".join(paras) or None
+
+
+BOSS_TABS = ((VANILLA_BOSSES_TAB, "Vanilla"), (REVERSE_BOSSES_TAB, "Reverse"))
+_BOSS_LEVEL = re.compile(r"\b(?:Level|Lv\.?)\s*(\d+)")
+
+
+def _boss_title(header: str) -> tuple[str, int]:
+    """"3rd Gym Leader Iono - Level 27  (Vanilla Path)" -> ("3rd Gym Leader Iono", 27)."""
+    level = int(_BOSS_LEVEL.search(header).group(1))  # type: ignore[union-attr]
+    title = re.sub(r"\(\s*(?:Level|Lv\.?)\s*\d+[^)]*\)?", "", header)
+    title = _BOSS_LEVEL.sub("", title)
+    title = re.sub(r"\((?:Vanilla|Reverse) Path\)", "", title)
+    title = re.sub(r"\s+-\s+[A-Z0-9 ]+$", "", title.strip())  # "- ALL 3 HAVE 4X ... HP"
+    return re.sub(r"\s+", " ", title).strip(" -"), level
+
+
+def _boss_move(text: str) -> str:
+    """"Lash Out (50 BP)*" -> "Lash Out"."""
+    return re.sub(r"\([^)]*\)|\*", "", text).strip()
+
+
+_BOSS_STATS = ("HP", "Atk", "Def", "Sp. A", "Sp. D", "Spe")
+
+
+def _boss_stats(line: str) -> list[int | None]:
+    """"150 HP | 100 Atk | 120 Def | 100 Sp. A | 100 Sp. D | 1 Spe" -> six numbers,
+    None where the line leaves one out (Segin Starmobile has no Speed)."""
+    got = {s: int(v) for v, s in re.findall(r"(\d+) (HP|Atk|Def|Sp\. A|Sp\. D|Spe)\b", line)}
+    return [got.get(s) for s in _BOSS_STATS]
+
+
+def _looks_like_move(text: str) -> bool:
+    """A short title-case name, not a description like "85 BP | 30% Flinch"."""
+    words = text.split()
+    return (bool(words) and not re.search(r"[\d|,%:]", text) and len(words) <= 3
+            and text[:1].isupper() and not words[0].isupper() and text != "Unchanged")
+
+
+def read_bosses(doozdex: Path, resolve, ability_id, move_id,
+                fixes: dict[str, str | None]) -> tuple[list[dict], list[str]]:
+    """Both boss tabs as team presets {name, level, path, team: [{p, a, m}]}. A fight
+    the same on both paths has path null. Allies ("Arven's Shellder", Carmine's "Ally"
+    fight) are skipped; a fight with more than six foes is split into parts.
+
+    resolve(name, title, types, stats, ability, where) gives a foe's entry id, or None;
+    move_id(name) a move's."""
+    gaps: list[str] = []
+    fights: list[tuple[str, str, int, list[dict]]] = []  # (path, title, level, team)
+    for gid, path in BOSS_TABS:
+        grid = read_grid(doozdex / f"{gid}.html")
+        current: tuple[str, int, list[dict]] | None = None
+        for i, row in enumerate(grid):
+            filled = [(c, x.text) for c, x in enumerate(row) if x and x.text.strip()]
+            if (len(filled) == 1 and filled[0][0] == 0 and len(filled[0][1]) < 120
+                    and _BOSS_LEVEL.search(filled[0][1])):
+                title, level = _boss_title(filled[0][1])
+                if re.search(r"\bAlly$", title):
+                    log.debug("scrambled.bosses.ally_fight %s", title)
+                    current = None
+                    continue
+                current = (title, level, [])
+                fights.append((path, title, level, current[2]))
+                log.debug("scrambled.bosses.fight %s %s lv%d", path, title, level)
+                continue
+            for c, text in filled:
+                if not text.startswith("Ability:") or current is None:
+                    continue
+                where = f"boss tab {gid} row {i + 1}"
+                b = c - 21
+                name_row = next((r for r in (i - 1, i - 2, i - 3)
+                                 if cell(grid, r, b).text.strip()), i - 2)
+                raw = cell(grid, name_row, b).text
+                name = re.sub(r"^#\d+\.\s*", "", re.sub(r"\s+", " ", raw)).strip()
+                if "'s " in name or "âs " in name:
+                    log.debug("scrambled.bosses.ally %s %s", current[0], name)
+                    continue
+                name = fixes.get(name, name)
+                if name is None:
+                    continue
+                name = re.sub(r"^Titan(?:ic)?\s+", "", name)
+                types = [t for k in range(b + 21, b + 42)
+                         if (t := cell(grid, name_row, k).text.strip().lower()) in TYPE_ORDER]
+                stats_row = next((r for r in range(i + 1, min(i + 20, len(grid)))
+                                  if re.match(r"\d+ HP\b", cell(grid, r, b).text)), None)
+                if stats_row is None:
+                    gaps.append(f"{where}: {current[0]} {name}: no stats line")
+                    continue
+                ability_raw = text.removeprefix("Ability:")
+                pid = resolve(name, current[0], types,
+                              _boss_stats(cell(grid, stats_row, b).text), ability_raw, where)
+                if pid is None:
+                    continue
+                got = ability_id(ability_raw, f"{where} {current[0]}")
+                # Moves sit in the rows under the stats, between their descriptions,
+                # not always on the same rows.
+                moves: list[int] = []
+                for r in range(stats_row + 1, min(stats_row + 7, len(grid))):
+                    for mc in (b, b + 21):
+                        mt = re.sub(r"\s+", " ", cell(grid, r, mc).text).strip()
+                        mt = fixes.get(mt, mt)
+                        if not mt:
+                            continue
+                        mid = move_id(_boss_move(mt.split("|")[0]))
+                        if mid is None:
+                            if _looks_like_move(_boss_move(mt)):
+                                gaps.append(f"{where}: {current[0]} {name}: unknown move "
+                                            f"{mt!r} (add to overrides.json "
+                                            "scrambled.boss_fixes)")
+                        elif mid not in moves and len(moves) < 4:
+                            moves.append(mid)
+                if not moves:
+                    gaps.append(f"{where}: {current[0]} {name}: no moves")
+                current[2].append({"p": pid, **({"a": got[0]} if got else {}), "m": moves})
+    # One preset per distinct fight; the path only where the two paths differ.
+    teams: dict[str, list[tuple[str, list[dict]]]] = {}
+    for path, title, level, team in fights:
+        if not team:
+            gaps.append(f"{path} path: {title}: no PokÃ©mon")
+            continue
+        teams.setdefault(f"{title}|{level}", []).append((path, team))
+    out: list[dict] = []
+    for path, title, level, team in fights:
+        variants = teams.get(f"{title}|{level}", [])
+        if (path, team) not in variants:
+            continue
+        same = len(variants) == len(BOSS_TABS) and all(t == team for _, t in variants)
+        if same and path != BOSS_TABS[0][1]:
+            continue  # already added from the first tab
+        parts = [team[k:k + 6] for k in range(0, len(team), 6)]
+        for n, part in enumerate(parts, 1):
+            suffix = f" ({n}/{len(parts)})" if len(parts) > 1 else ""
+            # The id keys the app's frecency, so it's the name's, not the position's.
+            key = f"{title}{suffix}|{level}|{None if same else path}"
+            out.append({"id": zlib.crc32(key.encode()) % 1_000_000_000,
+                        "name": title + suffix, "level": level,
+                        "path": None if same else path, "team": part})
+    if len({b["id"] for b in out}) != len(out):
+        gaps.append("two boss teams share an id; make their names differ")
+    log.debug("scrambled.bosses.done presets=%d gaps=%d", len(out), len(gaps))
+    return out, gaps
 
 
 def build_scrambled(db: CsvDb, showdown: dict[int, set[str]], doozdex: Path,
@@ -723,7 +866,8 @@ def build_scrambled(db: CsvDb, showdown: dict[int, set[str]], doozdex: Path,
     fix = overrides.get("scrambled", {})
 
     tracked = {k: _Tracked(fix.get(k, {}))
-               for k in ("entry_names", "new_forms", "ability_names", "learnset_fixes")}
+               for k in ("entry_names", "new_forms", "ability_names", "learnset_fixes",
+                         "boss_fixes", "boss_new_forms")}
     candidates = build_entries(db, SCARLET, keep_lookalikes=True).entries
     by_id: dict[int, Entry] = {e.id: e for e in candidates}
     matcher = EntryMatcher([e.to_json() for e in candidates], tracked["entry_names"])
@@ -834,6 +978,93 @@ def build_scrambled(db: CsvDb, showdown: dict[int, set[str]], doozdex: Path,
         entries.append(entry)
         block_entry.append((b, entry["id"]))
     kept = {e["id"] for e in entries}
+
+    # Boss teams. A foe the Doozdex doesn't list (the hack left it alone) is added
+    # with Scarlet's data; a Starmobile is a new Revavroom form with the sheet's
+    # types and the stats of its first fight.
+    boss_matcher = EntryMatcher(
+        [*entries, *(c.to_json() for c in candidates if c.id not in kept)], {})
+    boss_forms: dict[str, list] = tracked["boss_new_forms"]
+
+    def add_entry(entry: dict, why: str) -> None:
+        entries.append(entry)
+        kept.add(entry["id"])
+        for aid in [*entry["abilities"], *([entry["hidden"]] if entry["hidden"] else [])]:
+            hack_names.setdefault(aid, van_names[aid])
+        log.debug("scrambled.bosses.add_entry %s %s", entry["name"], why)
+
+    def resolve(name: str, title: str, types: list[str], stats: list[int | None],
+                ability_raw: str, where: str) -> int | None:
+        if name in boss_forms:
+            species, form = boss_forms[name]
+            known = next((e for e in entries if e["form"] == form), None)
+            if known:
+                return known["id"]
+            base = boss_matcher.match(species, [])
+            got = ability_id(ability_raw, where)
+            if (base is None or stats.count(None) > 1 or not 1 <= len(types) <= 2
+                    or got is None):
+                gaps.append(f"{where}: {title}: can't make {name!r} (species, types "
+                            f"{types}, stats {stats})")
+                return None
+            # One stat left out: the species' own (Segin Starmobile's Speed).
+            stats = [s if s is not None else b for s, b in zip(stats, base["stats"], strict=True)]
+            k = sum(1 for e in entries if e["dex"] == base["dex"] and e["id"] >= DOOZIAN_ID_BASE)
+            eid = DOOZIAN_ID_BASE + base["dex"] * 10 + k
+            art[eid] = base["id"]
+            hack_names.setdefault(got[0], got[1])
+            add_entry({**base, "id": eid, "form": form, "name": f"{base['species']} ({form})",
+                       "types": types, "stats": stats, "abilities": [got[0]], "hidden": None,
+                       "notes": f"Only fought in boss battles ({title}); stats as there."},
+                      "boss form")
+            return eid
+        bare = re.sub(r"\s*\([^)]*\)?", "", name).strip()
+        contexts = boss_matcher.contexts(title)
+        found = (boss_matcher.match(re.sub(r"[()]", "", name), contexts)
+                 or boss_matcher.match(bare, contexts))
+        if found is None:
+            gaps.append(f"{where}: {title}: no PokÃ©mon matches {name!r} (add to "
+                        "overrides.json scrambled.boss_fixes)")
+            return None
+        if types and found["types"] != types:
+            # A bare species name: the form with these types ("Sunflora" with the
+            # Doozian Sunflora's typing).
+            same = [e for e in entries if e["dex"] == found["dex"] and e["types"] == types]
+            if same:
+                log.debug("scrambled.bosses.form_by_types %s -> %s", name, same[0]["name"])
+                found = same[0]
+        if found["id"] not in kept:
+            add_entry({**found, "notes": "Not in the Doozdex, so this is Scarlet's data."},
+                      "vanilla")
+        return found["id"]
+
+    def boss_ability(raw: str, where: str) -> tuple[int, str] | None:
+        got = ability_id(raw, where)
+        if got:
+            hack_names.setdefault(*got)
+        return got
+
+    scarlet_by_name = {norm(m["name"]): m for m in scarlet_moves}
+    hack_move_ids = {m["id"] for m in moves}
+
+    def boss_move(name: str) -> int | None:
+        """A hack move, else a Scarlet one the hack dropped from its guide but a
+        boss still uses (Torque moves, Detect), added with Scarlet's data."""
+        mid = move_names.get(norm(name))
+        if mid is not None:
+            return mid
+        v = scarlet_by_name.get(norm(name))
+        if v is None or v["id"] in hack_move_ids:
+            return None  # unknown, or its slot now holds another move
+        log.debug("scrambled.bosses.vanilla_move %s", name)
+        moves.append({**v, "in_game": True})
+        hack_move_ids.add(v["id"])
+        move_names[norm(name)] = v["id"]
+        return v["id"]
+
+    bosses, boss_gaps = read_bosses(doozdex, resolve, boss_ability, boss_move,
+                                    tracked["boss_fixes"])
+    gaps += boss_gaps
 
     # Abilities table: vanilla text, led by the guide's where it has some.
     vanilla_table = build_abilities(
@@ -956,8 +1187,9 @@ def build_scrambled(db: CsvDb, showdown: dict[int, set[str]], doozdex: Path,
     for e in entries:
         e["forms"] = sorted(by_species[e["dex"]], key=lambda i: (i != e["dex"], i))
     entries.sort(key=lambda e: (e["dex"], e["id"] != e["dex"], e["id"]))
+    moves.sort(key=lambda m: m["name"])  # bosses may have added Scarlet moves
     log.debug("scrambled.build.done entries=%d moves=%d chains=%d gaps=%d stats=%s",
               len(entries), len(moves), len(chains), len(gaps), stat_sources)
     print(f"Scrambled Scarlet stats from: {stat_sources}")
     return ScrambledBuild(entries, abilities, moves, learnsets,
-                          {str(k): v for k, v in sorted(chains.items())}, art, gaps)
+                          {str(k): v for k, v in sorted(chains.items())}, art, bosses, gaps)

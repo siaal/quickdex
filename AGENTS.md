@@ -65,6 +65,13 @@
   guaranteed guard only) and takes attack types from damaging moves, falling back to
   STAB. `analyseTeam` gives one `TypeMatchup` row per type;
   its `edges` (doublings dealt minus taken, 0× = 3 halvings) drive the row tint.
+  `TeamPlanner` (`lib/team/builds.dart`) bundles the Mine | Theirs teams (`team.v1`,
+  `team.theirs.v1`; JSON `{n: build name, s: slots}`, old bare lists still read),
+  `SavedBuilds` (`team.builds.v1`, unique by normalised name, save overwrites) and the
+  boss teams from `pokedex.json` `bosses` (Scrambled Scarlet only), each list with its
+  own frecency (`frecency.builds.v1`, `frecency.bosses.v1`). Boss ids are a crc of
+  name/level/path so frecency survives data rebuilds. A slot keeps any ability the dex
+  knows, not just its species', since bosses break that rule.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1` (per game, like the team). A visit is credited to the
   entry opened from search (on page open), not to forms/evolutions swapped to after.

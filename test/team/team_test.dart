@@ -34,15 +34,37 @@ void main() {
       expect(back.slots.where((s) => s == null), hasLength(5));
     });
 
-    test('drops unknown Pokémon and abilities the entry cannot have', () {
+    test('drops unknown Pokémon and abilities; keeps any known ability', () {
       final golem = named('Golem');
       final t = Team.fromJson(
-        '[{"p":999999,"m":[]},{"p":${golem.id},"a":${ability('levitate')},"m":[]}]',
+        '[{"p":999999,"m":[]},{"p":${golem.id},"a":999999,"m":[]},'
+        '{"p":${golem.id},"a":${ability('levitate')},"m":[]}]',
         dex,
       );
       expect(t[0], isNull);
       expect(t[1]!.pokemon, golem.id);
       expect(t[1]!.ability, isNull);
+      expect(
+        t[2]!.ability,
+        ability('levitate'),
+        reason: "a boss can have one its species can't",
+      );
+    });
+
+    test('the build name round-trips; load replaces every slot at once', () {
+      final saved = <String>[];
+      final team = Team(onChanged: saved.add);
+      team[0] = TeamSlot(named('Golem').id);
+      final slots = List<TeamSlot?>.filled(Team.size, null);
+      slots[3] = TeamSlot(named('Pikachu').id);
+      team.load(slots, name: 'Rain');
+      expect(saved, hasLength(2), reason: 'one change per load');
+      final back = Team.fromJson(saved.last, dex);
+      expect(back.name, 'Rain');
+      expect(back[0], isNull);
+      expect(back[3]!.pokemon, named('Pikachu').id);
+      team[3] = null;
+      expect(Team.fromJson(saved.last, dex).name, 'Rain', reason: 'kept');
     });
 
     test(

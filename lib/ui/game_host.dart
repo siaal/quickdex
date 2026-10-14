@@ -7,6 +7,7 @@ import '../data/loader.dart';
 import '../data/models.dart';
 import '../data/moves.dart';
 import '../frecency/frecency.dart';
+import '../team/builds.dart';
 import '../team/team.dart';
 import '../trace.dart';
 import 'app.dart';
@@ -22,10 +23,10 @@ class GameSession {
     this.moves,
     this.frecency,
     this.moveFrecency,
-    this.team,
+    this.planner,
   );
 
-  /// Team and frecency are per game ([GameInfo.prefsKey]).
+  /// Teams, builds and frecency are per game ([GameInfo.prefsKey]).
   static Future<GameSession> load(
     AssetBundle bundle,
     SharedPreferences prefs,
@@ -42,17 +43,33 @@ class GameSession {
       );
     }
 
-    final teamKey = game.prefsKey(Team.prefsKey);
+    Team team(String base) {
+      final key = game.prefsKey(base);
+      return Team.fromJson(
+        prefs.getString(key),
+        dex,
+        onChanged: (json) => prefs.setString(key, json),
+      );
+    }
+
+    final buildsKey = game.prefsKey(SavedBuilds.prefsKey);
     return GameSession._(
       game,
       dex,
       moves,
       store(FrecencyStore.prefsKey),
       store(FrecencyStore.movesPrefsKey),
-      Team.fromJson(
-        prefs.getString(teamKey),
-        dex,
-        onChanged: (json) => prefs.setString(teamKey, json),
+      TeamPlanner(
+        mine: team(Team.prefsKey),
+        theirs: team(TeamPlanner.theirsPrefsKey),
+        builds: SavedBuilds.fromJson(
+          prefs.getString(buildsKey),
+          dex,
+          onChanged: (json) => prefs.setString(buildsKey, json),
+        ),
+        buildFrecency: store(TeamPlanner.buildFrecencyPrefsKey),
+        bosses: bossBuilds(dex),
+        bossFrecency: store(TeamPlanner.bossFrecencyPrefsKey),
       ),
     );
   }
@@ -62,7 +79,7 @@ class GameSession {
   final Future<MoveDex> moves;
   final FrecencyStore frecency;
   final FrecencyStore moveFrecency;
-  final Team team;
+  final TeamPlanner planner;
 }
 
 /// Prefs key of the chosen game.
@@ -139,7 +156,7 @@ class _GameHostState extends State<GameHost> {
         frecency: s.frecency,
         moves: s.moves,
         moveFrecency: s.moveFrecency,
-        team: s.team,
+        planner: s.planner,
         games: widget.games,
         onGameChanged: _switch,
         initialSearchMode:

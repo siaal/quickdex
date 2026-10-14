@@ -8,6 +8,9 @@ from quickdex_data.doozdex import Cell
 from quickdex_data.moves import load_showdown
 from quickdex_data.scrambled import (
     Member,
+    _boss_stats,
+    _boss_title,
+    _looks_like_move,
     _move_row,
     _number,
     build_scrambled,
@@ -93,6 +96,19 @@ def test_learnset_cells():
     assert len(gaps) == 1 and "Nonsense Move" in gaps[0]
 
 
+def test_boss_sheet_text():
+    assert _boss_title("3rd Gym Leader Iono - Level 27  (Vanilla Path)") == (
+        "3rd Gym Leader Iono", 27)
+    assert _boss_title("AI Sada (Level 100, Vanilla Path)") == ("AI Sada", 100)
+    assert _boss_title("Titan Loyal 3 - ALL 3 HAVE 4X NORMAL AMOUNT OF HP (Lv 43.") == (
+        "Titan Loyal 3", 43)
+    assert _boss_stats("150 HP | 100 Atk | 120 Def | 100 Sp. A | 100 Sp. D | -1 Priority") == [
+        150, 100, 120, 100, 100, None]
+    assert _looks_like_move("Slack Off")
+    for desc in ("85 BP | 30% Flinch", "ALWAYS Crits", "Unchanged", "Heals 50%"):
+        assert not _looks_like_move(desc), desc
+
+
 @pytest.fixture(scope="session")
 def scrambled(db):
     if not (DOOZDEX / "1342442952.html").is_file():
@@ -132,6 +148,30 @@ def test_scrambled_moves(scrambled):
     assert by_name["Endure"]["cat"] == "status"
     assert "Bug Bomber" in by_name and by_name["Bug Bomber"]["id"] >= 100_000
     assert "Tackle" not in by_name, "not in the hack"
+
+
+def test_scrambled_bosses(scrambled):
+    by_id = {e["id"]: e for e in scrambled.entries}
+    moves = {m["id"]: m["name"] for m in scrambled.moves}
+    bosses = {(b["name"], b["path"]): b for b in scrambled.bosses}
+    assert len({b["id"] for b in scrambled.bosses}) == len(scrambled.bosses)
+    assert all(1 <= len(b["team"]) <= 6 for b in scrambled.bosses)
+    assert all(m in moves for b in scrambled.bosses for t in b["team"] for m in t["m"])
+
+    def names(key):
+        return [by_id[t["p"]]["name"] for t in bosses[key]["team"]]
+
+    assert ("Arven", None) in bosses, "the same on both paths"
+    assert "Rotom (Wash)" in names(("6th Gym Leader Iono", "Reverse"))
+    assert names(("Titan Klawf", "Vanilla")) == ["Klawf"], "Arven's Shellder is an ally"
+    assert not any("Ally" in n for n, _ in bosses)
+    magneton = next(e for e in scrambled.entries if e["name"] == "Magneton")
+    assert "Scarlet's data" in magneton["notes"], "not in the Doozdex, added for Iono"
+    segin = next(e for e in scrambled.entries if e["name"] == "Revavroom (Segin Starmobile)")
+    assert segin["types"] == ["dark", "steel"]
+    assert scrambled.art[segin["id"]] == 966
+    giacomo = bosses[("Star Boss Giacomo", "Vanilla")]["team"][-1]
+    assert "Wicked Torque" in [moves[m] for m in giacomo["m"]], "a Scarlet move kept"
 
 
 def test_scrambled_evolutions(scrambled):

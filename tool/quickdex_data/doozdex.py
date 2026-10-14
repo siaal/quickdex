@@ -24,10 +24,12 @@ MOVES_TAB = "1342442952"
 POKEMON_TABS = ("209909734", "1842376258", "1610264723")  # Gens 9-7, 6-4, 3-1
 ABILITIES_TAB = "911772807"
 TMS_TAB = "1857980463"
+VANILLA_BOSSES_TAB = "366088713"
+REVERSE_BOSSES_TAB = "748281054"
 OTHER_TABS = (
     "1333102210",  # Table of Contents
-    "366088713",  # Vanilla Path Boss Fights
-    "748281054",  # Reverse Path Boss Fights
+    VANILLA_BOSSES_TAB,
+    REVERSE_BOSSES_TAB,
     "1014285145",  # Egg/Encounter Guide
     "1348877308",  # Item Locations (Shop Guide)
     "1324157418",  # Held Item Buffs/Changes

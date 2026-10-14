@@ -164,8 +164,8 @@ keys (`team.v1`, `frecency.v1`, `frecency.moves.v1`), other games append `.<key>
 
 #### Scrambled Scarlet (added 2026-10-13)
 
-A romhack, so not in Pok\u00e9API: its data is the Doozdex Google Sheet, laid over
-Scarlet's (`scrambled.py`, `doozdex.py`). Owner decisions: only the Pok\u00e9mon the sheet
+A romhack, so not in PokÃ©API: its data is the Doozdex Google Sheet, laid over
+Scarlet's (`scrambled.py`, `doozdex.py`). Owner decisions: only the PokÃ©mon the sheet
 covers; TMs shown by badge; boss fights, level caps, items and the egg guide are
 downloaded but not used yet (`.todo/active/scrambled_boss_and_item_data`).
 
@@ -174,11 +174,11 @@ downloaded but not used yet (`.todo/active/scrambled_boss_and_item_data`).
   `.cache/doozdex/`.
 - **Moves:** the Move Guide and TM Guide rows (up to "UNUSED MOVES"). "Old > New"
   gives New the id/key of Old; "(Still Exists)" marks a new move; other new names get
-  ids \u2265 100000. Category from the icon colour; priority from "+n Priority" in the
+  ids â¥ 100000. Category from the icon colour; priority from "+n Priority" in the
   text; contact from "Contact." or the slot's Showdown flag; flags are the sheet's
   ability tags (Mega Launcher, Bulletproof, Sharpness, Sound, Wind Rider, Rapid Fire,
   Gravity, AI Only) plus Showdown's Punch/Bite/Powder/Dance for unrenamed moves.
-- **Pok\u00e9mon:** each block's name matched to a Scarlet entry (forms the vanilla
+- **PokÃ©mon:** each block's name matched to a Scarlet entry (forms the vanilla
   build drops as lookalikes are candidates), or a new form (Doozian, Vivillon weather
   forms). Types and three abilities from the block ("New (Old)" renames keep Old's id,
   so ability immunities follow); stats are vanilla + the per-stat changes unless the
@@ -187,11 +187,20 @@ downloaded but not used yet (`.todo/active/scrambled_boss_and_item_data`).
 - **Learnsets:** one free-text cell per family: "NN." level-ups, "Ev." on evolving
   (not for the first stage), TMs under "N BADGES" headings. Stage notes ("*No
   Floragato", "(Bellibolt only)", "*Means ONLY Golem can learn...") restrict moves.
-- **Evolutions:** Scarlet's chains among the kept Pok\u00e9mon, then each block's
+- **Evolutions:** Scarlet's chains among the kept PokÃ©mon, then each block's
   evolution sentence ("Now evolves at level 30", "evolves from Donphan at level 45+ ONLY
   when taught Primal Energy") sets the method, adding edges that join chains.
+- **Boss teams** (added 2026-10-14): both boss tabs (Vanilla and Reverse path) become
+  `pokedex.json` `bosses` [{id, name, level, path, team: [{p, a, m}]}], path null when
+  a fight is the same on both. Each foe is found by its "Ability:" cell; its name is
+  above, its moves are the move-name cells under its stats line. Allies ("Arven's
+  Shellder", Carmine's Ally fight) are skipped. Foes the Doozdex doesn't list are added
+  to the dex with Scarlet's data, Starmobiles as Revavroom forms with the sheet's types
+  and first fight's stats; moves the hack's guide dropped (Torques, Detect) with
+  Scarlet's. Loaded in the app as "Theirs" teams.
 - Anything unmatched is a build gap, fixed in `overrides.json` `scrambled`
-  (`entry_names`, `new_forms`, `ability_names`, `learnset_fixes`); unused overrides fail.
+  (`entry_names`, `new_forms`, `ability_names`, `learnset_fixes`, `boss_fixes`,
+  `boss_new_forms`); unused overrides fail.
 
 ### 2. App structure (Flutter)
 

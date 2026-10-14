@@ -7,6 +7,7 @@ import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/frecency/frecency.dart';
 import 'package:quickdex/search/search_index.dart';
+import 'package:quickdex/team/builds.dart';
 import 'package:quickdex/team/team.dart';
 import 'package:quickdex/ui/team_screen.dart';
 import 'package:quickdex/ui/matchup_section.dart';
@@ -27,17 +28,21 @@ void main() {
 
   final openedTypes = <String>[];
 
-  Future<Team> pump(WidgetTester tester, [Team? team]) async {
+  Future<Team> pump(
+    WidgetTester tester, [
+    Team? team,
+    TeamPlanner? planner,
+  ]) async {
     openedTypes.clear();
     tester.view.physicalSize = const Size(480, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final t = team ?? Team();
+    final t = planner?.mine ?? team ?? Team();
     await tester.pumpWidget(
       MaterialApp(
         home: TeamScreen(
           dex: dex,
-          team: t,
+          planner: planner ?? TeamPlanner(mine: t),
           index: SearchIndex(dex.entries),
           frecency: FrecencyStore(),
           moves: Future.value(moves),
@@ -322,5 +327,116 @@ void main() {
       findsOne,
     );
     expect(team[0]!.moves, [eq.id], reason: 'peeking does not pick');
+  });
+
+  group('builds', () {
+    List<TeamSlot?> slots(List<String> names) => [
+      for (var i = 0; i < Team.size; i++)
+        i < names.length ? TeamSlot(named(names[i]).id) : null,
+    ];
+
+    Future<void> tapKey(WidgetTester tester, String key) async {
+      await tester.tap(find.byKey(Key(key)));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('save names the team; load brings it back, undoably', (
+      tester,
+    ) async {
+      final planner = TeamPlanner(
+        mine: Team(slots: slots(['Golem', 'Pikachu'])),
+      );
+      final team = await pump(tester, null, planner);
+      await tapKey(tester, 'team-save');
+      await tester.enterText(find.byKey(const Key('team-save-name')), 'Rocks');
+      await tester.pump();
+      await tapKey(tester, 'team-save-confirm');
+      final build = planner.builds.named('Rocks')!;
+      expect(find.byKey(const Key('team-name')), findsOne);
+      expect(planner.buildFrecency.isFrecent(build.id), isTrue);
+
+      team[1] = null;
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'team-save');
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('team-save-confirm')),
+          matching: find.text('Overwrite'),
+        ),
+        findsOne,
+        reason: 'the loaded name is offered again',
+      );
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(planner.builds.named('Rocks')!.slots[1], isNotNull);
+
+      await tapKey(tester, 'team-load');
+      await tapKey(tester, 'team-pick-row-${build.id}');
+      expect(team[1]!.pokemon, named('Pikachu').id);
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(team[1], isNull);
+    });
+
+    testWidgets('load lists builds most recently used first', (tester) async {
+      final planner = TeamPlanner();
+      final a = planner.builds.save('Alpha', slots(['Golem']));
+      final b = planner.builds.save('Beta', slots(['Pikachu']));
+      planner.buildFrecency
+        ..visit(b.id)
+        ..visit(a.id);
+      await pump(tester, null, planner);
+      await tapKey(tester, 'team-load');
+      double top(int id) =>
+          tester.getTopLeft(find.byKey(Key('team-pick-row-$id'))).dy;
+      expect(top(a.id), lessThan(top(b.id)));
+    });
+
+    testWidgets('a build swipes away after confirming', (tester) async {
+      final planner = TeamPlanner();
+      final a = planner.builds.save('Alpha', slots(['Golem']));
+      planner.buildFrecency.visit(a.id);
+      await pump(tester, null, planner);
+      await tapKey(tester, 'team-load');
+      await tester.drag(
+        find.byKey(Key('build-dismiss-${a.id}')),
+        const Offset(-500, 0),
+      );
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'build-delete-confirm');
+      expect(planner.builds.builds, isEmpty);
+      expect(planner.buildFrecency.isFrecent(a.id), isFalse);
+      expect(find.byKey(Key('team-pick-row-${a.id}')), findsNothing);
+    });
+
+    testWidgets('Theirs is a separate team that loads boss teams only', (
+      tester,
+    ) async {
+      final boss = TeamBuild(7, 'Gym Leader · Lv. 20', slots(['Bronzong']));
+      final planner = TeamPlanner(
+        mine: Team(slots: slots(['Golem'])),
+        bosses: [boss],
+      );
+      planner.builds.save('Mine only', slots(['Pikachu']));
+      await pump(tester, null, planner);
+      await tester.tap(find.text('Theirs'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('team-empty')), findsOne);
+      expect(find.byKey(const Key('team-save')), findsNothing);
+      await tapKey(tester, 'team-load');
+      expect(find.text('Mine only'), findsNothing);
+      await tapKey(tester, 'team-pick-row-7');
+      expect(planner.theirs[0]!.pokemon, named('Bronzong').id);
+      expect(planner.theirs.name, boss.name);
+      expect(planner.mine[0]!.pokemon, named('Golem').id, reason: 'untouched');
+      expect(planner.bossFrecency.isFrecent(7), isTrue);
+    });
+
+    testWidgets('Theirs has no load button without boss teams', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('Theirs'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('team-load')), findsNothing);
+    });
   });
 }

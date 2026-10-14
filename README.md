@@ -27,7 +27,13 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   with them, filter by name, optionally highest evolution only) and a full 18×18 (17×17
   in Emerald)
   grid with frozen headers, pinch-zoom and row/column highlight.
-- **Team Planner:** six slots; tap one to pick a Pokémon, its ability and up to four
+- **Team Planner:** a Mine | Theirs toggle in the header: your team, and an opponent's.
+  Save names your team as a build (it offers the loaded build's name, so one tap
+  overwrites it); Load lists builds most recently used first, typing ranks them like
+  search, and a loaded team can be undone from the snackbar; swipe a build away to
+  delete it. In Scrambled Scarlet, Theirs loads every boss team from the Doozdex (gyms,
+  rivals, Team Star, Titans, Elite 4, both paths). Each team has six slots; tap one to
+  pick a Pokémon, its ability and up to four
   moves (level-up moves are suggested; typing searches every move; long-press or
   right-click a move to read what it does; the eye button leaves a move out of the
   matchups without removing it, e.g. a U-turn that doesn't define them). Below, each

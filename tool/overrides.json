@@ -50,6 +50,18 @@
       "+Dual Screens*": null,
       "Psycho Warp": null,
       "Noxious Torque": null
+    },
+    "boss_fixes": {
+      "Meowstic-F": "Meowstic Female",
+      "Indeedee-F": "Indeedee Female",
+      "H-Lilligant": "Hisuian Lilligant"
+    },
+    "boss_new_forms": {
+      "Segin Starmobile": ["Revavroom", "Segin Starmobile"],
+      "Schedar Starmobile": ["Revavroom", "Schedar Starmobile"],
+      "Navi Starmobile": ["Revavroom", "Navi Starmobile"],
+      "Ruchbah Starmobile": ["Revavroom", "Ruchbah Starmobile"],
+      "Caph Starmobile": ["Revavroom", "Caph Starmobile"]
     }
   }
 }

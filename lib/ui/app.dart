@@ -7,7 +7,7 @@ import '../data/models.dart';
 import '../data/moves.dart';
 import '../frecency/frecency.dart';
 import '../search/search_index.dart';
-import '../team/team.dart';
+import '../team/builds.dart';
 import '../trace.dart';
 import 'pokemon_page.dart';
 import 'search_screen.dart';
@@ -23,7 +23,7 @@ class QuickDexApp extends StatelessWidget {
     required this.frecency,
     required this.moves,
     required this.moveFrecency,
-    required this.team,
+    required this.planner,
     this.initialSearchMode = SearchMode.all,
     this.onSearchModeChanged,
     this.games = const [],
@@ -31,7 +31,7 @@ class QuickDexApp extends StatelessWidget {
   });
   final Pokedex dex;
   final FrecencyStore frecency;
-  final Team team;
+  final TeamPlanner planner;
 
   /// Loaded in the background so it doesn't delay startup.
   final Future<MoveDex> moves;
@@ -57,7 +57,7 @@ class QuickDexApp extends StatelessWidget {
       frecency: frecency,
       moves: moves,
       moveFrecency: moveFrecency,
-      team: team,
+      planner: planner,
       initialSearchMode: initialSearchMode,
       onSearchModeChanged: onSearchModeChanged,
       games: games,
@@ -73,7 +73,7 @@ class HomeShell extends StatefulWidget {
     required this.frecency,
     required this.moves,
     required this.moveFrecency,
-    required this.team,
+    required this.planner,
     this.initialSearchMode = SearchMode.all,
     this.onSearchModeChanged,
     this.games = const [],
@@ -81,7 +81,7 @@ class HomeShell extends StatefulWidget {
   });
   final Pokedex dex;
   final FrecencyStore frecency;
-  final Team team;
+  final TeamPlanner planner;
   final Future<MoveDex> moves;
   final FrecencyStore moveFrecency;
   final SearchMode initialSearchMode;
@@ -221,7 +221,7 @@ class _HomeShellState extends State<HomeShell> {
               2,
               TeamScreen(
                 dex: widget.dex,
-                team: widget.team,
+                planner: widget.planner,
                 index: _index,
                 frecency: widget.frecency,
                 moves: widget.moves,
