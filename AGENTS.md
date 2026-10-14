@@ -52,7 +52,10 @@
   `search.mode`) merges kinds with `mergeHits` (Pokémon win ties; pass `byRecency` for empty queries). One `search-field`;
   move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, Pokémon rows `row-<id>`.
 - Moves (`assets/data/<game>/moves.json`, `lib/data/moves.dart`) load in the background at
-  launch; move results and learnset tables appear once loaded. Move flags and `contact` come
+  launch; move results and learnset tables appear once loaded. Vanilla learnsets carry
+  `machines` (["TM034"/"HM05", move], in-game version group only, so fallback learnsets
+  have none); Scrambled's carry badge `tms` instead. `LearnFilter` (Level up | All | TM)
+  drives both the Pokémon page and the team move picker. Move flags and `contact` come
   from Showdown's moves.json (`.cache/showdown/`, downloaded once; delete to refresh), since
   PokéAPI lacks Gen 9 flags; the build cross-checks the two and fails on disagreement.
   Before Gen 4 a damaging move's category follows its type; Curse is type `unknown`

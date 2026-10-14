@@ -95,7 +95,21 @@ void main() {
 
     await tester.tap(find.byKey(const Key('team-move-0')));
     await tester.pumpAndSettle();
-    expect(find.text('Level-up moves'), findsOneWidget);
+    // Level up | All | TM toggle, All to start: level-up moves, then TMs.
+    final learnset = moves.learnsets[bronzong.id]!;
+    final levelUp = learnset.moves.first.move;
+    final tm = learnset.machines.first.move;
+    expect(learnset.moves.map((m) => m.move), isNot(contains(tm)));
+    expect(find.byKey(const Key('learn-filter')), findsOneWidget);
+    expect(pickRow(levelUp), findsOneWidget);
+    await tester.tap(find.byKey(const Key('learn-filter-tm')));
+    await tester.pumpAndSettle();
+    expect(pickRow(levelUp), findsNothing);
+    expect(pickRow(tm), findsOneWidget);
+    await tester.tap(find.byKey(const Key('learn-filter-levelUp')));
+    await tester.pumpAndSettle();
+    expect(pickRow(tm), findsNothing);
+    expect(pickRow(levelUp), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('team-pick-search')),
       'earthquake',

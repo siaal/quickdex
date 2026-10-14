@@ -5,6 +5,7 @@ import 'package:quickdex/data/loader.dart';
 import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/frecency/frecency.dart';
+import 'package:quickdex/ui/learnset_table.dart';
 import 'package:quickdex/ui/pokemon_page.dart';
 
 void main() {
@@ -15,6 +16,7 @@ void main() {
     dex = await loadPokedex(rootBundle);
     moves = await loadMoves(rootBundle);
   });
+  tearDown(LearnsetTable.resetFilters);
 
   int moveId(String n) => moves.moves.firstWhere((m) => m.name == n).id;
 
@@ -100,6 +102,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('move-name')), findsOneWidget);
     expect(f.isFrecent(moveId('Thunderbolt')), isTrue);
+  });
+
+  testWidgets('Scarlet starts on Level up; TM and All add numbered TMs', (
+    tester,
+  ) async {
+    expect(LearnsetTable.defaultFilter(moves.game), LearnFilter.levelUp);
+    await pump(tester, 25);
+    final levelRow = find.byKey(Key('learn-36-${moveId('Thunderbolt')}'));
+    final tmRow = find.byKey(const Key('machine-TM126'));
+    expect(levelRow, findsOneWidget);
+    expect(tmRow, findsNothing);
+
+    await tester.ensureVisible(find.byKey(const Key('learn-filter')));
+    await tester.tap(find.byKey(const Key('learn-filter-tm')));
+    await tester.pumpAndSettle();
+    expect(levelRow, findsNothing);
+    await tester.scrollUntilVisible(
+      tmRow,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.descendant(of: tmRow, matching: find.text('Thunderbolt')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: tmRow, matching: find.text('TM126')),
+      findsOneWidget,
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('learn-filter')));
+    await tester.tap(find.byKey(const Key('learn-filter-all')));
+    await tester.pumpAndSettle();
+    expect(levelRow, findsOneWidget);
+    expect(find.byKey(const Key('tms')), findsOneWidget);
+  });
+
+  testWidgets('the picked filter sticks for the next page', (tester) async {
+    await pump(tester, 25);
+    await tester.ensureVisible(find.byKey(const Key('learn-filter')));
+    await tester.tap(find.byKey(const Key('learn-filter-tm')));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox());
+    await pump(tester, 26);
+    expect(find.byKey(const Key('tms')), findsOneWidget);
+    expect(find.byKey(const Key('learnset-game')), findsNothing);
+    expect(find.text('Level-up moves'), findsNothing);
+  });
+
+  testWidgets('a Pokémon from an older game learns no TMs here', (
+    tester,
+  ) async {
+    await pump(tester, 63); // Abra: Sword/Shield learnset
+    await tester.ensureVisible(find.byKey(const Key('learn-filter')));
+    await tester.tap(find.byKey(const Key('learn-filter-tm')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('no-tms')), findsOneWidget);
   });
 
   testWidgets('table follows a form swap', (tester) async {

@@ -52,4 +52,11 @@ void main() {
     expect(move('curse').type, 'unknown');
     expect(moves.learnsets[25]!.game, isNull);
   });
+
+  test('Emerald TMs are two-digit, then HMs', () {
+    final pika = moves.learnsets[25]!.machines;
+    expect(pika, contains((label: 'TM24', move: move('thunderbolt').id)));
+    expect(pika, contains((label: 'HM05', move: move('flash').id)));
+    expect(pika.last.label, startsWith('HM'));
+  });
 }

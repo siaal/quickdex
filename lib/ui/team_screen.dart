@@ -10,6 +10,7 @@ import '../team/team.dart';
 import '../team/team_analysis.dart';
 import '../trace.dart';
 import 'art.dart';
+import 'learnset_table.dart';
 import 'matchup_section.dart';
 import 'move_page.dart';
 import 'move_tile.dart';
@@ -806,8 +807,12 @@ class _Picker<T extends Searchable> extends StatefulWidget {
     required this.tile,
     this.header,
     this.changes,
+    this.bottom,
   });
   final String title;
+
+  /// Below the search field, e.g. a filter toggle.
+  final PreferredSizeWidget? bottom;
   final List<T> Function(String query) results;
   final Widget Function(T item, VoidCallback onTap) tile;
 
@@ -853,6 +858,7 @@ class _PickerState<T extends Searchable> extends State<_Picker<T>> {
           ),
           onChanged: (_) => setState(() {}),
         ),
+        bottom: widget.bottom,
       ),
       body: ListView.builder(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -1018,8 +1024,9 @@ class PokemonPicker extends StatelessWidget {
   );
 }
 
-/// Pick a move. With nothing typed, lists [pokemon]'s level-up moves; typing
-/// searches every move. Moves in [exclude] (already chosen) are left out.
+/// Pick a move. With nothing typed, lists [pokemon]'s moves under a Level up |
+/// All | TM toggle (All to start); typing searches every move. Moves in
+/// [exclude] (already chosen) are left out.
 class MovePicker extends StatefulWidget {
   const MovePicker({
     super.key,
@@ -1040,17 +1047,23 @@ class MovePicker extends StatefulWidget {
 class _MovePickerState extends State<MovePicker> {
   late final _index = SearchIndex(widget.moves.moves);
 
-  late final List<Move> _learnset = [
-    ...{
-      for (final l in widget.moves.learnsets[widget.pokemon]?.moves ?? const [])
-        if (!widget.exclude.contains(l.move)) l.move,
-    }.map((id) => widget.moves.byId[id]!),
+  var _filter = LearnFilter.all;
+
+  List<Move> get _learnset => [
+    for (final id
+        in widget.moves.learnsets[widget.pokemon]?.moveIds(_filter) ??
+            const <int>[])
+      if (!widget.exclude.contains(id)) widget.moves.byId[id]!,
   ];
 
   List<Move> _results(String q) {
     if (isRecencyQuery(q)) {
-      trace('team.move_picker.learnset', {'count': _learnset.length});
-      return _learnset;
+      final learnset = _learnset;
+      trace('team.move_picker.learnset', {
+        'filter': _filter.name,
+        'count': learnset.length,
+      });
+      return learnset;
     }
     return [
       for (final h in _index.search(q, widget.frecency))
@@ -1069,6 +1082,19 @@ class _MovePickerState extends State<MovePicker> {
         onDetails: () => showMoveDetails(context, m),
       ),
     ),
-    header: _learnset.isEmpty ? 'Type to search moves' : 'Level-up moves',
+    header: _learnset.isEmpty ? 'Type to search moves' : null,
+    bottom: PreferredSize(
+      preferredSize: const Size.fromHeight(44),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: LearnFilterToggle(
+          value: _filter,
+          onChanged: (f) {
+            trace('team.move_picker.filter', {'filter': f.name});
+            setState(() => _filter = f);
+          },
+        ),
+      ),
+    ),
   );
 }

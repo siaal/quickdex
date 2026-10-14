@@ -15,7 +15,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   frecency (your team and the current zone float to the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
   base stats, type defences (Bulbapedia grouping, each group on a red/green tint) beside what its
   own types hit super-effectively, not very effectively or not at all (tap any type pill to open it in the Type Chart as a
-  defender), form switching, level-up moves, and an Evo sheet (or drag from Evo and release on an evolution to
+  defender), form switching, moves under a Level up | All | TM toggle (All to start in Scrambled Scarlet,
+  Level up elsewhere; the pick sticks until restart), and an Evo sheet (or drag from Evo and release on an evolution to
   jump straight to it).
 - **Moves** (in Search): every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
@@ -39,7 +40,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   you hit them, the half by theirs is how hard they hit you (your strong hits green,
   theirs red, neutral grey, resisted faded, immune dashed). Each team has six slots; tap one to
   pick a Pokémon, its ability and up to four
-  moves (level-up moves are suggested; typing searches every move; long-press or
+  moves (its learnable moves are suggested under a Level up | All | TM toggle, All to
+  start; typing searches every move; long-press or
   right-click a move to read what it does; the eye button leaves a move out of the
   matchups without removing it, e.g. a U-turn that doesn't define them). Below, each
   attacking type shows how many members are weak, resist or are immune (the chosen
@@ -102,7 +104,7 @@ Without `key.properties` outside CI, release builds fall back to the debug key.
   - `pokedex.json`: entries (types, stats, forms, chain id, abilities, catch rate,
     weight), evolution chains, and ability descriptions
   - `types.json`: the game's type chart (18×18; 17×17 before Fairy)
-  - `moves.json`: moves and level-up learnsets
+  - `moves.json`: moves and learnsets (level-up moves plus TMs/HMs by number)
 - `assets/art/full/<id>.webp` (256px) and `assets/art/thumb/<id>.webp` (128px)
 - Scrambled Scarlet (`tool/quickdex_data/scrambled.py`): Scarlet's data with the
   Doozdex sheet's changes. The sheet is hand-written, so the build fails on anything

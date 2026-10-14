@@ -192,22 +192,44 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str],
 
 
 LEVEL_UP = "1"
+MACHINE = "4"
+
+
+def machine_label(number: int, generation: int) -> str:
+    """PokéAPI numbers HMs from 101: 34 -> "TM034" (Gen 9) or "TM34", 101 -> "HM01"."""
+    assert 0 <= number <= 108 or generation >= 8, number
+    if number > 100 and generation < 8:
+        return f"HM{number - 100:02d}"
+    return f"TM{number:03d}" if generation >= 8 else f"TM{number:02d}"
 
 
 def build_learnsets(db: CsvDb, entry_ids: list[int], move_ids: set[int],
                     game: Game) -> dict[str, dict]:
-    """Level-up learnset per entry id: `{"game": None | fallback label,
-    "moves": [[level, move id], ...]}`, level 0 = learned on evolution. Pokémon the
-    game lacks use its first fallback game that has them."""
+    """Learnset per entry id: `{"game": None | fallback label,
+    "moves": [[level, move id], ...], "machines": [["TM034", move id], ...]}`,
+    level 0 = learned on evolution, machines in TM-then-HM number order. Pokémon the
+    game lacks use its first fallback game that has them, with no machines (the
+    numbering is per game)."""
     fallbacks = dict(game.fallback_games)
     preference = [game.version_group, *fallbacks]
     wanted = {str(i) for i in entry_ids}
     rows: dict[str, dict[str, list[tuple[int, int, int]]]] = defaultdict(lambda: defaultdict(list))
+    number = {r["move_id"]: int(r["machine_number"])
+              for r in db.rows("machines", ("machine_number", "version_group_id", "move_id"))
+              if r["version_group_id"] == game.version_group}
+    machines: dict[str, set[tuple[int, int]]] = defaultdict(set)
     for r in db.rows("pokemon_moves", ("pokemon_id", "version_group_id", "move_id",
                                        "pokemon_move_method_id", "level", "order")):
         vg = r["version_group_id"]
-        if (r["pokemon_move_method_id"] != LEVEL_UP or r["pokemon_id"] not in wanted
-                or vg not in preference):
+        if r["pokemon_id"] not in wanted or vg not in preference:
+            continue
+        if r["pokemon_move_method_id"] == MACHINE and vg == game.version_group:
+            if r["move_id"] not in number:
+                raise SchemaError(f"pokemon {r['pokemon_id']} learns move {r['move_id']} "
+                                  f"by machine, but no {game.name} machine teaches it")
+            machines[r["pokemon_id"]].add((number[r["move_id"]], int(r["move_id"])))
+            continue
+        if r["pokemon_move_method_id"] != LEVEL_UP:
             continue
         rows[r["pokemon_id"]][vg].append(
             (int(r["level"]), int(r["order"] or 0), int(r["move_id"])))
@@ -221,8 +243,12 @@ def build_learnsets(db: CsvDb, entry_ids: list[int], move_ids: set[int],
         if vg != game.version_group:
             log.debug("moves.learnset.fallback %s %s game=%s", game.key, pid, vg)
         moves = [[lv, mid] for lv, _, mid in sorted(by_game[vg])]
-        unknown = {mid for _, mid in moves} - move_ids
+        tms = [[machine_label(n, game.generation), mid]
+               for n, mid in sorted(machines.get(pid, ()))] if vg == game.version_group else []
+        if not tms:
+            log.debug("moves.learnset.no_machines %s %s game=%s", game.key, pid, vg)
+        unknown = {mid for _, mid in moves + tms} - move_ids
         if unknown:
             raise SchemaError(f"pokemon {pid} learns moves not in moves.json: {unknown}")
-        out[pid] = {"game": fallbacks.get(vg), "moves": moves}
+        out[pid] = {"game": fallbacks.get(vg), "moves": moves, "machines": tms}
     return out

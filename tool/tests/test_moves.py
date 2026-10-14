@@ -3,7 +3,7 @@ from conftest import ROOT
 
 from quickdex_data.csvdb import SchemaError
 from quickdex_data.games import EMERALD, SCARLET
-from quickdex_data.moves import build_learnsets, build_moves, load_showdown
+from quickdex_data.moves import build_learnsets, build_moves, load_showdown, machine_label
 
 SHOWDOWN = ROOT / ".cache" / "showdown" / "moves.json"
 
@@ -201,3 +201,25 @@ def test_emerald_learnsets(db, emerald, em_moves):
     assert [26, em_moves["thunderbolt"]["id"]] in ls["25"]["moves"]  # Pikachu Lv. 26
     # FRLG-only Deoxys formes fall back to FireRed/LeafGreen.
     assert ls["10001"]["game"] == "FireRed/LeafGreen"
+
+
+def test_machine_labels():
+    assert machine_label(34, 9) == "TM034"
+    assert machine_label(34, 3) == "TM34"
+    assert machine_label(105, 3) == "HM05"
+
+
+def test_scarlet_machines_in_number_order(learnsets, moves):
+    pika = learnsets["25"]["machines"]
+    assert ["TM126", moves["thunderbolt"]["id"]] in pika
+    assert [label for label, _ in pika] == sorted(label for label, _ in pika)
+    assert learnsets["63"]["machines"] == []  # Abra: Sword/Shield fallback, no machines
+
+
+def test_emerald_machines_include_hms(db, emerald, em_moves):
+    ls = build_learnsets(db, [e.id for e in emerald.entries],
+                         {m["id"] for m in em_moves.values()}, EMERALD)
+    pika = ls["25"]["machines"]
+    assert ["TM24", em_moves["thunderbolt"]["id"]] in pika
+    assert ["HM05", em_moves["flash"]["id"]] in pika
+    assert pika[-1][0].startswith("HM")

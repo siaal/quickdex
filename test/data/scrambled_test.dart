@@ -6,6 +6,7 @@ import 'package:quickdex/data/loader.dart';
 import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/frecency/frecency.dart';
+import 'package:quickdex/ui/learnset_table.dart';
 import 'package:quickdex/ui/pokemon_page.dart';
 
 void main() {
@@ -76,6 +77,8 @@ void main() {
   testWidgets('a Pokémon page shows notes and TMs grouped by badge', (
     tester,
   ) async {
+    // Scrambled starts on All, so the TMs show without touching the toggle.
+    expect(LearnsetTable.defaultFilter(moves.game), LearnFilter.all);
     await tester.pumpWidget(
       MaterialApp(
         home: PokemonPage(
