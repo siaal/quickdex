@@ -152,8 +152,12 @@ class _TeamScreenState extends State<TeamScreen> {
     final side = _sideData;
     final name = await showDialog<String>(
       context: context,
-      builder: (_) =>
-          _SaveDialog(initial: side.team.name ?? '', builds: side.builds),
+      builder: (_) => _SaveDialog(
+        initial: side.team.name ?? '',
+        builds: side.builds,
+        frecency: side.frecency,
+        dex: widget.dex,
+      ),
     );
     if (name == null) {
       trace('team.save.cancelled', {'side': _side.name});
@@ -961,11 +965,20 @@ class BuildPicker extends StatelessWidget {
   );
 }
 
-/// Name a build to save; pops with the name, or null if cancelled.
+/// Name a build to save; pops with the name, or null if cancelled. Below the
+/// field, the side's saved builds (recent first, filtered by the name typed);
+/// tapping one (`team-save-pick-<id>`) takes its name, to overwrite it.
 class _SaveDialog extends StatefulWidget {
-  const _SaveDialog({required this.initial, required this.builds});
+  const _SaveDialog({
+    required this.initial,
+    required this.builds,
+    required this.frecency,
+    required this.dex,
+  });
   final String initial;
   final SavedBuilds builds;
+  final FrecencyScores frecency;
+  final Pokedex dex;
 
   @override
   State<_SaveDialog> createState() => _SaveDialogState();
@@ -973,6 +986,10 @@ class _SaveDialog extends StatefulWidget {
 
 class _SaveDialogState extends State<_SaveDialog> {
   late final _name = TextEditingController(text: widget.initial);
+
+  /// The list filters by the name only once it's typed, not when pre-filled
+  /// or picked.
+  var _typed = false;
 
   @override
   void dispose() {
@@ -985,15 +1002,63 @@ class _SaveDialogState extends State<_SaveDialog> {
     final name = _name.text.trim();
     final overwrites = widget.builds.named(name) != null;
     void submit() => Navigator.of(context).pop(name);
+    final saved = [
+      for (final h in SearchIndex(
+        widget.builds.builds,
+      ).search(_typed ? _name.text : '', widget.frecency))
+        h.entry,
+    ];
     return AlertDialog(
       title: const Text('Save build'),
-      content: TextField(
-        key: const Key('team-save-name'),
-        controller: _name,
-        autofocus: true,
-        decoration: const InputDecoration(hintText: 'Name'),
-        onChanged: (_) => setState(() {}),
-        onSubmitted: name.isEmpty ? null : (_) => submit(),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              key: const Key('team-save-name'),
+              controller: _name,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Name'),
+              onChanged: (_) => setState(() => _typed = true),
+              onSubmitted: name.isEmpty ? null : (_) => submit(),
+            ),
+            if (saved.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: ListView(
+                  key: const Key('team-save-list'),
+                  shrinkWrap: true,
+                  children: [
+                    for (final b in saved)
+                      ListTile(
+                        key: Key('team-save-pick-${b.id}'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(b.name),
+                        subtitle: Text(
+                          [
+                            for (final s in b.slots.nonNulls)
+                              widget.dex[s.pokemon].name,
+                          ].join(', '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        selected: b.name == name,
+                        onTap: () {
+                          trace('team.save.pick', {'id': b.id});
+                          setState(() {
+                            _name.text = b.name;
+                            _typed = false;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

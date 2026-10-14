@@ -31,7 +31,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
 - **Team Planner:** Save and Load on the left of the header, a Mine | Theirs toggle on
   the right: your team, and an opponent's, each with its own saved builds. Save names
   the shown team as a build (it offers the loaded build's name, so one tap overwrites
-  it); Load lists that side's builds most recently used first, typing ranks them like
+  it, and lists the side's builds most recent first, filtered as you type; tap one to
+  overwrite it instead); Load lists that side's builds most recently used first, typing ranks them like
   search, and a loaded team can be undone from the snackbar; swipe a build away to
   delete it. In Scrambled Scarlet, Theirs can also load every boss team from the
   Doozdex (gyms, rivals, Team Star, Titans, Elite 4, both paths). Theirs opens with

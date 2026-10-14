@@ -400,6 +400,45 @@ void main() {
       expect(find.byType(SnackBar), findsNothing, reason: 'gone within 5 s');
     });
 
+    testWidgets('save lists builds recent first; picking one overwrites it', (
+      tester,
+    ) async {
+      final builds = SavedBuilds();
+      final frecency = FrecencyStore();
+      final older = builds.save('Older', slots(['Golem']));
+      final newer = builds.save('Newer', slots(['Pikachu']));
+      frecency.visit(older.id);
+      frecency.visit(newer.id);
+      final planner = TeamPlanner(
+        mine: TeamSide(
+          team: Team(slots: slots(['Bronzong'])),
+          builds: builds,
+          frecency: frecency,
+        ),
+      );
+      await pump(tester, null, planner);
+      await tapKey(tester, 'team-save');
+      double top(int id) =>
+          tester.getTopLeft(find.byKey(Key('team-save-pick-$id'))).dy;
+      expect(top(newer.id), lessThan(top(older.id)));
+
+      await tester.enterText(find.byKey(const Key('team-save-name')), 'old');
+      await tester.pump();
+      expect(find.byKey(Key('team-save-pick-${newer.id}')), findsNothing);
+
+      await tapKey(tester, 'team-save-pick-${older.id}');
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('team-save-confirm')),
+          matching: find.text('Overwrite'),
+        ),
+        findsOne,
+      );
+      await tapKey(tester, 'team-save-confirm');
+      expect(builds.builds, hasLength(2));
+      expect(builds.named('Older')!.slots.first!.pokemon, named('Bronzong').id);
+    });
+
     testWidgets('load lists builds most recently used first', (tester) async {
       final planner = TeamPlanner();
       final a = planner.mine.builds.save('Alpha', slots(['Golem']));
