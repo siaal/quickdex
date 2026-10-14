@@ -6,10 +6,10 @@ import '../team/team_analysis.dart';
 import '../trace.dart';
 import 'art.dart';
 
-/// Your team (left) against theirs (right). Tap a Pokémon to draw a line to
-/// each one on the other side, showing how hard you hit them and how hard
-/// they hit you. Tiles are `versus-mine-<slot>` / `versus-theirs-<slot>`;
-/// each line's labels are `versus-<mine slot>-<their slot>-mine|theirs`.
+/// Your team (left) against theirs (right), as sprites. Tap one to draw a line
+/// to each Pokémon on the other side, coloured by how hard you hit them and
+/// how hard they hit you. Tiles are `versus-mine-<slot>` /
+/// `versus-theirs-<slot>`; the lines are on [VersusLinesPainter].
 ///
 /// Two line styles are on trial: odd lines (1st, 3rd, 5th from the top) are
 /// split, each half starting at its attacker; even lines are two parallel
@@ -20,7 +20,7 @@ class VersusView extends StatefulWidget {
   final List<TeamMember> theirs;
 
   static const rowHeight = 56.0;
-  static const tileWidth = 112.0;
+  static const tileWidth = 48.0;
 
   @override
   State<VersusView> createState() => _VersusViewState();
@@ -29,8 +29,13 @@ class VersusView extends StatefulWidget {
 /// What's tapped: a slot on one side.
 typedef _Pick = ({bool mine, int slot});
 
-/// One line: the members' row indices, and the hits each way.
-typedef _Line = ({int mineRow, int theirRow, double mineHit, double theirHit});
+/// One line between your slot and theirs, with the hits each way.
+typedef VersusLine = ({
+  int mineSlot,
+  int theirSlot,
+  double mineHit,
+  double theirHit,
+});
 
 class _VersusViewState extends State<VersusView> {
   _Pick? _picked;
@@ -44,77 +49,48 @@ class _VersusViewState extends State<VersusView> {
     setState(() => _picked = clear ? null : p);
   }
 
-  /// Lines from the picked tile, top to bottom on the other side; none if the
-  /// pick has since left its team.
-  List<_Line> _lines() {
-    final p = _picked;
-    if (p == null) return const [];
-    final own = p.mine ? widget.mine : widget.theirs;
-    final row = own.indexWhere((m) => m.slot == p.slot);
-    if (row < 0) {
-      trace('versus.pick_gone', {'slot': p.slot});
-      return const [];
-    }
-    final other = p.mine ? widget.theirs : widget.mine;
-    return [
-      for (var j = 0; j < other.length; j++)
-        if (p.mine)
-          (
-            mineRow: row,
-            theirRow: j,
-            mineHit: hit(own[row], other[j]),
-            theirHit: hit(other[j], own[row]),
-          )
-        else
-          (
-            mineRow: j,
-            theirRow: row,
-            mineHit: hit(other[j], own[row]),
-            theirHit: hit(own[row], other[j]),
-          ),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     assert(widget.mine.isNotEmpty && widget.theirs.isNotEmpty);
     const h = VersusView.rowHeight;
     const w = VersusView.tileWidth;
     final rows = math.max(widget.mine.length, widget.theirs.length);
-    final lines = _lines();
-    final picked = _picked;
+    final p = _picked;
+    final own = p == null ? null : (p.mine ? widget.mine : widget.theirs);
+    final row = own?.indexWhere((m) => m.slot == p!.slot) ?? -1;
+    if (p != null && row < 0) trace('versus.pick_gone', {'slot': p.slot});
     return LayoutBuilder(
       builder: (context, box) {
         final width = box.maxWidth;
         // Line ends: the inner edge of each tile, at its row's centre.
         Offset mineEnd(int r) => Offset(w, r * h + h / 2);
         Offset theirEnd(int r) => Offset(width - w, r * h + h / 2);
-        // Labels sit 35% / 75% of the way from the tapped tile, so the
-        // fanned-in end stays clear; yours is the one nearer your side.
-        Offset along(_Line l, bool mineLabel) {
-          final (a, b) = (mineEnd(l.mineRow), theirEnd(l.theirRow));
-          final fromMine = picked!.mine;
-          final t = mineLabel == fromMine ? 0.35 : 0.75;
-          return fromMine ? Offset.lerp(a, b, t)! : Offset.lerp(b, a, t)!;
+        final lines = <(VersusLine, Offset, Offset, bool)>[];
+        if (p != null && row >= 0) {
+          final other = p.mine ? widget.theirs : widget.mine;
+          for (var j = 0; j < other.length; j++) {
+            final (mi, ti) = p.mine ? (row, j) : (j, row);
+            final (me, them) = (widget.mine[mi], widget.theirs[ti]);
+            lines.add((
+              (
+                mineSlot: me.slot,
+                theirSlot: them.slot,
+                mineHit: hit(me, them),
+                theirHit: hit(them, me),
+              ),
+              mineEnd(mi),
+              theirEnd(ti),
+              // Odd = split, even = parallel; 1-based from the top.
+              j.isEven,
+            ));
+          }
         }
-
         return SizedBox(
           height: rows * h,
           child: Stack(
             children: [
               Positioned.fill(
-                child: CustomPaint(
-                  painter: _LinesPainter([
-                    for (final l in lines)
-                      (
-                        l,
-                        mineEnd(l.mineRow),
-                        theirEnd(l.theirRow),
-                        // Odd = split, even = parallel; 1-based from the top.
-                        (picked!.mine ? l.theirRow : l.mineRow).isEven,
-                      ),
-                  ]),
-                ),
+                child: CustomPaint(painter: VersusLinesPainter(lines)),
               ),
               for (var r = 0; r < widget.mine.length; r++)
                 _tile(context, widget.mine[r], mine: true, row: r, left: 0),
@@ -126,9 +102,6 @@ class _VersusViewState extends State<VersusView> {
                   row: r,
                   left: width - w,
                 ),
-              for (final l in lines)
-                for (final mineLabel in const [true, false])
-                  _label(l, mineLabel: mineLabel, at: along(l, mineLabel)),
             ],
           ),
         );
@@ -145,59 +118,26 @@ class _VersusViewState extends State<VersusView> {
   }) {
     final pick = (mine: mine, slot: m.slot);
     final selected = _picked == pick;
-    final scheme = Theme.of(context).colorScheme;
-    final thumb = Image.asset(thumbPath(m.entry.id), width: 40, height: 40);
-    final name = Expanded(
-      child: Text(
-        m.entry.name,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        textAlign: mine ? TextAlign.left : TextAlign.right,
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-    );
     return Positioned(
       left: left,
       top: row * VersusView.rowHeight,
       width: VersusView.tileWidth,
       height: VersusView.rowHeight,
       child: Material(
-        color: selected ? scheme.primaryContainer : Colors.transparent,
+        color: selected
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           key: Key('versus-${mine ? 'mine' : 'theirs'}-${m.slot}'),
           borderRadius: BorderRadius.circular(8),
           onTap: () => _tap(pick),
-          child: Row(children: mine ? [thumb, name] : [name, thumb]),
-        ),
-      ),
-    );
-  }
-
-  Widget _label(_Line l, {required bool mineLabel, required Offset at}) {
-    final m = mineLabel ? l.mineHit : l.theirHit;
-    final mineSlot = widget.mine[l.mineRow].slot;
-    final theirSlot = widget.theirs[l.theirRow].slot;
-    const size = Size(30, 16);
-    return Positioned(
-      left: at.dx - size.width / 2,
-      top: at.dy - size.height / 2,
-      width: size.width,
-      height: size.height,
-      child: IgnorePointer(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            border: Border.all(color: lineColor(m, mine: mineLabel)),
-            borderRadius: BorderRadius.circular(8),
-          ),
           child: Center(
-            child: Text(
-              multiplierText(m),
-              key: Key(
-                'versus-$mineSlot-$theirSlot-${mineLabel ? 'mine' : 'theirs'}',
-              ),
-              style: const TextStyle(fontSize: 10, height: 1),
+            child: Image.asset(
+              thumbPath(m.entry.id),
+              width: 44,
+              height: 44,
+              semanticLabel: m.entry.name,
             ),
           ),
         ),
@@ -205,13 +145,6 @@ class _VersusViewState extends State<VersusView> {
     );
   }
 }
-
-/// "2×", "½×", "0×".
-String multiplierText(double m) => switch (m) {
-  0.25 => '¼×',
-  0.5 => '½×',
-  _ => '${m.toInt()}×',
-};
 
 /// A hit's colour, from your side: your strong hits are green, theirs on you
 /// red; neutral grey; resisted faded; immune (drawn dashed) faded too.
@@ -221,11 +154,11 @@ Color lineColor(double m, {required bool mine}) {
   return Colors.grey.withValues(alpha: 0.35);
 }
 
-class _LinesPainter extends CustomPainter {
-  _LinesPainter(this.lines);
+class VersusLinesPainter extends CustomPainter {
+  VersusLinesPainter(this.lines);
 
   /// Each line, its ends (your side first) and whether it's drawn split.
-  final List<(_Line, Offset, Offset, bool)> lines;
+  final List<(VersusLine, Offset, Offset, bool)> lines;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -269,5 +202,5 @@ class _LinesPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LinesPainter old) => true;
+  bool shouldRepaint(VersusLinesPainter old) => true;
 }

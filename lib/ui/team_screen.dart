@@ -324,14 +324,8 @@ class _TeamScreenState extends State<TeamScreen> {
       const SizedBox(height: 4),
       if (mine.isEmpty)
         const Text('Add Pokémon on Mine to compare', key: Key('versus-empty'))
-      else ...[
-        Text(
-          'Tap a Pokémon to compare: you on the left, them on the right.',
-          style: theme.textTheme.bodySmall,
-        ),
-        const SizedBox(height: 8),
+      else
         VersusView(key: const Key('versus'), mine: mine, theirs: theirs),
-      ],
       const SizedBox(height: 16),
     ];
   }

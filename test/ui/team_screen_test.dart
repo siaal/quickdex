@@ -10,6 +10,7 @@ import 'package:quickdex/search/search_index.dart';
 import 'package:quickdex/team/builds.dart';
 import 'package:quickdex/team/team.dart';
 import 'package:quickdex/ui/team_screen.dart';
+import 'package:quickdex/ui/versus_view.dart';
 import 'package:quickdex/ui/matchup_section.dart';
 
 void main() {
@@ -474,8 +475,22 @@ void main() {
         return planner;
       }
 
-      String label(WidgetTester tester, String key) =>
-          tester.widget<Text>(find.byKey(Key(key))).data!;
+      /// Drawn lines as (your slot, their slot, your hit, their hit).
+      List<(int, int, double, double)> lines(WidgetTester tester) => [
+        for (final (l, _, _, _)
+            in tester
+                .widgetList<CustomPaint>(
+                  find.descendant(
+                    of: find.byKey(const Key('versus')),
+                    matching: find.byType(CustomPaint),
+                  ),
+                )
+                .map((c) => c.painter)
+                .whereType<VersusLinesPainter>()
+                .single
+                .lines)
+          (l.mineSlot, l.theirSlot, l.mineHit, l.theirHit),
+      ];
 
       testWidgets('only on Theirs, above the type table', (tester) async {
         await theirsPage(tester);
@@ -489,29 +504,31 @@ void main() {
         expect(find.byKey(const Key('versus')), findsNothing);
       });
 
-      testWidgets('tapping yours labels each line both ways; again clears', (
-        tester,
-      ) async {
-        await theirsPage(tester);
-        expect(find.byKey(const Key('versus-0-0-mine')), findsNothing);
-        await tester.tap(find.byKey(const Key('versus-mine-0'))); // Golem
-        await tester.pump();
-        expect(label(tester, 'versus-0-0-mine'), '2×'); // vs Pelipper
-        expect(label(tester, 'versus-0-0-theirs'), '4×');
-        expect(label(tester, 'versus-0-1-mine'), '2×'); // vs Bronzong
-        expect(find.byKey(const Key('versus-1-0-mine')), findsNothing);
-        await tester.tap(find.byKey(const Key('versus-mine-0')));
-        await tester.pump();
-        expect(find.byKey(const Key('versus-0-0-mine')), findsNothing);
-      });
+      testWidgets(
+        'tapping yours draws a line to each of theirs; again clears',
+        (tester) async {
+          await theirsPage(tester);
+          expect(lines(tester), isEmpty);
+          await tester.tap(find.byKey(const Key('versus-mine-0'))); // Golem
+          await tester.pump();
+          expect(lines(tester), [
+            (0, 0, 2, 4), // vs Pelipper
+            (0, 1, 2, 2), // vs Bronzong: ground 2× on it, its steel 2× on rock
+          ]);
+          await tester.tap(find.byKey(const Key('versus-mine-0')));
+          await tester.pump();
+          expect(lines(tester), isEmpty);
+        },
+      );
 
       testWidgets('tapping theirs draws to each of yours', (tester) async {
         await theirsPage(tester);
         await tester.tap(find.byKey(const Key('versus-theirs-0'))); // Pelipper
         await tester.pump();
-        expect(label(tester, 'versus-0-0-theirs'), '4×'); // on Golem
-        expect(label(tester, 'versus-1-0-mine'), '4×'); // Pikachu
-        expect(label(tester, 'versus-1-0-theirs'), '1×');
+        expect(lines(tester), [
+          (0, 0, 2, 4), // Golem
+          (1, 0, 4, 1), // Pikachu
+        ]);
       });
 
       testWidgets('with Mine empty it says so', (tester) async {
