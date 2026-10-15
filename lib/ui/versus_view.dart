@@ -26,12 +26,13 @@ class VersusView extends StatefulWidget {
 /// What's tapped: a slot on one side.
 typedef _Pick = ({bool mine, int slot});
 
-/// One line between your slot and theirs, with the hits each way.
+/// One line between your slot and theirs, with the hits each way (null: only
+/// status moves, so that half isn't drawn).
 typedef VersusLine = ({
   int mineSlot,
   int theirSlot,
-  double mineHit,
-  double theirHit,
+  double? mineHit,
+  double? theirHit,
 });
 
 class _VersusViewState extends State<VersusView> {
@@ -168,9 +169,10 @@ class VersusLinesPainter extends CustomPainter {
     Canvas canvas,
     Offset a,
     Offset b,
-    double m, {
+    double? m, {
     required bool mine,
   }) {
+    if (m == null) return; // deals no damage
     final paint = Paint()
       ..color = lineColor(m, mine: mine)
       ..strokeWidth = m == 4 ? 5 : (m > 1 ? 3.5 : 2.5)

@@ -533,7 +533,7 @@ void main() {
       }
 
       /// Drawn lines as (your slot, their slot, your hit, their hit).
-      List<(int, int, double, double)> lines(WidgetTester tester) => [
+      List<(int, int, double?, double?)> lines(WidgetTester tester) => [
         for (final (l, _, _)
             in tester
                 .widgetList<CustomPaint>(

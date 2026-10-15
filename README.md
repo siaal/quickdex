@@ -52,7 +52,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   matchups without removing it, e.g. a U-turn that doesn't define them). Below, each
   attacking type shows how many members are weak, resist or are immune (the chosen
   ability's immunity counts, e.g. Levitate), and how many hit it super-effectively
-  with their damaging moves (or their own types if no moves are picked). A row is red
+  with their damaging moves (or their own types if no moves are picked; a Pokémon
+  with only status moves hits nothing). A row is red
   when more members lose that matchup than win it, green when more win (each member
   compares what it deals with what it takes, so resisting counts as winning and taking
   2× while dealing 2× is even). Tap a type for

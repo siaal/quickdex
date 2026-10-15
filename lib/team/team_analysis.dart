@@ -14,8 +14,9 @@ class TeamMember {
   /// no ability chosen, only a guaranteed immunity (all abilities) counts.
   final Map<String, double> defense;
 
-  /// Types of the chosen damaging moves that aren't hidden, or the entry's own
-  /// types when there are none (or moves haven't loaded).
+  /// Types of the chosen damaging moves that aren't hidden; empty when the
+  /// counted moves are all status moves (it deals no damage). The entry's own
+  /// types when no moves count (none chosen, all hidden, or not loaded yet).
   final List<String> attackTypes;
 }
 
@@ -32,6 +33,7 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
     defense[t] = 0;
   }
   final moveTypes = <String>[];
+  var counted = 0;
   if (moves == null) {
     trace('team.member.moves_not_loaded', {'slot': i});
   } else {
@@ -41,26 +43,31 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
         trace('team.member.unknown_move', {'slot': i, 'move': id});
       } else if (s.hidden.contains(id)) {
         trace('team.member.hidden_move', {'slot': i, 'move': id});
-      } else if (m.category != MoveCategory.status &&
-          !moveTypes.contains(m.type)) {
-        moveTypes.add(m.type);
+      } else {
+        counted++;
+        if (m.category != MoveCategory.status && !moveTypes.contains(m.type)) {
+          moveTypes.add(m.type);
+        }
       }
     }
   }
-  final attack = moveTypes.isEmpty ? e.types : moveTypes;
-  trace(moveTypes.isEmpty ? 'team.member.stab' : 'team.member.moves', {
-    'slot': i,
-    'attack': attack,
-    'immune': immune.toList(),
-  });
+  final attack = counted == 0 ? e.types : moveTypes;
+  trace(
+    switch ((counted, moveTypes.length)) {
+      (0, _) => 'team.member.stab',
+      (_, 0) => 'team.member.status_only',
+      _ => 'team.member.moves',
+    },
+    {'slot': i, 'attack': attack, 'immune': immune.toList()},
+  );
   return TeamMember(i, e, defense, attack);
 }
 
 /// How hard [attacker] hits [defender]: the best multiplier any of its attack
 /// types deals, counting the defender's ability immunity (as [analyseTeam]
-/// does).
-double hit(TeamMember attacker, TeamMember defender) {
-  assert(attacker.attackTypes.isNotEmpty, 'every member has attack types');
+/// does). Null when it has only status moves.
+double? hit(TeamMember attacker, TeamMember defender) {
+  if (attacker.attackTypes.isEmpty) return null;
   return attacker.attackTypes
       .map((t) => defender.defense[t]!)
       .reduce((x, y) => x > y ? x : y);
@@ -74,22 +81,23 @@ class TypeMatchup {
   /// Multiplier [type] deals to each member, in member order.
   final List<double> defense;
 
-  /// Best multiplier each member's attack types deal to a pure [type].
-  final List<double> offense;
+  /// Best multiplier each member's attack types deal to a pure [type]; null
+  /// for a member with only status moves.
+  final List<double?> offense;
 
   int get weak => defense.where((m) => m > 1).length;
   int get resist => defense.where((m) => m > 0 && m < 1).length;
   int get immune => defense.where((m) => m == 0).length;
 
   /// Members that hit [type] super-effectively.
-  int get hitters => offense.where((m) => m > 1).length;
+  int get hitters => offense.where((m) => m != null && m > 1).length;
 
   /// Each member's edge over [type]: doublings dealt minus doublings taken,
   /// with 0× counting as three halvings. Positive = ahead, negative = behind;
-  /// takes 2× and deals 2× is even.
+  /// takes 2× and deals 2× is even. Dealing no damage counts as neutral.
   List<double> get edges => [
     for (var i = 0; i < defense.length; i++)
-      _steps(offense[i]) - _steps(defense[i]),
+      _steps(offense[i] ?? 1) - _steps(defense[i]),
   ];
 
   int get ahead => edges.where((e) => e > 0).length;
@@ -118,9 +126,11 @@ List<TypeMatchup> analyseTeam(List<TeamMember> members, TypeChart chart) {
         [for (final m in members) m.defense[t]!],
         [
           for (final m in members)
-            m.attackTypes
-                .map((a) => chart.multiplier(a, t))
-                .reduce((x, y) => x > y ? x : y),
+            m.attackTypes.isEmpty
+                ? null
+                : m.attackTypes
+                      .map((a) => chart.multiplier(a, t))
+                      .reduce((x, y) => x > y ? x : y),
         ],
       ),
   ];

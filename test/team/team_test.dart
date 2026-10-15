@@ -220,7 +220,7 @@ void main() {
       expect(m.defense['ground'], 0);
     });
 
-    test('damaging moves set attack types; none falls back to STAB', () {
+    test('damaging moves set attack types; no moves falls back to STAB', () {
       final golem = named('Golem');
       final stab = resolveMember(0, TeamSlot(golem.id), dex, moves);
       expect(stab.attackTypes, golem.types);
@@ -237,7 +237,7 @@ void main() {
         dex,
         moves,
       );
-      expect(onlyStatus.attackTypes, golem.types);
+      expect(onlyStatus.attackTypes, isEmpty, reason: 'status moves deal 0');
       final hidden = resolveMember(
         0,
         TeamSlot(
@@ -261,6 +261,25 @@ void main() {
         golem.types,
         reason: 'moves not loaded yet',
       );
+    });
+
+    test('only status moves: no hits, no Hit SE, edges from defence only', () {
+      final espeon = named('Espeon');
+      final gravity = resolveMember(
+        0,
+        TeamSlot(espeon.id, moves: [move('gravity')]),
+        dex,
+        moves,
+      );
+      final scizor = resolveMember(1, TeamSlot(named('Scizor').id), dex, moves);
+      expect(hit(gravity, scizor), isNull);
+      expect(hit(scizor, gravity), 2, reason: 'bug still hits psychic');
+      final bug = analyseTeam([
+        gravity,
+      ], dex.types).firstWhere((r) => r.type == 'bug');
+      expect(bug.offense, [null]);
+      expect(bug.hitters, 0);
+      expect(bug.edges, [-1], reason: 'takes 2×, deals nothing');
     });
 
     test(

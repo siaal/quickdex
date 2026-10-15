@@ -529,15 +529,16 @@ class _TeamScreenState extends State<TeamScreen> {
 
   Widget _detail(BuildContext context, TypeMatchup r, List<TeamMember> m) {
     assert(r.defense.length == m.length && r.offense.length == m.length);
-    Widget mult(double x, {required bool defending}) => Container(
+    // Null: only status moves, so it deals nothing.
+    Widget mult(double? x, {required bool defending}) => Container(
       width: 44,
       margin: const EdgeInsets.only(left: 4),
       padding: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
-        color: matchupTint(x, defending: defending),
+        color: x == null ? null : matchupTint(x, defending: defending),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(multLabel(x), textAlign: TextAlign.center),
+      child: Text(x == null ? '—' : multLabel(x), textAlign: TextAlign.center),
     );
     final small = Theme.of(context).textTheme.labelSmall;
     return Container(
