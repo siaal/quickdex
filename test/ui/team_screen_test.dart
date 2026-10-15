@@ -607,5 +607,22 @@ void main() {
         reason: 'right-aligned',
       );
     });
+
+    testWidgets('the header scrolls away with the team', (tester) async {
+      await pump(tester, Team(slots: slots(['Golem', 'Pikachu'])));
+      tester.view.physicalSize = const Size(480, 900); // phone-sized
+      await tester.pumpAndSettle();
+      final top = tester.getTopLeft(find.byKey(const Key('team-side'))).dy;
+      await tester.drag(
+        find.byKey(const Key('team-scroll')),
+        const Offset(0, -200),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('team-side')).hitTestable(),
+        findsNothing,
+        reason: 'not pinned (was at y=$top)',
+      );
+    });
   });
 }

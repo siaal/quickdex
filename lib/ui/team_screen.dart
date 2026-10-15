@@ -220,43 +220,47 @@ class _TeamScreenState extends State<TeamScreen> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _team,
     builder: (context, _) => Scaffold(
-      appBar: AppBar(
-        titleSpacing: 4,
-        title: Row(
-          children: [
-            IconButton(
-              key: const Key('team-save'),
-              tooltip: 'Save build',
-              icon: const Icon(Icons.save_outlined),
-              onPressed: _team.isEmpty ? null : _save,
-            ),
-            IconButton(
-              key: const Key('team-load'),
-              tooltip: 'Load build',
-              icon: const Icon(Icons.folder_open_outlined),
-              onPressed: _load,
-            ),
-            const Spacer(),
-            SegmentedButton<_Side>(
-              key: const Key('team-side'),
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: _Side.mine, label: Text('Mine')),
-                ButtonSegment(value: _Side.theirs, label: Text('Theirs')),
-              ],
-              selected: {_side},
-              onSelectionChanged: (s) {
-                trace('team.side', {'side': s.single.name});
-                setState(() => _side = s.single);
-              },
-            ),
-          ],
+      body: SafeArea(
+        child: FutureBuilder(
+          future: widget.moves,
+          builder: (context, snap) => _body(context, snap.data),
         ),
       ),
-      body: FutureBuilder(
-        future: widget.moves,
-        builder: (context, snap) => _body(context, snap.data),
-      ),
+    ),
+  );
+
+  /// Save, Load and Mine | Theirs; scrolls away with the team.
+  Widget _header() => SizedBox(
+    height: kToolbarHeight,
+    child: Row(
+      children: [
+        IconButton(
+          key: const Key('team-save'),
+          tooltip: 'Save build',
+          icon: const Icon(Icons.save_outlined),
+          onPressed: _team.isEmpty ? null : _save,
+        ),
+        IconButton(
+          key: const Key('team-load'),
+          tooltip: 'Load build',
+          icon: const Icon(Icons.folder_open_outlined),
+          onPressed: _load,
+        ),
+        const Spacer(),
+        SegmentedButton<_Side>(
+          key: const Key('team-side'),
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: _Side.mine, label: Text('Mine')),
+            ButtonSegment(value: _Side.theirs, label: Text('Theirs')),
+          ],
+          selected: {_side},
+          onSelectionChanged: (s) {
+            trace('team.side', {'side': s.single.name});
+            setState(() => _side = s.single);
+          },
+        ),
+      ],
     ),
   );
 
@@ -266,8 +270,10 @@ class _TeamScreenState extends State<TeamScreen> {
         if (_team[i] case final s?) resolveMember(i, s, widget.dex, moves),
     ];
     return ListView(
-      padding: const EdgeInsets.all(16),
+      key: const Key('team-scroll'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
+        _header(),
         if (_team.name case final name?)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
