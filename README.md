@@ -25,7 +25,7 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
 - **Type Chart:** a Focus tab (pick a type, toggle Attacker/Defender;
   long-press or right-click a second type for a dual-type defender or two-type STAB
   coverage; result pills work the same way), a Finder tab (pick one or two types to list every Pokémon
-  with them, filter by name, optionally highest evolution only) and a full 18×18 (17×17
+  with them; long-press the only picked type for just that type alone; filter by name, optionally highest evolution only) and a full 18×18 (17×17
   in Emerald)
   grid with frozen headers, pinch-zoom and row/column highlight.
 - **Team Planner:** Save and Load on the left of the header, a Mine | Theirs toggle on

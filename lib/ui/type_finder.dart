@@ -9,7 +9,8 @@ import 'type_style.dart';
 import 'type_tile.dart';
 
 /// Pick one or two types (tap picks, long-press/right-click adds a second) to
-/// list every Pokémon with all of them, in dex order. A name filter and a
+/// list every Pokémon with all of them, in dex order. Long-pressing the only
+/// picked type toggles that type alone (mono-type Pokémon only). A name filter and a
 /// "Highest evolution only" toggle narrow the list. Keys: `finder-type-<type>`,
 /// `finder-search`, `finder-final-only`, rows `finder-row-<id>`.
 class TypeFinder extends StatefulWidget {
@@ -29,6 +30,24 @@ class _TypeFinderState extends State<TypeFinder>
   final _types = TypeFocusController();
   final _query = TextEditingController();
   bool _finalOnly = false;
+
+  /// Only Pokémon whose sole type is the one picked.
+  bool _mono = false;
+
+  void _pick(String t) {
+    _mono = false;
+    _types.pick(t);
+  }
+
+  void _add(String t) {
+    if (_types.selected case [final only] when only == t) {
+      trace('finder.mono', {'type': t, 'on': !_mono});
+      setState(() => _mono = !_mono);
+      return;
+    }
+    _mono = false;
+    _types.add(t);
+  }
 
   @override
   bool get wantKeepAlive => true; // keep picks and query across tab switches
@@ -55,6 +74,7 @@ class _TypeFinderState extends State<TypeFinder>
     final out = [
       for (final e in widget.dex.entries)
         if (types.every(e.types.contains) &&
+            (!_mono || e.types.length == 1) &&
             (q.isEmpty || normalise(e.name).contains(q)) &&
             (!_finalOnly || widget.dex.isFinalStage(e)))
           e,
@@ -63,6 +83,7 @@ class _TypeFinderState extends State<TypeFinder>
       'types': types,
       'query_len': q.length,
       'final_only': _finalOnly,
+      'mono': _mono,
       'count': out.length,
     });
     return out;
@@ -83,8 +104,8 @@ class _TypeFinderState extends State<TypeFinder>
             order: widget.dex.types.order,
             selected: _types.selected,
             keyPrefix: 'finder-type',
-            onTap: _types.pick,
-            onAdd: _types.add,
+            onTap: _pick,
+            onAdd: _add,
           ),
           const SizedBox(height: 12),
           TextField(
@@ -113,7 +134,7 @@ class _TypeFinderState extends State<TypeFinder>
           else
             Text(
               '${_types.selected.isEmpty ? 'Any type' : _types.selected.map(typeLabel).join(' + ')}'
-              ' · ${results.length} Pokémon',
+              '${_mono ? ' only' : ''} · ${results.length} Pokémon',
               key: const Key('finder-summary'),
               style: theme.textTheme.titleMedium,
             ),

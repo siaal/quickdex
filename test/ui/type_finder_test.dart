@@ -48,6 +48,38 @@ void main() {
     expect(opened, [323]);
   });
 
+  testWidgets('long-press the only picked type: that type alone, toggled', (
+    tester,
+  ) async {
+    await pump(tester);
+    final ground = find.byKey(const Key('finder-type-ground'));
+    await tester.tap(ground);
+    await tester.pump();
+    expect(row(50), findsOneWidget, reason: 'Diglett, pure Ground');
+    expect(row(74), findsOneWidget, reason: 'Geodude, Rock/Ground');
+
+    await tester.longPress(ground);
+    await tester.pump();
+    expect(row(50), findsOneWidget);
+    expect(row(74), findsNothing);
+    expect(find.textContaining('Ground only · '), findsOneWidget);
+
+    await tester.longPress(ground);
+    await tester.pump();
+    expect(row(74), findsOneWidget, reason: 'long-press again: all Ground');
+
+    await tester.longPress(ground);
+    await tester.tap(ground);
+    await tester.pump();
+    expect(row(74), findsOneWidget, reason: 'a tap starts over');
+
+    await tester.longPress(ground);
+    await tester.longPress(find.byKey(const Key('finder-type-rock')));
+    await tester.pump();
+    expect(row(74), findsOneWidget, reason: 'a second type ends mono');
+    expect(row(50), findsNothing);
+  });
+
   testWidgets('highest evolution only drops pre-evolutions, per form', (
     tester,
   ) async {
