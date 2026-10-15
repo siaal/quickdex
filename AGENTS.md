@@ -68,9 +68,9 @@
   toggles members in and out. Saved in shared_preferences under
   `team.v1` (`team.v1.<game>` for games other than Scarlet); unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
-  guaranteed guard only) and takes attack types from damaging moves, falling back to
-  STAB only when no moves count (none picked or all hidden). Status-only moves mean
-  no attack types: `hit`/`offense` are null (Deals shows "—", no Versus half-line). `analyseTeam` gives one `TypeMatchup` row per type;
+  guaranteed guard only) and takes attack types from non-hidden damaging moves, plus
+  STAB while any of the four move slots is unchosen ("? Unknown", not empty; hidden
+  moves aren't unknown). Four known moves with no damage mean no attack types: `hit`/`offense` are null (Deals shows "—", no Versus half-line). `analyseTeam` gives one `TypeMatchup` row per type;
   its `edges` (doublings dealt minus taken, 0× = 3 halvings) drive the row tint.
   `TeamPlanner` (`lib/team/builds.dart`) holds two `TeamSide`s, Mine and Theirs, each
   a `Team` (`team.v1` / `team.theirs.v1`; JSON `{n: build name, d: deck, q: squad}`;

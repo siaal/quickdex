@@ -92,8 +92,13 @@ void main() {
     await tester.tap(find.byKey(Key('team-ability-${ability('heatproof')}')));
     await tester.pump();
     expect(team[0]!.ability, ability('heatproof'));
+    expect(
+      find.text('Unknown'),
+      findsNWidgets(4),
+      reason: 'moves start unknown',
+    );
 
-    await tester.tap(find.byKey(const Key('team-move-0')));
+    await tester.tap(find.byKey(const Key('team-move-3')));
     await tester.pumpAndSettle();
     // Level up | All | TM toggle, All to start: level-up moves, then TMs.
     final learnset = moves.learnsets[bronzong.id]!;
@@ -674,6 +679,9 @@ void main() {
         ),
         findsOne,
       );
+      for (var k = 1; k < 4; k++) {
+        expect(inRow(find.byKey(Key('deck-unknown-${golem.id}-$k'))), findsOne);
+      }
       expect(find.byKey(const Key('deck-in-0-true')), findsOne);
       expect(find.byKey(const Key('deck-add')), findsOne);
 

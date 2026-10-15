@@ -190,7 +190,18 @@ void main() {
       final pelipper = member('Pelipper'); // water/flying
       expect(hit(golem, pelipper), 2, reason: 'rock 2× beats ground 0×');
       expect(hit(pelipper, golem), 4);
-      final quake = member('Garchomp', mv: ['earthquake']);
+      final quake = member(
+        'Garchomp',
+        mv: ['earthquake', 'swords-dance', 'protect', 'rest'],
+      );
+      expect(
+        hit(
+          member('Garchomp', mv: ['earthquake']),
+          member('Bronzong', ab: 'levitate'),
+        ),
+        0.5,
+        reason: 'unknown slots could be its Dragon STAB',
+      );
       expect(hit(quake, member('Bronzong', ab: 'heatproof')), 2);
       expect(hit(quake, member('Bronzong', ab: 'levitate')), 0);
     });
@@ -220,42 +231,46 @@ void main() {
       expect(m.defense['ground'], 0);
     });
 
-    test('damaging moves set attack types; no moves falls back to STAB', () {
+    test('chosen damaging moves plus STAB while any move slot is unknown', () {
       final golem = named('Golem');
-      final stab = resolveMember(0, TeamSlot(golem.id), dex, moves);
-      expect(stab.attackTypes, golem.types);
-      final withMoves = resolveMember(
-        0,
-        TeamSlot(golem.id, moves: [move('flamethrower'), move('swords-dance')]),
-        dex,
-        moves,
+      List<String> attack(List<String> keys, {Set<String> hidden = const {}}) =>
+          resolveMember(
+            0,
+            TeamSlot(
+              golem.id,
+              moves: [for (final k in keys) move(k)],
+              hidden: {for (final k in hidden) move(k)},
+            ),
+            dex,
+            moves,
+          ).attackTypes;
+      expect(attack([]), golem.types, reason: 'four unknown slots');
+      expect(
+        attack(['flamethrower', 'swords-dance']),
+        ['fire', ...golem.types],
+        reason: "two unknown slots could still be STAB",
       );
-      expect(withMoves.attackTypes, ['fire'], reason: 'status moves ignored');
-      final onlyStatus = resolveMember(
-        0,
-        TeamSlot(golem.id, moves: [move('swords-dance')]),
-        dex,
-        moves,
+      expect(
+        attack(['flamethrower', 'swords-dance', 'protect', 'rest']),
+        ['fire'],
+        reason: 'all four known; status moves deal nothing',
       );
-      expect(onlyStatus.attackTypes, isEmpty, reason: 'status moves deal 0');
-      final hidden = resolveMember(
-        0,
-        TeamSlot(
-          golem.id,
-          moves: [move('flamethrower'), move('u-turn')],
-          hidden: {move('u-turn')},
+      expect(
+        attack(
+          ['flamethrower', 'u-turn', 'protect', 'rest'],
+          hidden: {'u-turn'},
         ),
-        dex,
-        moves,
+        ['fire'],
+        reason: 'hidden U-turn ignored',
       );
-      expect(hidden.attackTypes, ['fire'], reason: 'hidden U-turn ignored');
-      final allHidden = resolveMember(
-        0,
-        TeamSlot(golem.id, moves: [move('u-turn')], hidden: {move('u-turn')}),
-        dex,
-        moves,
+      expect(
+        attack(
+          ['flamethrower', 'u-turn', 'protect', 'rest'],
+          hidden: {'flamethrower', 'u-turn'},
+        ),
+        isEmpty,
+        reason: "hidden moves aren't unknown",
       );
-      expect(allHidden.attackTypes, golem.types);
       expect(
         resolveMember(0, TeamSlot(golem.id, moves: [1]), dex, null).attackTypes,
         golem.types,
@@ -267,7 +282,13 @@ void main() {
       final espeon = named('Espeon');
       final gravity = resolveMember(
         0,
-        TeamSlot(espeon.id, moves: [move('gravity')]),
+        TeamSlot(
+          espeon.id,
+          moves: [
+            for (final k in ['gravity', 'protect', 'rest', 'calm-mind'])
+              move(k),
+          ],
+        ),
         dex,
         moves,
       );

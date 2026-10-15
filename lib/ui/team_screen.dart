@@ -864,12 +864,16 @@ class TeamSlotPage extends StatelessWidget {
                 ),
               ],
             )
-          else if (k == s.moves.length)
+          else if (k >= s.moves.length)
+            // Not chosen yet: unknown (counts as STAB), not empty.
             ListTile(
               key: Key('team-move-$k'),
-              leading: const SizedBox(width: 48, child: Icon(Icons.add)),
-              title: const Text('Add move'),
-              onTap: () => _pickMove(context, s, k),
+              leading: const SizedBox(
+                width: 48,
+                child: Icon(Icons.question_mark),
+              ),
+              title: const Text('Unknown'),
+              onTap: () => _pickMove(context, s, s.moves.length),
             ),
       ],
     );

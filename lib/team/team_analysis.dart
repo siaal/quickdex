@@ -14,9 +14,9 @@ class TeamMember {
   /// no ability chosen, only a guaranteed immunity (all abilities) counts.
   final Map<String, double> defense;
 
-  /// Types of the chosen damaging moves that aren't hidden; empty when the
-  /// counted moves are all status moves (it deals no damage). The entry's own
-  /// types when no moves count (none chosen, all hidden, or not loaded yet).
+  /// Types of the chosen damaging moves that aren't hidden, plus the entry's
+  /// own types while any of its four move slots is unknown (not yet chosen, or
+  /// moves not loaded). Empty when it has four moves and none deal damage.
   final List<String> attackTypes;
 }
 
@@ -32,8 +32,12 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
   for (final t in immune) {
     defense[t] = 0;
   }
-  final moveTypes = <String>[];
-  var counted = 0;
+  final attack = <String>[];
+  // Move slots not yet chosen are unknown, not empty: they could be STAB.
+  final unknown = moves == null
+      ? TeamSlot.maxMoves
+      : TeamSlot.maxMoves - s.moves.length;
+  assert(unknown >= 0, 'at most ${TeamSlot.maxMoves} moves');
   if (moves == null) {
     trace('team.member.moves_not_loaded', {'slot': i});
   } else {
@@ -43,23 +47,23 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
         trace('team.member.unknown_move', {'slot': i, 'move': id});
       } else if (s.hidden.contains(id)) {
         trace('team.member.hidden_move', {'slot': i, 'move': id});
-      } else {
-        counted++;
-        if (m.category != MoveCategory.status && !moveTypes.contains(m.type)) {
-          moveTypes.add(m.type);
-        }
+      } else if (m.category != MoveCategory.status &&
+          !attack.contains(m.type)) {
+        attack.add(m.type);
       }
     }
   }
-  final attack = counted == 0 ? e.types : moveTypes;
-  trace(
-    switch ((counted, moveTypes.length)) {
-      (0, _) => 'team.member.stab',
-      (_, 0) => 'team.member.status_only',
-      _ => 'team.member.moves',
-    },
-    {'slot': i, 'attack': attack, 'immune': immune.toList()},
-  );
+  if (unknown > 0) {
+    for (final t in e.types) {
+      if (!attack.contains(t)) attack.add(t);
+    }
+  }
+  trace(attack.isEmpty ? 'team.member.no_damage' : 'team.member.attack', {
+    'slot': i,
+    'attack': attack,
+    'unknown_moves': unknown,
+    'immune': immune.toList(),
+  });
   return TeamMember(i, e, defense, attack);
 }
 

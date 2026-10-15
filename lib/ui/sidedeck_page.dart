@@ -160,7 +160,8 @@ class SidedeckPage extends StatelessWidget {
     );
   }
 
-  /// Two columns of moves: category, type icon and name; hidden ones faded.
+  /// Two columns of moves: category, type icon and name; hidden ones faded;
+  /// unchosen slots as "? Unknown".
   Widget _moves(BuildContext context, TeamSlot s, MoveDex dexMoves) {
     final small = Theme.of(context).textTheme.bodySmall;
     return LayoutBuilder(
@@ -199,6 +200,18 @@ class SidedeckPage extends StatelessWidget {
                   ),
                 ),
               ),
+          for (var k = s.moves.length; k < TeamSlot.maxMoves; k++)
+            SizedBox(
+              key: Key('deck-unknown-${s.pokemon}-$k'),
+              width: box.maxWidth / 2,
+              child: Row(
+                children: [
+                  const Icon(Icons.question_mark, size: 16),
+                  const SizedBox(width: 22),
+                  Text('Unknown', style: small),
+                ],
+              ),
+            ),
         ],
       ),
     );
