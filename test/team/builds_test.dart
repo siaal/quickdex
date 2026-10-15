@@ -17,20 +17,41 @@ void main() {
           ? TeamSlot(dex.entries.firstWhere((e) => e.name == names[i]).id)
           : null,
   ];
+  Lineup lineup(List<String> names) => Lineup.ofSlots(team(names));
 
   test('saving under an existing name overwrites it, keeping its id', () {
     final saved = <String>[];
     final builds = SavedBuilds(onChanged: saved.add);
-    final rain = builds.save('Rain', team(['Pelipper']));
-    final sun = builds.save('Sun', team(['Torkoal']));
+    final rain = builds.save('Rain', lineup(['Pelipper']));
+    final sun = builds.save('Sun', lineup(['Torkoal']));
     expect(sun.id, isNot(rain.id));
-    final again = builds.save('  rain ', team(['Pelipper', 'Barraskewda']));
+    final again = builds.save('  rain ', lineup(['Pelipper', 'Barraskewda']));
     expect(again.id, rain.id);
     expect(builds.builds.map((b) => b.name), ['rain', 'Sun']);
     final back = SavedBuilds.fromJson(saved.last, dex);
     expect(back.named('RAIN')!.slots.nonNulls, hasLength(2));
     builds.delete(sun.id);
     expect(SavedBuilds.fromJson(saved.last, dex).builds, hasLength(1));
+  });
+
+  test('a build keeps its sidedeck; older squad-only builds still load', () {
+    final saved = <String>[];
+    final builds = SavedBuilds(onChanged: saved.add);
+    final t = Team(slots: team(['Pelipper']))
+      ..add(TeamSlot(lineup(['Torkoal']).deck.single.pokemon));
+    t[0] = null; // Pelipper benched, Torkoal in the squad
+    builds.save('Deck', t.lineup);
+    final back = SavedBuilds.fromJson(saved.last, dex).named('Deck')!;
+    expect(back.lineup.deck, hasLength(2));
+    expect(back.slots.nonNulls.single.pokemon, t.deck[1].pokemon);
+
+    final pelipper = t.deck[0].pokemon;
+    final legacy = SavedBuilds.fromJson(
+      '[{"i":1,"n":"Old","s":[{"p":$pelipper,"m":[]}]}]',
+      dex,
+    );
+    expect(legacy.named('Old')!.lineup.deck.single.pokemon, pelipper);
+    expect(legacy.named('Old')!.lineup.squad.first, 0);
   });
 
   test('corrupt or missing JSON gives no builds', () {

@@ -57,7 +57,7 @@ void main() {
       team[0] = TeamSlot(named('Golem').id);
       final slots = List<TeamSlot?>.filled(Team.size, null);
       slots[3] = TeamSlot(named('Pikachu').id);
-      team.load(slots, name: 'Rain');
+      team.load(Lineup.ofSlots(slots), name: 'Rain');
       expect(saved, hasLength(2), reason: 'one change per load');
       final back = Team.fromJson(saved.last, dex);
       expect(back.name, 'Rain');
@@ -91,6 +91,82 @@ void main() {
       expect(Team.fromJson('{not json', dex).isEmpty, isTrue);
       expect(Team.fromJson('[{"p":"x"}]', dex).isEmpty, isTrue);
       expect(Team.fromJson(null, dex).isEmpty, isTrue);
+    });
+  });
+
+  group('sidedeck', () {
+    TeamSlot slot(String n) => TeamSlot(named(n).id);
+    List<String> squad(Team t) => [
+      for (final s in t.slots) s == null ? '-' : dex[s.pokemon].name,
+    ];
+
+    test(
+      'clearing a slot benches its member; filling one adds to the deck',
+      () {
+        final t = Team();
+        t[2] = slot('Golem');
+        t[2] = null;
+        expect(t.deck.map((s) => s.pokemon), [named('Golem').id]);
+        expect(t.isEmpty, isTrue);
+        expect(t.slotOf(0), isNull);
+        t[2] = slot('Pikachu');
+        expect(t.deck, hasLength(2));
+        t[2] = slot('Bronzong'); // replaces the member in that slot
+        expect(t.deck.map((s) => dex[s.pokemon].name), ['Golem', 'Bronzong']);
+      },
+    );
+
+    test('add joins the first free slot; toggle refuses a full squad', () {
+      final t = Team();
+      for (final n in ['Golem', 'Pikachu', 'Bronzong', 'Pelipper']) {
+        t.add(slot(n));
+      }
+      t[1] = null;
+      for (final n in ['Torkoal', 'Garchomp', 'Gengar']) {
+        t.add(slot(n));
+      }
+      expect(squad(t), [
+        'Golem',
+        'Torkoal',
+        'Bronzong',
+        'Pelipper',
+        'Garchomp',
+        'Gengar',
+      ]);
+      expect(t.squadCount, 6);
+      expect(t.toggle(1), isFalse, reason: 'Pikachu benched, squad full');
+      expect(t.toggle(0), isTrue);
+      expect(t.toggle(1), isTrue);
+      expect(squad(t).first, 'Pikachu');
+    });
+
+    test('remove deletes a member and keeps the squad pointing right', () {
+      final t = Team();
+      for (final n in ['Golem', 'Pikachu', 'Bronzong']) {
+        t.add(slot(n));
+      }
+      t.remove(0);
+      expect(squad(t), ['-', 'Pikachu', 'Bronzong', '-', '-', '-']);
+      expect(t.deck, hasLength(2));
+    });
+
+    test('the deck and squad round-trip; unknown Pokémon leave both', () {
+      final saved = <String>[];
+      final t = Team(onChanged: saved.add);
+      t.add(slot('Golem'));
+      t.add(slot('Pikachu'));
+      t[0] = null;
+      final back = Team.fromJson(saved.last, dex);
+      expect(back.deck, hasLength(2));
+      expect(squad(back), ['-', 'Pikachu', '-', '-', '-', '-']);
+
+      final gone = Team.fromJson(
+        '{"d":[{"p":999999,"m":[]},{"p":${named('Golem').id},"m":[]}],'
+        '"q":[0,1,1,7,null,null]}',
+        dex,
+      );
+      expect(gone.deck, hasLength(1));
+      expect(squad(gone), ['-', 'Golem', '-', '-', '-', '-']);
     });
   });
 

@@ -29,7 +29,11 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   in Emerald)
   grid with frozen headers, pinch-zoom and row/column highlight.
 - **Team Planner:** Save and Load on the left of the header, a Mine | Theirs toggle on
-  the right: your team, and an opponent's, each with its own saved builds. Save names
+  the right: your team, and an opponent's, each with its own saved builds. The
+  Sidedeck button between them lists every Pokémon you've added to the team (types
+  and moves with type and category, an N/6 squad counter): tap one to put it in or
+  take it out of the squad, long-press to edit it, swipe to delete it, + to add one.
+  Removing a Pokémon from a squad slot only benches it; builds save the whole deck. Save names
   the shown team as a build (it offers the loaded build's name, so one tap overwrites
   it, and lists the side's builds, shown as thumbnails, most recent first, filtered as
   you type; tap one to

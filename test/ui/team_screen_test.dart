@@ -349,6 +349,7 @@ void main() {
       for (var i = 0; i < Team.size; i++)
         i < names.length ? TeamSlot(named(names[i]).id) : null,
     ];
+    Lineup lineup(List<String> names) => Lineup.ofSlots(slots(names));
 
     Future<void> tapKey(WidgetTester tester, String key) async {
       await tester.tap(find.byKey(Key(key)));
@@ -406,8 +407,8 @@ void main() {
     ) async {
       final builds = SavedBuilds();
       final frecency = FrecencyStore();
-      final older = builds.save('Older', slots(['Golem']));
-      final newer = builds.save('Newer', slots(['Pikachu']));
+      final older = builds.save('Older', lineup(['Golem']));
+      final newer = builds.save('Newer', lineup(['Pikachu']));
       frecency.visit(older.id);
       frecency.visit(newer.id);
       final planner = TeamPlanner(
@@ -444,8 +445,8 @@ void main() {
 
     testWidgets('load lists builds most recently used first', (tester) async {
       final planner = TeamPlanner();
-      final a = planner.mine.builds.save('Alpha', slots(['Golem']));
-      final b = planner.mine.builds.save('Beta', slots(['Pikachu']));
+      final a = planner.mine.builds.save('Alpha', lineup(['Golem']));
+      final b = planner.mine.builds.save('Beta', lineup(['Pikachu']));
       planner.mine.frecency
         ..visit(b.id)
         ..visit(a.id);
@@ -458,7 +459,7 @@ void main() {
 
     testWidgets('a build swipes away after confirming', (tester) async {
       final planner = TeamPlanner();
-      final a = planner.mine.builds.save('Alpha', slots(['Golem']));
+      final a = planner.mine.builds.save('Alpha', lineup(['Golem']));
       planner.mine.frecency.visit(a.id);
       await pump(tester, null, planner);
       await tapKey(tester, 'team-load');
@@ -476,7 +477,7 @@ void main() {
     testWidgets('Theirs saves and loads its own builds, plus boss teams', (
       tester,
     ) async {
-      final boss = TeamBuild(7, 'Gym Leader · Lv. 20', slots(['Bronzong']));
+      final boss = TeamBuild(7, 'Gym Leader · Lv. 20', lineup(['Bronzong']));
       final planner = TeamPlanner(
         mine: TeamSide(team: Team(slots: slots(['Golem']))),
         theirs: TeamSide(
@@ -484,7 +485,7 @@ void main() {
           presets: [boss],
         ),
       );
-      planner.mine.builds.save('Mine only', slots(['Pikachu']));
+      planner.mine.builds.save('Mine only', lineup(['Pikachu']));
       await pump(tester, null, planner);
       await tester.tap(find.text('Theirs'));
       await tester.pumpAndSettle();
@@ -623,6 +624,137 @@ void main() {
         findsNothing,
         reason: 'not pinned (was at y=$top)',
       );
+    });
+  });
+
+  group('sidedeck', () {
+    Future<void> tapKey(WidgetTester tester, String key) async {
+      await tester.tap(find.byKey(Key(key)));
+      await tester.pumpAndSettle();
+    }
+
+    String count(WidgetTester tester) =>
+        tester.widget<Text>(find.byKey(const Key('deck-count'))).data!;
+
+    testWidgets('the button sits between Load and Mine | Theirs', (
+      tester,
+    ) async {
+      await pump(tester);
+      double left(String key) => tester.getTopLeft(find.byKey(Key(key))).dx;
+      expect(left('team-load'), lessThan(left('team-deck')));
+      expect(left('team-deck'), lessThan(left('team-side')));
+    });
+
+    testWidgets('lists the deck with types and moves; tap toggles the squad', (
+      tester,
+    ) async {
+      final golem = named('Golem');
+      final team = Team()
+        ..add(TeamSlot(golem.id, moves: [move('earthquake')]))
+        ..add(TeamSlot(named('Pikachu').id));
+      team[1] = null; // Pikachu benched
+      await pump(tester, team);
+      await tapKey(tester, 'team-deck');
+      expect(count(tester), '1/6');
+      final golemRow = find.byKey(const Key('deck-row-0'));
+      Finder inRow(Finder f) => find.descendant(of: golemRow, matching: f);
+      expect(inRow(find.text('Rock')), findsOne);
+      expect(inRow(find.text('Ground')), findsOne);
+      final quake = inRow(
+        find.byKey(Key('deck-move-${golem.id}-${move('earthquake')}')),
+      );
+      expect(
+        find.descendant(of: quake, matching: find.text('Earthquake')),
+        findsOne,
+      );
+      expect(
+        find.descendant(
+          of: quake,
+          matching: find.byKey(const Key('cat-physical')),
+        ),
+        findsOne,
+      );
+      expect(find.byKey(const Key('deck-in-0-true')), findsOne);
+      expect(find.byKey(const Key('deck-add')), findsOne);
+
+      await tapKey(tester, 'deck-row-1');
+      expect(count(tester), '2/6');
+      expect(team[1]!.pokemon, named('Pikachu').id);
+      await tapKey(tester, 'deck-row-0');
+      expect(count(tester), '1/6');
+      expect(team[0], isNull);
+      expect(team.deck, hasLength(2), reason: 'still in the deck');
+    });
+
+    testWidgets('a full squad says so instead of toggling', (tester) async {
+      final team = Team();
+      for (final n in [
+        'Golem',
+        'Pikachu',
+        'Bronzong',
+        'Pelipper',
+        'Torkoal',
+        'Garchomp',
+        'Gengar',
+      ]) {
+        team.add(TeamSlot(named(n).id));
+      }
+      await pump(tester, team);
+      await tapKey(tester, 'team-deck');
+      expect(count(tester), '6/6');
+      await tapKey(tester, 'deck-row-6');
+      expect(find.text('Squad full (6/6)'), findsOne);
+      expect(team.slotOf(6), isNull);
+    });
+
+    testWidgets('+ adds and edits; long-press edits; swipe deletes', (
+      tester,
+    ) async {
+      final team = await pump(tester);
+      await tapKey(tester, 'team-deck');
+      await tapKey(tester, 'deck-add');
+      await tester.enterText(
+        find.byKey(const Key('team-pick-search')),
+        'golem',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(pickRow(named('Golem').id));
+      await tester.pumpAndSettle();
+      expect(find.text('Slot 1'), findsOne, reason: 'editor, in the squad');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(count(tester), '1/6');
+
+      await tapKey(tester, 'deck-row-0'); // bench it
+      await tester.longPress(find.byKey(const Key('deck-row-0')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Sidedeck'),
+        findsOne,
+        reason: 'editor of a benched one',
+      );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.drag(
+        find.byKey(const Key('deck-row-0')),
+        const Offset(-400, 0),
+      );
+      await tester.pumpAndSettle();
+      await tapKey(tester, 'deck-delete-confirm');
+      expect(team.deck, isEmpty);
+      expect(find.byKey(const Key('deck-row-0')), findsNothing);
+    });
+
+    testWidgets("removing from a slot benches it; it's back in the deck", (
+      tester,
+    ) async {
+      final team = await pump(tester, Team()..add(TeamSlot(named('Golem').id)));
+      await tapKey(tester, 'team-slot-0');
+      await tapKey(tester, 'team-remove');
+      expect(team[0], isNull);
+      await tapKey(tester, 'team-deck');
+      expect(find.byKey(const Key('deck-in-0-false')), findsOne);
     });
   });
 }

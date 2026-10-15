@@ -60,17 +60,20 @@
   PokéAPI lacks Gen 9 flags; the build cross-checks the two and fails on disagreement.
   Before Gen 4 a damaging move's category follows its type; Curse is type `unknown`
   (shown as ???) in Gen 2–4.
-- Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds six nullable
-  `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move ids ignored by the
-  analysis), saved in shared_preferences under
+- Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds a sidedeck
+  `Lineup`: any number of `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move
+  ids ignored by the analysis) plus a six-slot squad of deck indices. `team[i]` is the
+  squad view: setting an empty slot adds to the deck, null only benches. The
+  analysis, Versus and build thumbnails use the squad. `lib/ui/sidedeck_page.dart`
+  toggles members in and out. Saved in shared_preferences under
   `team.v1` (`team.v1.<game>` for games other than Scarlet); unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
   guaranteed guard only) and takes attack types from damaging moves, falling back to
   STAB. `analyseTeam` gives one `TypeMatchup` row per type;
   its `edges` (doublings dealt minus taken, 0× = 3 halvings) drive the row tint.
   `TeamPlanner` (`lib/team/builds.dart`) holds two `TeamSide`s, Mine and Theirs, each
-  a `Team` (`team.v1` / `team.theirs.v1`; JSON `{n: build name, s: slots}`, old bare
-  lists still read), `SavedBuilds` (`team.builds.v1` / `team.theirs.builds.v1`, unique
+  a `Team` (`team.v1` / `team.theirs.v1`; JSON `{n: build name, d: deck, q: squad}`;
+  older `{n, s: slots}` and bare lists still read, as do builds' `s`), `SavedBuilds` (`team.builds.v1` / `team.theirs.builds.v1`, unique
   by normalised name, save overwrites) and one frecency (`frecency.builds.v1` /
   `frecency.theirs.v1`). Theirs' read-only `presets` are the boss teams from
   `pokedex.json` `bosses` (Scrambled Scarlet only). Boss ids are a crc of

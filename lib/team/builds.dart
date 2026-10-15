@@ -9,16 +9,18 @@ import '../search/searchable.dart';
 import '../trace.dart';
 import 'team.dart';
 
-/// A named team to load: one the user saved, or a boss's.
+/// A named team to load: one the user saved (with its sidedeck), or a boss's.
 class TeamBuild implements Searchable {
-  TeamBuild(this.id, this.name, this.slots)
-    : assert(slots.length == Team.size, 'a build has ${Team.size} slots');
+  TeamBuild(this.id, this.name, this.lineup);
 
   @override
   final int id;
   @override
   final String name;
-  final List<TeamSlot?> slots;
+  final Lineup lineup;
+
+  /// The squad's members per slot.
+  List<TeamSlot?> get slots => lineup.slots;
 
   @override
   List<int> get numbers => const [];
@@ -31,9 +33,12 @@ List<TeamBuild> bossBuilds(Pokedex dex) => [
     TeamBuild(
       b.id,
       [b.name, 'Lv. ${b.level}', ?b.path].join(' · '),
-      Team.parseSlots([
-        for (final m in b.team) {'p': m.pokemon, 'a': ?m.ability, 'm': m.moves},
-      ], dex),
+      Lineup.ofSlots(
+        Team.parseSlots([
+          for (final m in b.team)
+            {'p': m.pokemon, 'a': ?m.ability, 'm': m.moves},
+        ], dex),
+      ),
     ),
 ];
 
@@ -44,7 +49,7 @@ class SavedBuilds extends ChangeNotifier {
   SavedBuilds({List<TeamBuild>? builds, this.onChanged, this.idBase = 0})
     : _builds = builds ?? [];
 
-  /// Corrupt JSON gives no builds; slots are cleaned as in [Team.parseSlots].
+  /// Corrupt JSON gives no builds; members are cleaned as in [Lineup.fromJson].
   factory SavedBuilds.fromJson(
     String? raw,
     Pokedex dex, {
@@ -58,11 +63,7 @@ class SavedBuilds extends ChangeNotifier {
     try {
       final builds = [
         for (final b in (jsonDecode(raw) as List).cast<Map<String, dynamic>>())
-          TeamBuild(
-            b['i'] as int,
-            b['n'] as String,
-            Team.parseSlots(b['s'] as List, dex),
-          ),
+          TeamBuild(b['i'] as int, b['n'] as String, Lineup.fromJson(b, dex)),
       ];
       trace('builds.load.ok', {'count': builds.length});
       return SavedBuilds(builds: builds, onChanged: onChanged, idBase: idBase);
@@ -90,15 +91,15 @@ class SavedBuilds extends ChangeNotifier {
     return _builds.where((b) => normalise(b.name) == n).firstOrNull;
   }
 
-  /// Saves [slots] as [name], overwriting (and keeping the id of) a build of
+  /// Saves [lineup] as [name], overwriting (and keeping the id of) a build of
   /// that name.
-  TeamBuild save(String name, List<TeamSlot?> slots) {
+  TeamBuild save(String name, Lineup lineup) {
     assert(name.trim().isNotEmpty, 'a build needs a name');
     final old = named(name);
     final build = TeamBuild(
       old?.id ?? _builds.fold(idBase, (m, b) => b.id > m ? b.id : m) + 1,
       name.trim(),
-      List.of(slots),
+      lineup,
     );
     if (old != null) {
       trace('builds.save.overwrite', {'id': old.id});
@@ -121,12 +122,7 @@ class SavedBuilds extends ChangeNotifier {
   }
 
   String toJson() => jsonEncode([
-    for (final b in _builds)
-      {
-        'i': b.id,
-        'n': b.name,
-        's': [for (final s in b.slots) s?.toJson()],
-      },
+    for (final b in _builds) {'i': b.id, 'n': b.name, ...b.lineup.toJson()},
   ]);
 
   void _changed() {

@@ -12,6 +12,7 @@ import '../trace.dart';
 import 'art.dart';
 import 'learnset_table.dart';
 import 'matchup_section.dart';
+import 'sidedeck_page.dart';
 import 'move_page.dart';
 import 'move_tile.dart';
 import 'pokemon_tile.dart';
@@ -131,20 +132,24 @@ class _TeamScreenState extends State<TeamScreen> {
     } else {
       trace('team.tap.filled', {'slot': i});
     }
-    await nav.push(
-      MaterialPageRoute<void>(
-        builder: (_) => TeamSlotPage(
-          dex: widget.dex,
-          team: _team,
-          slot: i,
-          index: widget.index,
-          frecency: widget.frecency,
-          moves: widget.moves,
-          moveFrecency: widget.moveFrecency,
-        ),
-      ),
-    );
+    final member = _team.lineup.squad[i];
+    assert(member != null, 'slot $i filled above');
+    if (member == null) return;
+    await nav.push(_editRoute(member));
   }
+
+  /// The editor for deck member [member].
+  Route<void> _editRoute(int member) => MaterialPageRoute<void>(
+    builder: (_) => TeamSlotPage(
+      dex: widget.dex,
+      team: _team,
+      member: member,
+      index: widget.index,
+      frecency: widget.frecency,
+      moves: widget.moves,
+      moveFrecency: widget.moveFrecency,
+    ),
+  );
 
   /// Saves the shown side's team as one of that side's builds, named as it
   /// was loaded or saved unless renamed; an existing name is overwritten.
@@ -163,7 +168,7 @@ class _TeamScreenState extends State<TeamScreen> {
       trace('team.save.cancelled', {'side': _side.name});
       return;
     }
-    final build = side.builds.save(name, side.team.slots);
+    final build = side.builds.save(name, side.team.lineup);
     trace('team.save', {'side': _side.name, 'id': build.id});
     side.frecency.visit(build.id);
     side.team.name = build.name;
@@ -196,8 +201,8 @@ class _TeamScreenState extends State<TeamScreen> {
     }
     trace('team.load.build', {'side': _side.name, 'id': build.id});
     frecency.visit(build.id);
-    final (before, beforeName) = (team.slots, team.name);
-    team.load(build.slots, name: build.name);
+    final (before, beforeName) = (team.lineup, team.name);
+    team.load(build.lineup, name: build.name);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -229,7 +234,41 @@ class _TeamScreenState extends State<TeamScreen> {
     ),
   );
 
-  /// Save, Load and Mine | Theirs; scrolls away with the team.
+  /// Opens the shown side's sidedeck; + there adds a Pokémon and edits it.
+  void _openDeck() {
+    trace('team.deck.open', {'side': _side.name, 'deck': _team.deck.length});
+    final team = _team;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SidedeckPage(
+          team: team,
+          dex: widget.dex,
+          moves: widget.moves,
+          onEdit: (context, member) =>
+              Navigator.of(context).push(_editRoute(member)),
+          onAdd: (context) async {
+            final nav = Navigator.of(context);
+            final e = await nav.push(
+              MaterialPageRoute<PokemonEntry>(
+                builder: (_) => PokemonPicker(
+                  index: widget.index,
+                  frecency: widget.frecency,
+                ),
+              ),
+            );
+            if (e == null) {
+              trace('team.deck.add.cancelled');
+              return;
+            }
+            final member = team.add(TeamSlot(e.id, ability: e.abilities.first));
+            await nav.push(_editRoute(member));
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Save, Load, Sidedeck and Mine | Theirs; scrolls away with the team.
   Widget _header() => SizedBox(
     height: kToolbarHeight,
     child: Row(
@@ -238,13 +277,20 @@ class _TeamScreenState extends State<TeamScreen> {
           key: const Key('team-save'),
           tooltip: 'Save build',
           icon: const Icon(Icons.save_outlined),
-          onPressed: _team.isEmpty ? null : _save,
+          onPressed: _team.deck.isEmpty ? null : _save,
         ),
         IconButton(
           key: const Key('team-load'),
           tooltip: 'Load build',
           icon: const Icon(Icons.folder_open_outlined),
           onPressed: _load,
+        ),
+        const Spacer(),
+        IconButton(
+          key: const Key('team-deck'),
+          tooltip: 'Sidedeck',
+          icon: const Icon(Icons.style_outlined),
+          onPressed: _openDeck,
         ),
         const Spacer(),
         SegmentedButton<_Side>(
@@ -599,7 +645,7 @@ class TeamSlotPage extends StatelessWidget {
     super.key,
     required this.dex,
     required this.team,
-    required this.slot,
+    required this.member,
     required this.index,
     required this.frecency,
     required this.moves,
@@ -607,7 +653,7 @@ class TeamSlotPage extends StatelessWidget {
   });
   final Pokedex dex;
   final Team team;
-  final int slot;
+  final int member;
   final SearchIndex<PokemonEntry> index;
   final FrecencyScores frecency;
   final Future<MoveDex> moves;
@@ -620,11 +666,11 @@ class TeamSlotPage extends StatelessWidget {
       ),
     );
     if (e == null) {
-      trace('team.slot.change.cancelled', {'slot': slot});
+      trace('team.slot.change.cancelled', {'member': member});
       return;
     }
     // Abilities and moves belong to the old Pokémon.
-    team[slot] = TeamSlot(e.id, ability: e.abilities.first);
+    team.setMember(member, TeamSlot(e.id, ability: e.abilities.first));
   }
 
   Future<void> _pickMove(BuildContext context, TeamSlot s, int k) async {
@@ -641,40 +687,54 @@ class TeamSlotPage extends StatelessWidget {
       ),
     );
     if (m == null) {
-      trace('team.move.cancelled', {'slot': slot, 'k': k});
+      trace('team.move.cancelled', {'member': member, 'k': k});
       return;
     }
-    final current = team[slot];
-    if (current == null) return; // removed meanwhile
+    if (member >= team.deck.length) return; // removed meanwhile
+    final current = team.deck[member];
     final next = [...current.moves];
     if (k < next.length) {
-      trace('team.move.replace', {'slot': slot, 'k': k, 'move': m.id});
+      trace('team.move.replace', {'member': member, 'k': k, 'move': m.id});
       next[k] = m.id;
     } else {
-      trace('team.move.append', {'slot': slot, 'move': m.id});
+      trace('team.move.append', {'member': member, 'move': m.id});
       next.add(m.id);
     }
-    team[slot] = current.copyWith(moves: next);
+    team.setMember(member, current.copyWith(moves: next));
   }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: team,
     builder: (context, _) {
-      final s = team[slot];
-      if (s == null) return const SizedBox.shrink(); // popping after remove
+      if (member >= team.deck.length) {
+        return const SizedBox.shrink(); // popping after a delete
+      }
+      final s = team.deck[member];
       final e = dex[s.pokemon];
+      final slot = team.slotOf(member);
       return Scaffold(
         appBar: AppBar(
-          title: Text('Slot ${slot + 1}'),
+          title: Text(slot == null ? 'Sidedeck' : 'Slot ${slot + 1}'),
           actions: [
+            // In the squad: bench it (it stays in the sidedeck). Out: delete.
             IconButton(
               key: const Key('team-remove'),
-              tooltip: 'Remove from team',
+              tooltip: slot == null
+                  ? 'Delete from sidedeck'
+                  : 'Take out of squad',
               icon: const Icon(Icons.delete_outline),
               onPressed: () {
+                trace('team.member.remove_tap', {
+                  'member': member,
+                  'slot': slot,
+                });
                 Navigator.of(context).pop();
-                team[slot] = null;
+                if (slot == null) {
+                  team.remove(member);
+                } else {
+                  team[slot] = null;
+                }
               },
             ),
           ],
@@ -723,8 +783,8 @@ class TeamSlotPage extends StatelessWidget {
                   ),
                   selected: s.ability == id,
                   onSelected: (_) {
-                    trace('team.ability', {'slot': slot, 'ability': id});
-                    team[slot] = s.copyWith(ability: id);
+                    trace('team.ability', {'member': member, 'ability': id});
+                    team.setMember(member, s.copyWith(ability: id));
                   },
                 ),
             ],
@@ -776,13 +836,16 @@ class TeamSlotPage extends StatelessWidget {
                     final id = s.moves[k];
                     final hide = !s.hidden.contains(id);
                     trace(hide ? 'team.move.hide' : 'team.move.show', {
-                      'slot': slot,
+                      'member': member,
                       'k': k,
                     });
-                    team[slot] = s.copyWith(
-                      hidden: hide
-                          ? {...s.hidden, id}
-                          : ({...s.hidden}..remove(id)),
+                    team.setMember(
+                      member,
+                      s.copyWith(
+                        hidden: hide
+                            ? {...s.hidden, id}
+                            : ({...s.hidden}..remove(id)),
+                      ),
                     );
                   },
                 ),
@@ -791,8 +854,11 @@ class TeamSlotPage extends StatelessWidget {
                   tooltip: 'Clear move',
                   icon: const Icon(Icons.close),
                   onPressed: () {
-                    trace('team.move.clear', {'slot': slot, 'k': k});
-                    team[slot] = s.copyWith(moves: [...s.moves]..removeAt(k));
+                    trace('team.move.clear', {'member': member, 'k': k});
+                    team.setMember(
+                      member,
+                      s.copyWith(moves: [...s.moves]..removeAt(k)),
+                    );
                   },
                 ),
               ],
