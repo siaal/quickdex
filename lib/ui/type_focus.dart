@@ -10,8 +10,9 @@ import 'type_tile.dart';
 
 enum FocusMode { attacker, defender }
 
-/// The Focus tab's selection and mode. Outlives [TypeFocus] (which is rebuilt
+/// The Focus tab's selection. Outlives [TypeFocus] (which is rebuilt
 /// when its tab is shown again) so other screens can drive it via [show].
+/// Mode is retained for callers; the UI always shows both matchup directions.
 class TypeFocusController extends ChangeNotifier {
   FocusMode _mode = FocusMode.attacker;
   FocusMode get mode => _mode;
@@ -85,8 +86,8 @@ class TypeFocusController extends ChangeNotifier {
 }
 
 /// Tap a type to focus it alone; long-press or right-click another to add it
-/// as a second type (dual-type defender, or two-type STAB coverage). Result
-/// pills behave the same way and keep the Attacker/Defender mode.
+/// as a second type (dual-type defense and two-type STAB coverage). Result
+/// pills behave the same way. Both matchup directions share the selection.
 class TypeFocus extends StatefulWidget {
   const TypeFocus({super.key, required this.chart, this.controller});
   final TypeChart chart;
@@ -121,8 +122,12 @@ class _TypeFocusState extends State<TypeFocus> {
     ('Immune to', [0.0]),
   ];
 
-  Widget _section(String label, List<double> mults, Map<String, double> m) {
-    final defending = _c.mode == FocusMode.defender;
+  Widget _section(
+    String label,
+    List<double> mults,
+    Map<String, double> m, {
+    required bool defending,
+  }) {
     List<String> at(double x) => [
       for (final t in widget.chart.order)
         if (m[t] == x) t,
@@ -163,48 +168,52 @@ class _TypeFocusState extends State<TypeFocus> {
   Widget _build(BuildContext context) {
     final theme = Theme.of(context);
     final selected = _c.selected;
-    final mode = _c.mode;
-    return ListView(
+    assert(selected.length <= 2 && selected.toSet().length == selected.length);
+    assert(selected.every(widget.chart.order.contains));
+    trace('focus.matchups.build', {
+      'selected': selected,
+      'empty': selected.isEmpty,
+    });
+    final attack = selected.isEmpty
+        ? const <String, double>{}
+        : widget.chart.coverageFor(selected);
+    final defense = selected.isEmpty
+        ? const <String, double>{}
+        : widget.chart.defenseFor(selected);
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      children: [
-        SegmentedButton<FocusMode>(
-          key: const Key('focus-mode'),
-          segments: const [
-            ButtonSegment(value: FocusMode.attacker, label: Text('Attacker')),
-            ButtonSegment(value: FocusMode.defender, label: Text('Defender')),
-          ],
-          selected: {mode},
-          onSelectionChanged: (s) => _c.mode = s.single,
-        ),
-        const SizedBox(height: 12),
-        TypeTileGrid(
-          order: widget.chart.order,
-          selected: selected,
-          keyPrefix: 'focus-type',
-          onTap: _c.pick,
-          onAdd: _c.add,
-        ),
-        const SizedBox(height: 16),
-        if (selected.isEmpty)
-          const Text('Pick a type')
-        else ...[
-          Text(
-            selected.map(typeLabel).join(' + '),
-            key: const Key('focus-selection'),
-            style: theme.textTheme.titleMedium,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TypeTileGrid(
+            order: widget.chart.order,
+            selected: selected,
+            keyPrefix: 'focus-type',
+            onTap: _c.pick,
+            onAdd: _c.add,
           ),
-          const SizedBox(height: 8),
-          for (final (label, mults)
-              in mode == FocusMode.attacker ? _attackGroups : _defendGroups)
-            _section(
-              label,
-              mults,
-              mode == FocusMode.attacker
-                  ? widget.chart.coverageFor(selected)
-                  : widget.chart.defenseFor(selected),
+          const SizedBox(height: 16),
+          if (selected.isEmpty)
+            const Text('Pick a type')
+          else ...[
+            Text(
+              selected.map(typeLabel).join(' + '),
+              key: const Key('focus-selection'),
+              style: theme.textTheme.titleMedium,
             ),
+            const SizedBox(height: 8),
+            Text('Defending', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            for (final (label, mults) in _defendGroups)
+              _section(label, mults, defense, defending: true),
+            const SizedBox(height: 16),
+            Text('Attacking', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
+            for (final (label, mults) in _attackGroups)
+              _section(label, mults, attack, defending: false),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

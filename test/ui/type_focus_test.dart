@@ -24,10 +24,40 @@ void main() {
     ),
   );
 
-  testWidgets('attacker mode shows offensive groups', (tester) async {
+  testWidgets('empty selection asks for a type without matchup sections', (
+    tester,
+  ) async {
+    await pump(tester);
+    expect(find.text('Pick a type'), findsOneWidget);
+    expect(find.byType(MatchupSection), findsNothing);
+    expect(find.byKey(const Key('focus-mode')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('one selection shows attacking and defending groups', (
+    tester,
+  ) async {
     await pump(tester);
     await tester.tap(find.byKey(const Key('focus-type-electric')));
     await tester.pump();
+    expect(find.text('Attacking'), findsOneWidget);
+    expect(find.text('Defending'), findsOneWidget);
+    final sections = tester.widgetList<MatchupSection>(
+      find.byType(MatchupSection),
+    );
+    expect(
+      sections.singleWhere((s) => s.label == 'Weak to').tint,
+      matchupTint(2, defending: true),
+    );
+    expect(
+      sections.singleWhere((s) => s.label == 'Super effective').tint,
+      matchupTint(2, defending: false),
+    );
+    expect(find.byKey(const Key('focus-mode')), findsNothing);
+    expect(
+      find.byKey(const Key('focus-result-Weak to (2×)-ground')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const Key('focus-result-Super effective (2×)-water')),
       findsOneWidget,
@@ -46,10 +76,10 @@ void main() {
     );
   });
 
-  testWidgets('defender mode shows defensive groups', (tester) async {
+  testWidgets('same selection shows defensive groups without switching', (
+    tester,
+  ) async {
     await pump(tester);
-    await tester.tap(find.text('Defender'));
-    await tester.pump();
     await tester.tap(find.byKey(const Key('focus-type-electric')));
     await tester.pump();
     expect(
@@ -66,7 +96,29 @@ void main() {
     );
   });
 
-  testWidgets('only one type can be selected', (tester) async {
+  testWidgets('both directions remain reachable at phone width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 915);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('focus-type-electric')));
+    await tester.longPress(find.byKey(const Key('focus-type-ice')));
+    await tester.pump();
+    final weakness = find.byKey(const Key('focus-result-Weak to (2×)-ground'));
+    await tester.ensureVisible(weakness);
+    expect(weakness.hitTestable(), findsOneWidget);
+    final strength = find.byKey(
+      const Key('focus-result-Super effective (2×)-ground'),
+    );
+    await tester.ensureVisible(strength);
+    expect(strength.hitTestable(), findsOneWidget);
+    expect(find.text('Electric + Ice'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tap replaces the selection with one type', (tester) async {
     await pump(tester);
     await tester.tap(find.byKey(const Key('focus-type-fire')));
     await tester.pump();
@@ -91,8 +143,6 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await pump(tester);
-    await tester.tap(find.text('Defender'));
-    await tester.pump();
     await tester.tap(find.byKey(const Key('focus-type-fighting')));
     await tester.pump();
     await tester.longPress(find.byKey(const Key('focus-type-fairy')));
@@ -127,8 +177,6 @@ void main() {
 
   testWidgets('4× weakness is a row inside Weak to', (tester) async {
     await pump(tester);
-    await tester.tap(find.text('Defender'));
-    await tester.pump();
     await tester.tap(find.byKey(const Key('focus-type-grass')));
     await tester.longPress(find.byKey(const Key('focus-type-bug')));
     await tester.pump();
@@ -162,6 +210,14 @@ void main() {
       buttons: kSecondaryMouseButton,
     );
     await tester.pump();
+    expect(find.text('Electric + Ice'), findsOneWidget);
+    for (final t in ['ground', 'fighting', 'fire']) {
+      expect(
+        find.byKey(Key('focus-result-Weak to (2×)-$t')),
+        findsOneWidget,
+        reason: 'dual defense: $t',
+      );
+    }
     // Ice covers Electric's Ground immunity and Grass/Dragon resists.
     for (final t in ['water', 'flying', 'ground', 'grass', 'dragon']) {
       expect(
@@ -202,32 +258,32 @@ void main() {
     expect(selectedTiles(tester), [const Key('focus-type-dark')]);
   });
 
-  testWidgets('result pills: tap picks, long-press adds; mode is kept', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 2000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await pump(tester);
-    await tester.tap(find.text('Defender'));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('focus-type-fighting')));
-    await tester.pump();
-    await tester.longPress(
-      find.byKey(const Key('focus-result-Weak to (2×)-fairy')),
-    );
-    await tester.pump();
-    expect(find.text('Fighting + Fairy'), findsOneWidget);
-    await tester.tap(
-      find.byKey(const Key('focus-result-Weak to (2×)-psychic')),
-    );
-    await tester.pump();
-    expect(selectedTiles(tester), [const Key('focus-type-psychic')]);
-    final mode = tester.widget<SegmentedButton<FocusMode>>(
-      find.byKey(const Key('focus-mode')),
-    );
-    expect(mode.selected, {FocusMode.defender});
-  });
+  testWidgets(
+    'result pills: tap picks, long-press adds; both sections update',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester);
+      await tester.tap(find.byKey(const Key('focus-type-fighting')));
+      await tester.pump();
+      await tester.longPress(
+        find.byKey(const Key('focus-result-Weak to (2×)-fairy')),
+      );
+      await tester.pump();
+      expect(find.text('Fighting + Fairy'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const Key('focus-result-Weak to (2×)-psychic')),
+      );
+      await tester.pump();
+      expect(selectedTiles(tester), [const Key('focus-type-psychic')]);
+      expect(find.byKey(const Key('focus-mode')), findsNothing);
+      expect(
+        find.byKey(const Key('focus-result-Super effective (2×)-fighting')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('no type name is truncated at Pixel 7 width', (tester) async {
     // The default test font draws every glyph as a square; measure with the

@@ -10,7 +10,6 @@ import 'package:quickdex/team/builds.dart';
 import 'package:quickdex/team/team.dart';
 import 'package:quickdex/ui/app.dart';
 import 'package:quickdex/ui/search_screen.dart';
-import 'package:quickdex/ui/type_focus.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -145,12 +144,13 @@ void main() {
     expect(find.byKey(const Key('search-field')), findsOneWidget);
   });
 
-  FocusMode focusMode(WidgetTester tester) => tester
-      .widget<SegmentedButton<FocusMode>>(find.byKey(const Key('focus-mode')))
-      .selected
-      .single;
+  void expectBothMatchups() {
+    expect(find.byKey(const Key('focus-mode')), findsNothing);
+    expect(find.text('Attacking'), findsOneWidget);
+    expect(find.text('Defending'), findsOneWidget);
+  }
 
-  testWidgets('tapping a type pill opens it as a defender in the Type Chart', (
+  testWidgets('tapping a type pill opens both matchups in the Type Chart', (
     tester,
   ) async {
     await pumpApp(tester);
@@ -165,7 +165,7 @@ void main() {
       tester.widget<Text>(find.byKey(const Key('focus-selection'))).data,
       'Electric',
     );
-    expect(focusMode(tester), FocusMode.defender);
+    expectBothMatchups();
   });
 
   testWidgets('a weakness pill opens that type, even from the Grid tab', (
@@ -186,7 +186,7 @@ void main() {
       tester.widget<Text>(find.byKey(const Key('focus-selection'))).data,
       'Ground',
     );
-    expect(focusMode(tester), FocusMode.defender);
+    expectBothMatchups();
   });
 
   testWidgets('Finder rows open the Pokémon page inside the Type Chart tab', (
@@ -243,7 +243,7 @@ void main() {
     expect(find.byKey(const Key('search-field')), findsOneWidget);
   });
 
-  testWidgets('a team type pill opens the Type Chart as a defender', (
+  testWidgets('a team type pill opens both matchups in the Type Chart', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(800, 2400);
@@ -279,6 +279,6 @@ void main() {
       tester.widget<Text>(find.byKey(const Key('focus-selection'))).data,
       'Fire',
     );
-    expect(focusMode(tester), FocusMode.defender);
+    expectBothMatchups();
   });
 }
