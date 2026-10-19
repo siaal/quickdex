@@ -22,8 +22,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description (for Emerald, led by how the effect differed back then).
   Moves no Pokémon learns in the game are tagged "Not in <game>".
-- **Type Chart:** a Focus tab (pick a type, toggle Attacker/Defender;
-  long-press or right-click a second type for a dual-type defender or two-type STAB
+- **Type Chart:** a Focus tab (pick a type to see attack and defence together;
+  long-press or right-click a second type for dual-type defence and two-type STAB
   coverage; result pills work the same way), a Finder tab (pick one or two types to list every Pokémon
   with them; long-press the only picked type for just that type alone; filter by name, optionally highest evolution only) and a full 18×18 (17×17
   in Emerald)
@@ -33,6 +33,10 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   Sidedeck button between them lists every Pokémon you've added to the team (types
   and moves with type and category, an N/6 squad counter): tap one to put it in or
   take it out of the squad, long-press to edit it, swipe to delete it, + to add one.
+  You can select more than six while rearranging, but must bench the extras before
+  leaving the sidedeck. If an overfull squad is restored or otherwise reaches the
+  planner, an error message shows the count and explains that only the first six
+  are shown and included in matchups.
   Removing a Pokémon from a squad slot only benches it; builds save the whole deck. Save names
   the shown team as a build (it offers the loaded build's name, so one tap overwrites
   it, and lists the side's builds, shown as thumbnails, most recent first, filtered as
@@ -47,7 +51,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   theirs red, neutral grey, resisted faded, immune dashed). Each team has six slots; tap one to
   pick a Pokémon, its ability and up to four
   moves (its learnable moves are suggested under a Level up | All | TM toggle, All to
-  start; typing searches every move; long-press or
+  start; your choice is remembered for the next move, and changing it hides the
+  keyboard; typing searches every move; long-press or
   right-click a move to read what it does; the eye button leaves a move out of the
   matchups without removing it, e.g. a U-turn that doesn't define them). Below, each
   attacking type shows how many members are weak, resist or are immune (the chosen

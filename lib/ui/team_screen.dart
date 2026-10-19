@@ -34,6 +34,7 @@ class TeamScreen extends StatefulWidget {
     required this.moves,
     required this.moveFrecency,
     this.onOpenType,
+    this.onDeckChanged,
   });
   final Pokedex dex;
   final TeamPlanner planner;
@@ -45,6 +46,9 @@ class TeamScreen extends StatefulWidget {
   /// Long-press/right-click on a type pill: open it in the Type Chart (as a
   /// defender). Pills do nothing when null.
   final ValueChanged<String>? onOpenType;
+
+  /// Lets the shell guard tab navigation for an overfull open sidedeck.
+  final ValueChanged<Team?>? onDeckChanged;
 
   @override
   State<TeamScreen> createState() => _TeamScreenState();
@@ -235,10 +239,11 @@ class _TeamScreenState extends State<TeamScreen> {
   );
 
   /// Opens the shown side's sidedeck; + there adds a Pokémon and edits it.
-  void _openDeck() {
+  Future<void> _openDeck() async {
     trace('team.deck.open', {'side': _side.name, 'deck': _team.deck.length});
     final team = _team;
-    Navigator.of(context).push(
+    widget.onDeckChanged?.call(team);
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => SidedeckPage(
           team: team,
@@ -266,6 +271,7 @@ class _TeamScreenState extends State<TeamScreen> {
         ),
       ),
     );
+    if (mounted) widget.onDeckChanged?.call(null);
   }
 
   /// Save, Load, Sidedeck and Mine | Theirs; scrolls away with the team.
@@ -315,11 +321,28 @@ class _TeamScreenState extends State<TeamScreen> {
       for (var i = 0; i < Team.size; i++)
         if (_team[i] case final s?) resolveMember(i, s, widget.dex, moves),
     ];
+    if (!_team.isLegal) {
+      trace('team.squad.invalid', {
+        'side': _side.name,
+        'count': _team.squadCount,
+      });
+    }
     return ListView(
       key: const Key('team-scroll'),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
         _header(),
+        if (!_team.isLegal)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              '${_team.squadCount} selected: a squad can have at most ${Team.size}. '
+              'Open Sidedeck to bench the extras. Only the first ${Team.size} '
+              'are shown and included in matchups.',
+              key: const Key('team-legality'),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
         if (_team.name case final name?)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -734,7 +757,7 @@ class TeamSlotPage extends StatelessWidget {
                 if (slot == null) {
                   team.remove(member);
                 } else {
-                  team[slot] = null;
+                  team.toggle(member);
                 }
               },
             ),

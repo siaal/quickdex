@@ -64,8 +64,12 @@
   `Lineup`: any number of `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move
   ids ignored by the analysis) plus a six-slot squad of deck indices. `team[i]` is the
   squad view: setting an empty slot adds to the deck, null only benches. The
-  analysis, Versus and build thumbnails use the squad. `lib/ui/sidedeck_page.dart`
-  toggles members in and out. Saved in shared_preferences under
+  analysis, Versus and build thumbnails use the first six selected members.
+  `lib/ui/sidedeck_page.dart` allows temporary overflow; its `PopScope` and the
+  shell's tab guard block leaving until legal. Restored overflow is preserved and
+  shown as error text in the planner. Shell back must use `maybePop` to honour
+  route guards; editors bench by deck index (`team.toggle(member)`), not slot index.
+  Saved in shared_preferences under
   `team.v1` (`team.v1.<game>` for games other than Scarlet); unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
   guaranteed guard only) and takes attack types from non-hidden damaging moves, plus

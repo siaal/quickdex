@@ -709,26 +709,30 @@ void main() {
       expect(team.deck, hasLength(2), reason: 'still in the deck');
     });
 
-    testWidgets('a full squad says so instead of toggling', (tester) async {
-      final team = Team();
-      for (final n in [
-        'Golem',
-        'Pikachu',
-        'Bronzong',
-        'Pelipper',
-        'Torkoal',
-        'Garchomp',
-        'Gengar',
-      ]) {
-        team.add(TeamSlot(named(n).id));
-      }
-      await pump(tester, team);
-      await tapKey(tester, 'team-deck');
-      expect(count(tester), '6/6');
-      await tapKey(tester, 'deck-row-6');
-      expect(find.text('Squad full (6/6)'), findsOne);
-      expect(team.slotOf(6), isNull);
-    });
+    testWidgets(
+      'a full squad allows an extra selection and explains the limit',
+      (tester) async {
+        final team = Team();
+        for (final n in [
+          'Golem',
+          'Pikachu',
+          'Bronzong',
+          'Pelipper',
+          'Torkoal',
+          'Garchomp',
+          'Gengar',
+        ]) {
+          team.add(TeamSlot(named(n).id));
+        }
+        await pump(tester, team);
+        await tapKey(tester, 'team-deck');
+        expect(count(tester), '6/6');
+        await tapKey(tester, 'deck-row-6');
+        expect(count(tester), '7/6');
+        expect(find.byKey(const Key('deck-legality')), findsOne);
+        expect(team.slotOf(6), isNotNull);
+      },
+    );
 
     testWidgets('+ adds and edits; long-press edits; swipe deletes', (
       tester,

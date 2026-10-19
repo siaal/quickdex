@@ -8,6 +8,7 @@ import '../data/moves.dart';
 import '../frecency/frecency.dart';
 import '../search/search_index.dart';
 import '../team/builds.dart';
+import '../team/team.dart';
 import '../trace.dart';
 import 'pokemon_page.dart';
 import 'search_screen.dart';
@@ -100,6 +101,7 @@ class _HomeShellState extends State<HomeShell> {
   /// below the bottom bar, and stay open while another tab is shown.
   final _navigators = List.generate(3, (_) => GlobalKey<NavigatorState>());
   int _tab = 0;
+  Team? _openDeck;
 
   /// Bumped to make the search screen focus its field and show the keyboard.
   final _searchFocusRequests = ValueNotifier(0);
@@ -163,7 +165,8 @@ class _HomeShellState extends State<HomeShell> {
     final nav = _navigators[_tab].currentState;
     if (nav != null && nav.canPop()) {
       trace('shell.back.pop_tab', {'tab': _tab});
-      nav.pop();
+      // Honour the active route's PopScope, including Sidedeck legality.
+      nav.maybePop();
       return;
     }
     if (!exit) {
@@ -227,6 +230,7 @@ class _HomeShellState extends State<HomeShell> {
                 moves: widget.moves,
                 moveFrecency: widget.moveFrecency,
                 onOpenType: _openType,
+                onDeckChanged: (team) => _openDeck = team,
               ),
             ),
           ],
@@ -234,6 +238,23 @@ class _HomeShellState extends State<HomeShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _tab,
           onDestinationSelected: (i) {
+            if (_tab == 2 && _openDeck != null && !_openDeck!.isLegal) {
+              trace('shell.tab.blocked_overfull_deck', {
+                'tab': i,
+                'count': _openDeck!.squadCount,
+              });
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Choose at most 6 Pokémon before leaving Sidedeck.',
+                    ),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              return;
+            }
             trace(i == _tab ? 'shell.tab.reselect' : 'shell.tab.select', {
               'tab': i,
             });
