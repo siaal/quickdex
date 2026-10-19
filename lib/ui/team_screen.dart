@@ -947,6 +947,11 @@ class _PickerState<T extends Searchable> extends State<_Picker<T>> {
         : ListenableBuilder(listenable: changes, builder: (c, _) => _page(c));
   }
 
+  void _pick(T item) {
+    trace('team.pick', {'type': '$T', 'id': item.id});
+    Navigator.of(context).pop(item);
+  }
+
   Widget _page(BuildContext context) {
     final results = widget.results(_query.text);
     final header = _query.text.isEmpty ? widget.header : null;
@@ -961,6 +966,17 @@ class _PickerState<T extends Searchable> extends State<_Picker<T>> {
             border: InputBorder.none,
           ),
           onChanged: (_) => setState(() {}),
+          onSubmitted: (_) {
+            if (results.isEmpty) {
+              trace('team.pick.submit.empty', {'type': '$T'});
+              return;
+            }
+            trace('team.pick.submit.first', {
+              'type': '$T',
+              'id': results.first.id,
+            });
+            _pick(results.first);
+          },
         ),
         bottom: widget.bottom,
       ),
@@ -983,10 +999,7 @@ class _PickerState<T extends Searchable> extends State<_Picker<T>> {
           final item = results[i];
           return KeyedSubtree(
             key: Key('team-pick-row-${item.id}'),
-            child: widget.tile(item, () {
-              trace('team.pick', {'type': '$T', 'id': item.id});
-              Navigator.of(context).pop(item);
-            }),
+            child: widget.tile(item, () => _pick(item)),
           );
         },
       ),

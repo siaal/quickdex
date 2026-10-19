@@ -28,6 +28,37 @@ void main() {
 
   Finder row(int id) => find.byKey(Key('finder-row-$id'));
 
+  testWidgets('Enter opens the first currently filtered result', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.enterText(find.byKey(const Key('finder-search')), 'pika');
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    expect(opened, [25]);
+  });
+
+  testWidgets('Enter respects type and evolution filters', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('finder-type-fire')));
+    await tester.tap(find.byKey(const Key('finder-final-only')));
+    await tester.enterText(find.byKey(const Key('finder-search')), 'char');
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    expect(opened, [6]);
+  });
+
+  testWidgets('Enter with no results opens nothing', (tester) async {
+    await pump(tester);
+    await tester.enterText(
+      find.byKey(const Key('finder-search')),
+      'no-such-result-xyz',
+    );
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    expect(opened, isEmpty);
+  });
+
   testWidgets('nothing picked lists nothing', (tester) async {
     await pump(tester);
     expect(find.text('Pick a type'), findsOneWidget);

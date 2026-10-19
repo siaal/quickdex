@@ -17,7 +17,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   own types hit super-effectively, not very effectively or not at all (tap any type pill to open it in the Type Chart as a
   defender), form switching, moves under a Level up | All | TM toggle (All to start in Scrambled Scarlet,
   Level up elsewhere; the pick sticks until restart), and an Evo sheet (or drag from Evo and release on an evolution to
-  jump straight to it).
+  jump straight to it). Enter selects the first displayed result in Search, the
+  Pokémon/move/build pickers and Type Finder; with no matches, it does nothing.
 - **Moves** (in Search): every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description (for Emerald, led by how the effect differed back then).

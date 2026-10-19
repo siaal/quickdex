@@ -89,6 +89,11 @@ class _TypeFinderState extends State<TypeFinder>
     return out;
   }
 
+  void _open(PokemonEntry entry) {
+    trace('finder.open', {'id': entry.id});
+    widget.onOpen?.call(entry);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -111,6 +116,14 @@ class _TypeFinderState extends State<TypeFinder>
           TextField(
             key: const Key('finder-search'),
             controller: _query,
+            onSubmitted: (_) {
+              if (results.isEmpty) {
+                trace('finder.submit.empty');
+                return;
+              }
+              trace('finder.submit.first', {'id': results.first.id});
+              _open(results.first);
+            },
             decoration: const InputDecoration(
               hintText: 'Filter by name',
               prefixIcon: Icon(Icons.search),
@@ -151,10 +164,7 @@ class _TypeFinderState extends State<TypeFinder>
         return PokemonTile(
           e,
           key: Key('finder-row-${e.id}'),
-          onTap: () {
-            trace('finder.open', {'id': e.id});
-            widget.onOpen?.call(e);
-          },
+          onTap: () => _open(e),
         );
       },
     );
