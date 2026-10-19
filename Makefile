@@ -1,10 +1,11 @@
 FLUTTER := fvm flutter
+DART_FILES ?= lib test
 UV := uv run --project tool
 APK := build/app/outputs/flutter-apk/app-release.apk
 # Same versionCode scheme as CI (commit count), so local and CI builds update each other.
 BUILD_NUMBER := $(shell git rev-list --count HEAD)
 
-.PHONY: data icon test analyze run install perf
+.PHONY: data icon test test-moves format analyze run install perf
 
 data:
 	$(UV) python tool/build_data.py
@@ -15,6 +16,12 @@ icon:
 test:
 	$(UV) pytest tool/tests -q
 	$(FLUTTER) test
+
+test-moves:
+	$(FLUTTER) test test/ui/move_learners_test.dart test/ui/move_search_test.dart test/ui/learnset_test.dart
+
+format:
+	fvm dart format $(DART_FILES)
 
 analyze:
 	$(UV) ruff check tool

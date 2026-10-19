@@ -163,7 +163,14 @@ class _SearchScreenState extends State<SearchScreen> {
       moveFrecency: widget.moveFrecency,
       onOpenType: widget.onOpenType,
     ),
-    Move() => MovePage(move: e, frecency: widget.moveFrecency),
+    Move() => MovePage(
+      move: e,
+      frecency: widget.moveFrecency,
+      dex: widget.dex,
+      moves: widget.moves,
+      pokemonFrecency: widget.frecency,
+      onOpenType: widget.onOpenType,
+    ),
     _ => throw StateError('unknown searchable ${e.runtimeType}'),
   };
 

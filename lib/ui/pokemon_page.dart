@@ -85,7 +85,14 @@ class _PokemonPageState extends State<PokemonPage> {
         moves: moves,
         onOpen: (m) => Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => MovePage(move: m, frecency: widget.moveFrecency!),
+            builder: (_) => MovePage(
+              move: m,
+              frecency: widget.moveFrecency!,
+              dex: widget.dex,
+              moves: widget.moves!,
+              pokemonFrecency: widget.frecency,
+              onOpenType: widget.onOpenType,
+            ),
           ),
         ),
       ),

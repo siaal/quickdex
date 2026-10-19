@@ -1,16 +1,31 @@
 import 'package:flutter/material.dart';
 
+import '../data/models.dart';
 import '../data/moves.dart';
 import '../frecency/frecency.dart';
 import '../trace.dart';
 import 'category_badge.dart';
 import 'game_scope.dart';
 import 'type_badge.dart';
+import 'move_learners.dart';
+import 'pokemon_page.dart';
 
 class MovePage extends StatefulWidget {
-  const MovePage({super.key, required this.move, required this.frecency});
+  const MovePage({
+    super.key,
+    required this.move,
+    required this.frecency,
+    required this.dex,
+    required this.moves,
+    required this.pokemonFrecency,
+    this.onOpenType,
+  });
   final Move move;
   final FrecencyStore frecency;
+  final Pokedex dex;
+  final Future<MoveDex> moves;
+  final FrecencyStore pokemonFrecency;
+  final ValueChanged<String>? onOpenType;
 
   @override
   State<MovePage> createState() => _MovePageState();
@@ -30,7 +45,43 @@ class _MovePageState extends State<MovePage> {
     appBar: AppBar(),
     body: SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      child: MoveDetails(widget.move),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          MoveDetails(widget.move),
+          FutureBuilder<MoveDex>(
+            future: widget.moves,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                trace('move.learners.load_failed', {'move': widget.move.id});
+                return const Text('Unable to load learners');
+              }
+              final moves = snapshot.data;
+              if (moves == null) {
+                trace('move.learners.loading', {'move': widget.move.id});
+                return const Text('Loading learners...');
+              }
+              return MoveLearners(
+                move: widget.move,
+                moves: moves,
+                dex: widget.dex,
+                onOpen: (entry) => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PokemonPage(
+                      dex: widget.dex,
+                      initialId: entry.id,
+                      frecency: widget.pokemonFrecency,
+                      moves: widget.moves,
+                      moveFrecency: widget.frecency,
+                      onOpenType: widget.onOpenType,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     ),
   );
 }
