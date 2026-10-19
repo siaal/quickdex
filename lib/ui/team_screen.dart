@@ -1181,7 +1181,9 @@ class PokemonPicker extends StatelessWidget {
 }
 
 /// Pick a move. With nothing typed, lists [pokemon]'s moves under a Level up |
-/// All | TM toggle (All to start); typing searches every move. Moves in
+/// All | TM toggle (All to start, then remembered per game until app restart,
+/// independently of the Pokemon page); typing searches every move. Changing the
+/// filter dismisses search focus/keyboard without clearing the query. Moves in
 /// [exclude] (already chosen) are left out.
 class MovePicker extends StatefulWidget {
   const MovePicker({
@@ -1196,6 +1198,11 @@ class MovePicker extends StatefulWidget {
   final int pokemon;
   final Set<int> exclude;
 
+  static final _chosen = <String, LearnFilter>{};
+
+  @visibleForTesting
+  static void resetFilters() => _chosen.clear();
+
   @override
   State<MovePicker> createState() => _MovePickerState();
 }
@@ -1203,7 +1210,8 @@ class MovePicker extends StatefulWidget {
 class _MovePickerState extends State<MovePicker> {
   late final _index = SearchIndex(widget.moves.moves);
 
-  var _filter = LearnFilter.all;
+  LearnFilter get _filter =>
+      MovePicker._chosen[widget.moves.game.key] ?? LearnFilter.all;
 
   List<Move> get _learnset => [
     for (final id
@@ -1246,8 +1254,14 @@ class _MovePickerState extends State<MovePicker> {
         child: LearnFilterToggle(
           value: _filter,
           onChanged: (f) {
-            trace('team.move_picker.filter', {'filter': f.name});
-            setState(() => _filter = f);
+            trace('team.move_picker.filter', {
+              'game': widget.moves.game.key,
+              'previous': _filter.name,
+              'filter': f.name,
+            });
+            FocusScope.of(context).unfocus();
+            setState(() => MovePicker._chosen[widget.moves.game.key] = f);
+            assert(_filter == f);
           },
         ),
       ),

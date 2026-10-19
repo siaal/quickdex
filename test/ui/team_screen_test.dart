@@ -17,6 +17,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Pokedex dex;
   late MoveDex moves;
+  setUp(MovePicker.resetFilters);
+  tearDown(MovePicker.resetFilters);
   setUpAll(() async {
     dex = await loadPokedex(rootBundle);
     moves = await loadMoves(rootBundle);
@@ -124,6 +126,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(team[0]!.moves, [move('earthquake')]);
     expect(find.byKey(const Key('team-move-1')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('team-move-1')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SegmentedButton<LearnFilter>>(
+            find.byKey(const Key('learn-filter')),
+          )
+          .selected,
+      {LearnFilter.levelUp},
+      reason: 'the next move keeps the previous picker choice',
+    );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('team-move-hide-0')));
     await tester.pump();
