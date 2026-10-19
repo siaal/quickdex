@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:quickdex/data/loader.dart';
 import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
+import 'package:quickdex/team/builds.dart';
 import 'package:quickdex/team/team.dart';
 import 'package:quickdex/team/team_analysis.dart';
 
@@ -139,6 +140,96 @@ void main() {
       expect(t.toggle(1), isTrue);
       expect(squad(t).first, 'Pikachu');
     });
+
+    test(
+      'temporary extra selections persist and promote without truncation',
+      () {
+        final saved = <String>[];
+        final t = Team(onChanged: saved.add);
+        for (var i = 0; i < 8; i++) {
+          t.add(slot('Golem'));
+        }
+        expect(t.toggle(6, allowOverflow: true), isTrue);
+        expect(t.toggle(7, allowOverflow: true), isTrue);
+        expect(t.squadCount, 8);
+        expect(t.isLegal, isFalse);
+        expect(t.slots, hasLength(Team.size));
+        expect(t.lineup.squad, [0, 1, 2, 3, 4, 5, 6, 7]);
+        final back = Team.fromJson(saved.last, dex);
+        expect(back.lineup.squad, t.lineup.squad);
+        expect(back.isLegal, isFalse);
+        final builds = SavedBuilds()..save('Temporary', t.lineup);
+        final restored = SavedBuilds.fromJson(
+          builds.toJson(),
+          dex,
+        ).builds.single;
+        expect(restored.lineup.squad, t.lineup.squad);
+        expect(restored.slots, hasLength(Team.size));
+        expect(() => t[Team.size] = null, throwsAssertionError);
+        expect(t.toggle(1), isTrue);
+        expect(
+          t.toggle(1),
+          isFalse,
+          reason: 'default toggle still caps the squad',
+        );
+        back.toggle(1);
+        back.toggle(3);
+        expect(back.isLegal, isTrue);
+        expect(back.lineup.squad, [0, 6, 2, 7, 4, 5]);
+        expect(back.deck, hasLength(8));
+        expect(back.slots.every((s) => s != null), isTrue);
+      },
+    );
+
+    test(
+      'overflow removal and build loading preserve all selected members',
+      () {
+        final t = Team();
+        for (var i = 0; i < 9; i++) {
+          t.add(slot('Golem'));
+        }
+        t.toggle(6, allowOverflow: true);
+        t.toggle(7, allowOverflow: true);
+        final loaded = Team()..load(t.lineup, name: 'Temporary');
+        expect(loaded.squadCount, 8);
+        loaded.remove(6);
+        expect(loaded.lineup.squad, [0, 1, 2, 3, 4, 5, 6]);
+        loaded.remove(0);
+        expect(loaded.lineup.squad, [5, 0, 1, 2, 3, 4]);
+        expect(loaded.isLegal, isTrue);
+        loaded.load(Lineup.empty, name: null);
+        expect(loaded.squadCount, 0);
+        expect(loaded.isLegal, isTrue);
+      },
+    );
+
+    test('legacy six-slot formats migrate without changing empty slots', () {
+      final p = named('Golem').id;
+      for (final raw in [
+        '[null,{"p":$p,"m":[]}]',
+        '{"s":[null,{"p":$p,"m":[]}]}',
+        '{"d":[{"p":$p,"m":[]}],"q":[null,0]}',
+      ]) {
+        final t = Team.fromJson(raw, dex);
+        expect(t.lineup.squad, [null, 0, null, null, null, null]);
+        expect(t.isLegal, isTrue);
+        expect(Team.fromJson(t.toJson(), dex).lineup.squad, t.lineup.squad);
+      }
+    });
+
+    test(
+      'unknown and duplicate overflow indices are removed, not valid ones',
+      () {
+        final p = named('Golem').id;
+        final t = Team.fromJson(
+          '{"d":[${List.filled(8, '{"p":$p,"m":[]}').join(',')}],'
+          '"q":[0,1,2,3,4,5,999,6,6,7]}',
+          dex,
+        );
+        expect(t.lineup.squad.nonNulls, [0, 1, 2, 3, 4, 5, 6, 7]);
+        expect(t.squadCount, 8);
+      },
+    );
 
     test('remove deletes a member and keeps the squad pointing right', () {
       final t = Team();

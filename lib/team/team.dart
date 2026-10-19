@@ -52,13 +52,16 @@ class TeamSlot {
   };
 }
 
-/// A sidedeck (any number of Pokémon) and which of its members fill the six
-/// squad slots: [squad] holds a deck index per slot, null for an empty slot.
+/// A sidedeck and its squad: deck indices, null for empty slots. The first
+/// six slots are the planner view; extra selections persist while editing.
 class Lineup {
   Lineup(List<TeamSlot> deck, List<int?> squad)
     : deck = List.unmodifiable(deck),
       squad = List.unmodifiable(squad) {
-    assert(squad.length == Team.size, 'a squad has ${Team.size} slots');
+    assert(
+      squad.length >= Team.size,
+      'a squad has at least ${Team.size} slots',
+    );
     assert(
       squad.nonNulls.every((d) => d >= 0 && d < deck.length),
       'squad $squad points outside a deck of ${deck.length}',
@@ -95,9 +98,12 @@ class Lineup {
           deck.add(s);
         }
       }
-      final squad = List<int?>.filled(Team.size, null);
       final rawSquad = (j['q'] as List).cast<int?>();
-      for (var i = 0; i < Team.size && i < rawSquad.length; i++) {
+      final squad = List<int?>.filled(
+        rawSquad.length > Team.size ? rawSquad.length : Team.size,
+        null,
+      );
+      for (var i = 0; i < rawSquad.length; i++) {
         final d = moved[rawSquad[i]];
         if (d == null || squad.contains(d)) {
           if (rawSquad[i] != null) {
@@ -116,9 +122,9 @@ class Lineup {
   final List<TeamSlot> deck;
   final List<int?> squad;
 
-  /// The squad's members per slot.
+  /// The six-slot planner view, even during an overfull Sidedeck edit.
   List<TeamSlot?> get slots => [
-    for (final d in squad) d == null ? null : deck[d],
+    for (final d in squad.take(Team.size)) d == null ? null : deck[d],
   ];
 
   Map<String, dynamic> toJson() => {
@@ -127,8 +133,8 @@ class Lineup {
   };
 }
 
-/// A sidedeck of Pokémon, up to six of them in the squad's slots (null =
-/// empty); persisted as JSON through [onChanged]. The slot API (`team[i]`)
+/// A sidedeck of Pokémon, with temporary extra squad selections allowed by
+/// [toggle]; persisted as JSON through [onChanged]. The slot API (`team[i]`)
 /// edits squad members: setting an empty slot adds to the deck, clearing a
 /// slot only takes its member out of the squad.
 class Team extends ChangeNotifier {
@@ -144,7 +150,9 @@ class Team extends ChangeNotifier {
 
   Team._lineup(Lineup l, this._name, this.onChanged)
     : _deck = List.of(l.deck),
-      _squad = List.of(l.squad);
+      _squad = List.of(l.squad) {
+    _settleSquad();
+  }
 
   /// Reads [toJson]'s `{"n": name, ...}` with a [Lineup], or the older bare
   /// slot list. Corrupt JSON gives an empty team.
@@ -238,6 +246,7 @@ class Team extends ChangeNotifier {
   /// No squad members (the deck may still have some).
   bool get isEmpty => _squad.every((d) => d == null);
   int get squadCount => _squad.nonNulls.length;
+  bool get isLegal => squadCount <= size;
 
   TeamSlot? operator [](int i) => switch (_squad[i]) {
     final d? => _deck[d],
@@ -293,9 +302,9 @@ class Team extends ChangeNotifier {
     return d;
   }
 
-  /// Puts deck member [d] into the first empty slot, or takes it out of the
-  /// squad. Returns false (changing nothing) if it's out and the squad is full.
-  bool toggle(int d) {
+  /// Puts deck member [d] into the first empty slot, or takes it out.
+  /// Only Sidedeck opts into [allowOverflow]; other callers retain the limit.
+  bool toggle(int d, {bool allowOverflow = false}) {
     assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
     if (slotOf(d) case final i?) {
       trace('team.member.out', {'deck_index': d, 'slot': i});
@@ -303,11 +312,16 @@ class Team extends ChangeNotifier {
     } else {
       final free = _squad.indexOf(null);
       if (free < 0) {
-        trace('team.member.squad_full', {'deck_index': d});
-        return false;
+        if (!allowOverflow) {
+          trace('team.member.squad_full', {'deck_index': d});
+          return false;
+        }
+        trace('team.member.overflow', {'deck_index': d, 'count': squadCount});
+        _squad.add(d);
+      } else {
+        trace('team.member.in', {'deck_index': d, 'slot': free});
+        _squad[free] = d;
       }
-      trace('team.member.in', {'deck_index': d, 'slot': free});
-      _squad[free] = d;
     }
     _changed();
     return true;
@@ -318,7 +332,7 @@ class Team extends ChangeNotifier {
     assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
     trace('team.member.remove', {'deck_index': d, 'slot': slotOf(d)});
     _deck.removeAt(d);
-    for (var i = 0; i < size; i++) {
+    for (var i = 0; i < _squad.length; i++) {
       final q = _squad[i];
       if (q == null) continue;
       _squad[i] = q == d ? null : (q > d ? q - 1 : q);
@@ -335,12 +349,37 @@ class Team extends ChangeNotifier {
     _deck
       ..clear()
       ..addAll(lineup.deck);
-    _squad.setAll(0, lineup.squad);
+    _squad
+      ..clear()
+      ..addAll(lineup.squad);
     _name = name;
     _changed();
   }
 
+  // Move extra selections into vacancies without losing any member. Keep the
+  // original six slots (including holes) when no extras remain.
+  void _settleSquad() {
+    final extras = _squad.skip(size).nonNulls.toList();
+    if (extras.isEmpty && _squad.length == size) return;
+    final count = squadCount;
+    trace('team.squad.settle', {'extras': extras.length, 'count': count});
+    _squad.removeRange(size, _squad.length);
+    for (final d in extras) {
+      final free = _squad.indexOf(null);
+      if (free < 0) {
+        trace('team.squad.keep_extra', {'deck_index': d});
+        _squad.add(d);
+      } else {
+        trace('team.squad.promote', {'deck_index': d, 'slot': free});
+        _squad[free] = d;
+      }
+    }
+    assert(squadCount == count, 'settling must preserve every selection');
+    assert(_squad.length == size || !_squad.contains(null));
+  }
+
   void _changed() {
+    _settleSquad();
     assert(lineup.deck.length == _deck.length); // Lineup checks the indices
     notifyListeners();
     onChanged?.call(toJson());

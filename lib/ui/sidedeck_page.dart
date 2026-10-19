@@ -11,7 +11,8 @@ import 'type_badge.dart';
 /// Every Pokémon in a team's sidedeck: tap one (`deck-row-<deck index>`) to put
 /// it in or take it out of the squad, long-press to edit it, swipe it away to
 /// delete it (after `deck-delete-confirm`). The last row (`deck-add`) adds one.
-/// The squad count shows top right (`deck-count`).
+/// The squad count shows top right (`deck-count`). Extra selections are allowed,
+/// but back navigation stays blocked until at most six remain.
 class SidedeckPage extends StatelessWidget {
   const SidedeckPage({
     super.key,
@@ -27,13 +28,14 @@ class SidedeckPage extends StatelessWidget {
   final void Function(BuildContext context, int member) onEdit;
   final void Function(BuildContext context) onAdd;
 
-  void _toggle(BuildContext context, int d) {
-    if (team.toggle(d)) return;
+  void _explainLegality(BuildContext context) {
+    assert(!team.isLegal);
+    trace('deck.leave.blocked', {'count': team.squadCount});
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
-          content: Text('Squad full (${Team.size}/${Team.size})'),
+          content: Text('Choose at most 6 Pokémon before leaving Sidedeck.'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -42,40 +44,61 @@ class SidedeckPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: team,
-    builder: (context, _) => Scaffold(
-      appBar: AppBar(
-        title: const Text('Sidedeck'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Text(
-              '${team.squadCount}/${Team.size}',
-              key: const Key('deck-count'),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+    builder: (context, _) => PopScope<void>(
+      canPop: team.isLegal,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          trace('deck.leave.allowed', {'count': team.squadCount});
+        } else if (!team.isLegal) {
+          _explainLegality(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: BackButton(
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
-        ],
-      ),
-      body: FutureBuilder(
-        future: moves,
-        builder: (context, snap) => ListView(
-          children: [
-            for (final (d, s) in team.deck.indexed)
-              _row(context, d, s, snap.data),
-            ListTile(
-              key: const Key('deck-add'),
-              leading: const SizedBox(
-                width: 56,
-                height: 56,
-                child: Icon(Icons.add, size: 32),
+          title: const Text('Sidedeck'),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Text(
+                '${team.squadCount}/${Team.size}',
+                key: const Key('deck-count'),
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-              title: const Text('Add Pokémon'),
-              onTap: () {
-                trace('deck.add');
-                onAdd(context);
-              },
             ),
           ],
+        ),
+        body: FutureBuilder(
+          future: moves,
+          builder: (context, snap) => ListView(
+            children: [
+              if (!team.isLegal)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Choose at most 6 Pokémon before leaving Sidedeck.',
+                    key: Key('deck-legality'),
+                  ),
+                ),
+              for (final (d, s) in team.deck.indexed)
+                _row(context, d, s, snap.data),
+              ListTile(
+                key: const Key('deck-add'),
+                leading: const SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Icon(Icons.add, size: 32),
+                ),
+                title: const Text('Add Pokémon'),
+                onTap: () {
+                  trace('deck.add');
+                  onAdd(context);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -114,7 +137,8 @@ class SidedeckPage extends StatelessWidget {
           key: Key('deck-row-$d'),
           onTap: () {
             trace('deck.toggle', {'member': d, 'in_squad': inSquad});
-            _toggle(context, d);
+            final changed = team.toggle(d, allowOverflow: true);
+            assert(changed);
           },
           onLongPress: () {
             trace('deck.edit', {'member': d});
