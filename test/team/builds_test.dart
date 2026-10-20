@@ -43,6 +43,8 @@ void main() {
     builds.save('Deck', t.lineup);
     final back = SavedBuilds.fromJson(saved.last, dex).named('Deck')!;
     expect(back.lineup.deck, hasLength(2));
+    expect(back.lineup.deck[0].lastBenched, t.deck[0].lastBenched);
+    expect(back.lineup.deck[0].lastBenched, greaterThan(0));
     expect(back.slots.nonNulls.single.pokemon, t.deck[1].pokemon);
 
     final pelipper = t.deck[0].pokemon;

@@ -33,7 +33,12 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   the right: your team, and an opponent's, each with its own saved builds. The
   Sidedeck button between them lists every Pokémon you've added to the team (types
   and moves with type and category, an N/6 squad counter): tap one to put it in or
-  take it out of the squad, long-press to edit it, swipe to delete it, + to add one.
+  take it out of the squad, long-press to edit it, swipe to delete it. The header's
+  rightmost + adds a Pokémon; Sort offers Recency (default) or Name, always with
+  party members first. Recency puts the most recently benched members first.
+  Order is calculated only on entry or a sort selection: toggling or editing never
+  moves a row, and new members append until the next sort. Sort choice and bench
+  recency survive restarts, separately for each team and game.
   You can select more than six while rearranging, but must bench the extras before
   leaving the sidedeck. If an overfull squad is restored or otherwise reaches the
   planner, an error message shows the count and explains that only the first six

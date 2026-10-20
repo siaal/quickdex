@@ -96,6 +96,62 @@ void main() {
   });
 
   group('sidedeck', () {
+    test('bench recency survives edits, serialization and later removals', () {
+      final t = Team();
+      t.add(TeamSlot(named('Golem').id));
+      t.add(TeamSlot(named('Pikachu').id));
+      t.toggle(1);
+      t[0] = null;
+      expect(t.deck[0].lastBenched, greaterThan(t.deck[1].lastBenched));
+      final last = t.deck[0].lastBenched;
+      t.setMember(0, TeamSlot(named('Bronzong').id));
+      expect(t.deck[0].lastBenched, last);
+      final back = Team.fromJson(t.toJson(), dex);
+      expect(
+        back.deck.map((s) => s.lastBenched),
+        t.deck.map((s) => s.lastBenched),
+      );
+      back.toggle(1);
+      back[0] = back[0]!.copyWith(moves: [1]);
+      expect(back.deck[1].lastBenched, t.deck[1].lastBenched);
+      back.toggle(1);
+      expect(back.deck[1].lastBenched, greaterThan(last));
+      expect(back.deck[1].moves, [1]);
+    });
+
+    test(
+      'member ids survive edits and index compaction, including duplicates',
+      () {
+        final t = Team();
+        final duplicate = TeamSlot(named('Golem').id);
+        t.add(duplicate);
+        t.add(duplicate);
+        final first = t.memberId(0);
+        final second = t.memberId(1);
+        expect(first, isNot(second));
+        t.setMember(1, TeamSlot(named('Pikachu').id));
+        t.toggle(1);
+        expect(t.memberId(1), second);
+        t.remove(0);
+        expect(t.memberId(0), second);
+        t.add(duplicate);
+        expect(t.memberId(1), isNot(isIn([first, second])));
+      },
+    );
+
+    test('sort preference persists per team and survives loading a build', () {
+      final saved = <String>[];
+      final t = Team(onChanged: saved.add);
+      expect(t.sidedeckSort, SidedeckSort.recency);
+      t.sidedeckSort = SidedeckSort.name;
+      expect(Team.fromJson(saved.last, dex).sidedeckSort, SidedeckSort.name);
+      t.load(Lineup.empty, name: 'Empty');
+      expect(t.sidedeckSort, SidedeckSort.name);
+      final legacy = Team.fromJson('[{"p":${named('Golem').id},"m":[]}]', dex);
+      expect(legacy.sidedeckSort, SidedeckSort.recency);
+      expect(legacy.deck.single.lastBenched, 0);
+    });
+
     TeamSlot slot(String n) => TeamSlot(named(n).id);
     List<String> squad(Team t) => [
       for (final s in t.slots) s == null ? '-' : dex[s.pokemon].name,

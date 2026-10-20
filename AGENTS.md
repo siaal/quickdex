@@ -71,6 +71,12 @@
   shell's tab guard block leaving until legal. Restored overflow is preserved and
   shown as error text in the planner. Shell back must use `maybePop` to honour
   route guards; editors bench by deck index (`team.toggle(member)`), not slot index.
+  Sidedeck's header has Sort and + actions. `Team.sidedeckSort` persists Recency
+  (default) or Name; both put party members first. Sorting is a frozen view updated
+  only on entry or menu selection, never after toggling/editing. Stable transient
+  `memberId`s keep rows in place across edits and deck-index compaction; new members
+  append. Slot JSON `b` stores the last-bench ordering counter, while team JSON
+  `sort` stores the preference (omitted for the default); both read older data.
   Saved in shared_preferences under
   `team.v1` (`team.v1.<game>` for games other than Scarlet); unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →

@@ -12,7 +12,9 @@ class TeamSlot {
     this.ability,
     this.moves = const [],
     this.hidden = const {},
-  }) : assert(moves.length <= maxMoves, 'at most $maxMoves moves: $moves'),
+    this.lastBenched = 0,
+  }) : assert(lastBenched >= 0),
+       assert(moves.length <= maxMoves, 'at most $maxMoves moves: $moves'),
        assert(
          moves.toSet().containsAll(hidden),
          'hidden $hidden not in $moves',
@@ -33,14 +35,23 @@ class TeamSlot {
   /// U-turn that doesn't define the matchup.
   final Set<int> hidden;
 
+  /// Removal-order counter within this team; zero means never benched.
+  final int lastBenched;
+
   /// Replacing [moves] keeps only the hidden ids still among them.
-  TeamSlot copyWith({int? ability, List<int>? moves, Set<int>? hidden}) {
+  TeamSlot copyWith({
+    int? ability,
+    List<int>? moves,
+    Set<int>? hidden,
+    int? lastBenched,
+  }) {
     final m = moves ?? this.moves;
     return TeamSlot(
       pokemon,
       ability: ability ?? this.ability,
       moves: m,
       hidden: (hidden ?? this.hidden).intersection(m.toSet()),
+      lastBenched: lastBenched ?? this.lastBenched,
     );
   }
 
@@ -49,8 +60,11 @@ class TeamSlot {
     if (ability != null) 'a': ability,
     'm': moves,
     if (hidden.isNotEmpty) 'h': hidden.toList(),
+    if (lastBenched > 0) 'b': lastBenched,
   };
 }
+
+enum SidedeckSort { recency, name }
 
 /// A sidedeck and its squad: deck indices, null for empty slots. The first
 /// six slots are the planner view; extra selections persist while editing.
@@ -148,9 +162,16 @@ class Team extends ChangeNotifier {
          onChanged,
        );
 
-  Team._lineup(Lineup l, this._name, this.onChanged)
-    : _deck = List.of(l.deck),
-      _squad = List.of(l.squad) {
+  Team._lineup(
+    Lineup l,
+    this._name,
+    this.onChanged, {
+    SidedeckSort sort = SidedeckSort.recency,
+  }) : _deck = List.of(l.deck),
+       _squad = List.of(l.squad),
+       _memberIds = List.generate(l.deck.length, (i) => i),
+       _nextMemberId = l.deck.length,
+       _sidedeckSort = sort {
     _settleSquad();
   }
 
@@ -177,7 +198,14 @@ class Team extends ChangeNotifier {
         'deck': lineup.deck.length,
         'squad': lineup.squad.nonNulls.length,
       });
-      return Team._lineup(lineup, name, onChanged);
+      return Team._lineup(
+        lineup,
+        name,
+        onChanged,
+        sort: j is Map && j['sort'] == 'name'
+            ? SidedeckSort.name
+            : SidedeckSort.recency,
+      );
     } catch (e) {
       trace('team.load.corrupt', {'error': e.runtimeType.toString()});
       return Team(onChanged: onChanged);
@@ -219,6 +247,10 @@ class Team extends ChangeNotifier {
       ability: ability,
       moves: moves.toList(),
       hidden: hidden.intersection(moves.toSet()),
+      lastBenched: switch (j['b']) {
+        final int b when b >= 0 => b,
+        _ => 0,
+      },
     );
   }
 
@@ -228,7 +260,30 @@ class Team extends ChangeNotifier {
   final void Function(String json)? onChanged;
   final List<TeamSlot> _deck;
   final List<int?> _squad;
+  final List<int> _memberIds;
+  int _nextMemberId;
+  SidedeckSort _sidedeckSort;
   String? _name;
+
+  /// Stable for this member's lifetime, even when edited or reindexed.
+  int memberId(int d) => _memberIds[d];
+
+  SidedeckSort get sidedeckSort => _sidedeckSort;
+  set sidedeckSort(SidedeckSort sort) {
+    trace('team.deck.sort', {'sort': sort.name});
+    _sidedeckSort = sort;
+    _changed();
+  }
+
+  void _bench(int d) {
+    assert(slotOf(d) != null);
+    final latest = _deck.fold(
+      0,
+      (n, s) => s.lastBenched > n ? s.lastBenched : n,
+    );
+    _deck[d] = _deck[d].copyWith(lastBenched: latest + 1);
+    trace('team.member.benched', {'deck_index': d, 'order': latest + 1});
+  }
 
   /// The build last loaded or saved as, kept through edits so saving again
   /// offers to overwrite it. Null for a team never saved or loaded.
@@ -260,6 +315,7 @@ class Team extends ChangeNotifier {
     final d = _squad[i];
     if (slot == null) {
       trace('team.slot.clear', {'slot': i, 'deck_index': d});
+      if (d != null) _bench(d);
       _squad[i] = null;
     } else if (d != null) {
       trace('team.slot.set', {
@@ -267,10 +323,11 @@ class Team extends ChangeNotifier {
         'pokemon': slot.pokemon,
         'moves': slot.moves.length,
       });
-      _deck[d] = slot;
+      _deck[d] = slot.copyWith(lastBenched: _deck[d].lastBenched);
     } else {
       trace('team.slot.add', {'slot': i, 'pokemon': slot.pokemon});
       _deck.add(slot);
+      _memberIds.add(_nextMemberId++);
       _squad[i] = _deck.length - 1;
     }
     _changed();
@@ -286,7 +343,7 @@ class Team extends ChangeNotifier {
   void setMember(int d, TeamSlot slot) {
     assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
     trace('team.member.set', {'deck_index': d, 'pokemon': slot.pokemon});
-    _deck[d] = slot;
+    _deck[d] = slot.copyWith(lastBenched: _deck[d].lastBenched);
     _changed();
   }
 
@@ -294,6 +351,7 @@ class Team extends ChangeNotifier {
   /// its deck index.
   int add(TeamSlot slot) {
     _deck.add(slot);
+    _memberIds.add(_nextMemberId++);
     final d = _deck.length - 1;
     final free = _squad.indexOf(null);
     trace('team.member.add', {'deck_index': d, 'slot': free < 0 ? null : free});
@@ -308,6 +366,7 @@ class Team extends ChangeNotifier {
     assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
     if (slotOf(d) case final i?) {
       trace('team.member.out', {'deck_index': d, 'slot': i});
+      _bench(d);
       _squad[i] = null;
     } else {
       final free = _squad.indexOf(null);
@@ -332,6 +391,7 @@ class Team extends ChangeNotifier {
     assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
     trace('team.member.remove', {'deck_index': d, 'slot': slotOf(d)});
     _deck.removeAt(d);
+    _memberIds.removeAt(d);
     for (var i = 0; i < _squad.length; i++) {
       final q = _squad[i];
       if (q == null) continue;
@@ -349,6 +409,9 @@ class Team extends ChangeNotifier {
     _deck
       ..clear()
       ..addAll(lineup.deck);
+    _memberIds
+      ..clear()
+      ..addAll(List.generate(_deck.length, (_) => _nextMemberId++));
     _squad
       ..clear()
       ..addAll(lineup.squad);
@@ -380,10 +443,16 @@ class Team extends ChangeNotifier {
 
   void _changed() {
     _settleSquad();
+    assert(_memberIds.length == _deck.length);
+    assert(_memberIds.toSet().length == _memberIds.length);
     assert(lineup.deck.length == _deck.length); // Lineup checks the indices
     notifyListeners();
     onChanged?.call(toJson());
   }
 
-  String toJson() => jsonEncode({'n': ?_name, ...lineup.toJson()});
+  String toJson() => jsonEncode({
+    'n': ?_name,
+    ...lineup.toJson(),
+    if (_sidedeckSort != SidedeckSort.recency) 'sort': _sidedeckSort.name,
+  });
 }
