@@ -149,6 +149,7 @@ class _TypeFocusState extends State<TypeFocus> {
               for (final t in at(x))
                 TypeBadge(
                   t,
+                  compact: true,
                   key: Key('focus-result-$label (${multLabel(x)})-$t'),
                   onTap: () => _c.pick(t),
                   onAdd: () => _c.add(t),
@@ -202,15 +203,34 @@ class _TypeFocusState extends State<TypeFocus> {
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text('Defending', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            for (final (label, mults) in _defendGroups)
-              _section(label, mults, defense, defending: true),
-            const SizedBox(height: 16),
-            Text('Attacking', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            for (final (label, mults) in _attackGroups)
-              _section(label, mults, attack, defending: false),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Defending', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      for (final (label, mults) in _defendGroups)
+                        _section(label, mults, defense, defending: true),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Attacking', style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      for (final (label, mults) in _attackGroups)
+                        _section(label, mults, attack, defending: false),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),

@@ -96,6 +96,25 @@ void main() {
     );
   });
 
+  for (final width in [360.0, 412.0]) {
+    testWidgets('matchup columns are side by side at $width phone width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 915);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester);
+      await tester.tap(find.byKey(const Key('focus-type-electric')));
+      await tester.longPress(find.byKey(const Key('focus-type-ice')));
+      await tester.pump();
+      final defense = tester.getRect(find.text('Defending'));
+      final attack = tester.getRect(find.text('Attacking'));
+      expect(defense.top, attack.top);
+      expect(defense.right, lessThan(attack.left));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('both directions remain reachable at phone width', (
     tester,
   ) async {

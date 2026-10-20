@@ -51,6 +51,8 @@
   `lib/ui/search_screen.dart` (Pokémon | All | Moves toggle, mode persisted under
   `search.mode`) merges kinds with `mergeHits` (Pokémon win ties; pass `byRecency` for empty queries). One `search-field`;
   move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, Pokémon rows `row-<id>`.
+- Type Chart Focus shows defence on the left and attack on the right, matching
+  the Pokémon page's two-column layout even at phone widths; do not stack them.
 - Moves (`assets/data/<game>/moves.json`, `lib/data/moves.dart`) load in the background at
   launch; move results and learnset tables appear once loaded. Vanilla learnsets carry
   `machines` (["TM034"/"HM05", move], in-game version group only, so fallback learnsets

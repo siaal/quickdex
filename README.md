@@ -23,7 +23,7 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description (for Emerald, led by how the effect differed back then).
   Moves no Pokémon learns in the game are tagged "Not in <game>".
-- **Type Chart:** a Focus tab (pick a type to see attack and defence together;
+- **Type Chart:** a Focus tab (pick a type to see defence and attack side by side, like the Pokémon page;
   long-press or right-click a second type for dual-type defence and two-type STAB
   coverage; result pills work the same way), a Finder tab (pick one or two types to list every Pokémon
   with them; long-press the only picked type for just that type alone; filter by name, optionally highest evolution only) and a full 18×18 (17×17
