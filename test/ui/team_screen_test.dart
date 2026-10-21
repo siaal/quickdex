@@ -338,7 +338,10 @@ void main() {
     await tester.pumpAndSettle();
     final sheet = find.byKey(const Key('move-details-sheet'));
     expect(
-      find.descendant(of: sheet, matching: find.text(eq.description!)),
+      find.descendant(
+        of: sheet,
+        matching: find.text(eq.description!.split('\n\n').last),
+      ),
       findsOne,
     );
     await tester.tapAt(const Offset(10, 10)); // dismiss

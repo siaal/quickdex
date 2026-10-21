@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 
 from .csvdb import ENGLISH, CsvDb, SchemaError
@@ -8,9 +9,34 @@ from .games import Eras, Game
 log = logging.getLogger("quickdex.abilities")
 
 
+# A Markdown table's header rule, e.g. "--------------- | ----:".
+_TABLE_RULE = re.compile(r":?-+:?(\s*\|\s*:?-+:?)+")
+
+
+def _clean_cell(cell: str) -> str:
+    # Ranges are padded for alignment ("0\u2013 1"); the app aligns them itself.
+    return re.sub(r"\s*\u2013\s*", "\u2013", " ".join(cell.split()))
+
+
+def _clean_table(lines: list[str]) -> str:
+    """Markdown table rows as "a | b", rule kept (it carries the alignment)."""
+    rows = [[_clean_cell(c) for c in line.strip().strip("|").split("|")] for line in lines]
+    assert all(len(r) == len(rows[0]) for r in rows), lines
+    return "\n".join(" | ".join(r) for r in rows)
+
+
 def clean_paragraphs(text: str) -> str:
-    """Collapse runs of spaces (prose sometimes double-spaces); keep paragraph breaks."""
-    return "\n\n".join(" ".join(p.split()) for p in text.split("\n\n") if p.strip())
+    """Collapse runs of spaces (prose sometimes double-spaces); keep paragraph breaks.
+    A paragraph that is a Markdown table keeps one row per line (the app draws it)."""
+    out = []
+    for p in text.split("\n\n"):
+        lines = p.strip().split("\n")
+        if len(lines) > 2 and _TABLE_RULE.fullmatch(lines[1].strip()):
+            log.debug("abilities.clean_paragraphs.table rows=%d", len(lines) - 2)
+            out.append(_clean_table(lines))
+        elif p.strip():
+            out.append(" ".join(p.split()))
+    return "\n\n".join(out)
 
 
 def era_notes(game: Game, changes: list[tuple[int, str]]) -> str | None:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/models.dart';
 import '../trace.dart';
+import 'prose.dart';
 
 /// One line of tappable ability names; the hidden ability is marked `(H)`.
 class AbilityLine extends StatelessWidget {
@@ -34,7 +35,10 @@ class AbilityLine extends StatelessWidget {
               const SizedBox(height: 8),
             ],
             Text(a.effect, style: const TextStyle(fontWeight: FontWeight.bold)),
-            if (showLong) ...[const SizedBox(height: 12), Text(a.description)],
+            if (showLong) ...[
+              const SizedBox(height: 12),
+              ProseText(a.description, key: const Key('ability-description')),
+            ],
           ],
         ),
         actions: [

@@ -25,6 +25,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
 - **Moves** (in Search): every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description (for Emerald, led by how the effect differed back then).
+  Power tables (Low Kick, Heavy Slam, Flail, Magnitude...) and ability tables are drawn
+  as real tables.
   Moves no Pokémon learns in the game are tagged "Not in <game>". The move's TM/HM
   in this game (or Scrambled's badge TM) sits right-aligned beside its name, and a "Who can learn it?"
   button opening every learner, with a name filter (not focused on open) and a

@@ -104,6 +104,29 @@ def test_missing_long_description_is_null_unless_overridden(db, moves, showdown)
     assert fixed["glaive-rush"]["desc"] == "Hand written."
 
 
+def test_power_tables_keep_one_row_per_line(moves):
+    low_kick = moves["low-kick"]["desc"].split("\n\n")
+    assert low_kick[0].startswith("Inflicts regular damage. Power increases")
+    assert low_kick[1].split("\n") == [
+        "Target\u2019s weight | Power", "--------------- | ----:", "Up to 10kg | 20",
+        "Up to 25kg | 40", "Up to 50kg | 60", "Up to 100kg | 80", "Up to 200kg | 100",
+        "Above 200kg | 120"]
+    assert moves["heavy-slam"]["desc"].split("\n\n")[1].split("\n")[-1] == (
+        "More than 5\u00d7 the target\u2019s weight | 120")
+    # The rule's colon-led cell and the padded ranges ("0\u2013 1") are tidied too.
+    flail = moves["flail"]["desc"].split("\n\n")[1].split("\n")
+    assert flail[1:3] == ["-----------------------: | ----:", "0\u20131 | 200"]
+    magnitude = moves["magnitude"]["desc"].split("\n\n")
+    assert magnitude[1].split("\n")[0] == "Magnitude | Power | Chance"
+    assert magnitude[2].startswith("This move has double power")
+
+
+def test_hard_press_is_described_in_the_overrides():
+    import json
+    desc = json.loads((ROOT / "tool" / "overrides.json").read_text())["move_descriptions"]
+    assert "100 \u00d7" in desc["hard-press"]
+
+
 def test_starmobile_torque_moves_have_no_in_game_text(moves):
     assert moves["blazing-torque"]["text"] is None
 

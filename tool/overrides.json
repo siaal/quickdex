@@ -6,7 +6,9 @@
     "868->869": "Spin around holding a Sweet",
     "924->925": "Lv. 25 in battle"
   },
-  "move_descriptions": {},
+  "move_descriptions": {
+    "hard-press": "Inflicts regular damage. Power is 100 \u00d7 the target\u2019s current HP / max HP, rounded half down, to a maximum of 100 at full HP and a minimum of 1."
+  },
   "scrambled": {
     "entry_names": {
       "Ogerpon (Base)": 1017,

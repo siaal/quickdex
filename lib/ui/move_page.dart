@@ -9,6 +9,7 @@ import 'game_scope.dart';
 import 'type_badge.dart';
 import 'move_learners.dart';
 import 'pokemon_page.dart';
+import 'prose.dart';
 
 class MovePage extends StatefulWidget {
   const MovePage({
@@ -217,7 +218,7 @@ class MoveDetails extends StatelessWidget {
         ],
         if (m.description case final desc?) ...[
           const SizedBox(height: 16),
-          Text(desc, key: const Key('move-desc')),
+          ProseText(desc, key: const Key('move-desc')),
         ],
       ],
     );

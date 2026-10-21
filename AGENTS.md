@@ -124,6 +124,10 @@
 - Data contract: `pokedex.json` and `types.json` shapes are defined in
   `tool/build_data.py` and `tool/quickdex_data/entries.py` (`Entry.to_json`). The Dart
   side is `lib/data/models.dart`. Change both together.
+- Long descriptions (move `desc`, ability `description`) are paragraphs split by blank
+  lines; `clean_paragraphs` (`abilities.py`) keeps a PokéAPI Markdown table as one
+  `a | b` row per line with its `---- | ----:` rule, and `ProseText`
+  (`lib/ui/prose.dart`) draws it as a `Table` and `code` spans as monospace.
 - The form rule (`entries.py`) drops Mega/G-Max/Primal/Totem/Eternamax/`-starter` forms,
   plus any form whose types and stats match the default or an earlier kept form. For
   example, Zygarde 10% Power Construct is dropped in favour of Zygarde 10%. A few
