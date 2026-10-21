@@ -48,7 +48,7 @@ class _MovePageState extends State<MovePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          MoveDetails(widget.move),
+          MoveDetails(widget.move, moves: widget.moves),
           FutureBuilder<MoveDex>(
             future: widget.moves,
             builder: (context, snapshot) {
@@ -103,10 +103,12 @@ Future<void> showMoveDetails(BuildContext context, Move move) {
   );
 }
 
-/// A move's name, type, category, stats, properties and texts.
+/// A move's name (with its TM/HM right-aligned once [moves] loads), type,
+/// category, stats, properties and texts.
 class MoveDetails extends StatelessWidget {
-  const MoveDetails(this.move, {super.key});
+  const MoveDetails(this.move, {super.key, this.moves});
   final Move move;
+  final Future<MoveDex>? moves;
 
   @override
   Widget build(BuildContext context) {
@@ -128,10 +130,32 @@ class MoveDetails extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          m.name,
-          key: const Key('move-name'),
-          style: theme.textTheme.headlineSmall,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Expanded(
+              child: Text(
+                m.name,
+                key: const Key('move-name'),
+                style: theme.textTheme.headlineSmall,
+              ),
+            ),
+            if (moves != null)
+              FutureBuilder<MoveDex>(
+                future: moves,
+                builder: (context, snapshot) {
+                  final dex = snapshot.data;
+                  final label = dex == null ? null : machineLabel(m, dex);
+                  if (label == null) return const SizedBox.shrink();
+                  return Text(
+                    label,
+                    key: const Key('move-machine'),
+                    style: theme.textTheme.titleMedium,
+                  );
+                },
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         Row(

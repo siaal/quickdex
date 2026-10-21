@@ -15,6 +15,32 @@ typedef _Learner = ({
   bool byTm,
 });
 
+/// The move's TM/HM in the loaded game ("TM220", Scrambled's "TM: 3 badges"),
+/// or null when it has none.
+String? machineLabel(Move move, MoveDex moves) {
+  final labels = <String>{};
+  final badges = <int>{};
+  for (final l in moves.learnsets.values) {
+    for (final m in l.machines) {
+      if (m.move == move.id) labels.add(m.label);
+    }
+    for (final m in l.tms) {
+      if (m.move == move.id) badges.add(m.badges);
+    }
+  }
+  // Scrambled's sheet can list one TM at different badge counts per Pokémon.
+  final sorted = badges.toList()..sort();
+  final parts = [
+    ...labels.toList()..sort(),
+    if (sorted.isNotEmpty)
+      sorted.length == 1
+          ? 'TM: ${sorted.single} ${sorted.single == 1 ? 'badge' : 'badges'}'
+          : 'TM: ${sorted.first}\u2013${sorted.last} badges',
+  ];
+  trace('move.machine_label', {'move': move.id, 'count': parts.length});
+  return parts.isEmpty ? null : parts.join(', ');
+}
+
 /// Reverse lookup over the loaded game's level-up and TM/HM learnsets.
 /// Fallback level-up sources stay labelled; no breeding/tutor data is bundled.
 class MoveLearners extends StatelessWidget {
@@ -40,8 +66,6 @@ class MoveLearners extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     assert(moves.byId.containsKey(move.id), 'unknown move ${move.id}');
-    final machines = <String>{};
-    final badges = <int>{};
     final learners = <_Learner>[];
     // Dex order, including the retained alternate forms, one row per entry.
     for (final entry in dex.entries) {
@@ -60,8 +84,6 @@ class MoveLearners extends StatelessWidget {
           if (m.move == move.id) m.badges,
       }.toList()..sort();
       if (levels.isEmpty && labels.isEmpty && unlocks.isEmpty) continue;
-      machines.addAll(labels);
-      badges.addAll(unlocks);
       learners.add((
         entry: entry,
         method: [
@@ -76,33 +98,16 @@ class MoveLearners extends StatelessWidget {
         byTm: labels.isNotEmpty || unlocks.isNotEmpty,
       ));
     }
-    final sortedMachines = machines.toList()..sort();
-    final sortedBadges = badges.toList()..sort();
     trace('move.learners.lookup', {
       'move': move.id,
       'game': moves.game.key,
       'learners': learners.length,
-      'machines': machines.length,
-      'badges': badges.length,
       'empty': learners.isEmpty,
-      'has_machine': machines.isNotEmpty || badges.isNotEmpty,
     });
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
-        Text(
-          'TM/HM in ${moves.game.name}',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        if (machines.isEmpty && badges.isEmpty)
-          Text('No TM/HM in ${moves.game.name}')
-        else ...[
-          for (final label in sortedMachines) Text(label),
-          for (final n in sortedBadges)
-            Text('TM: $n ${n == 1 ? 'badge' : 'badges'}'),
-        ],
-        const SizedBox(height: 8),
         if (learners.isEmpty)
           const Text('No known learners')
         else

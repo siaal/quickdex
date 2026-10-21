@@ -73,6 +73,24 @@ void main() {
     expect(find.byKey(const Key('move-learners')), findsOneWidget);
   });
 
+  testWidgets('the machine sits right-aligned on the name line', (
+    tester,
+  ) async {
+    await open(tester, scarlet, 'Meteor Beam');
+    final machine = find.byKey(const Key('move-machine'));
+    final label = tester.widget<Text>(machine).data!;
+    expect(label, matches(RegExp(r'^TM\d{3}$')));
+    expect(find.textContaining('TM/HM in'), findsNothing);
+    final name = tester.getRect(find.byKey(const Key('move-name')));
+    final tm = tester.getRect(machine);
+    expect(
+      tm.right,
+      tester.getRect(find.byKey(const Key('move-category'))).right,
+    );
+    expect(tm.left, greaterThan(name.left));
+    expect((tm.center.dy - name.center.dy).abs(), lessThan(name.height / 2));
+  });
+
   testWidgets('machine labels come from the selected game', (tester) async {
     const game = GameInfo('emerald', 'Emerald', 3);
     final moves = await tester.runAsync(
@@ -125,7 +143,7 @@ void main() {
       );
       expect(moves!.learnsets[25]!.moves, isEmpty);
       await open(tester, moves, 'Thunderbolt', gameDex: gameDex!);
-      expect(find.text('TM: 3 badges'), findsOneWidget);
+      expect(find.text('TM: 2\u20133 badges'), findsOneWidget);
       expect(find.text('TM126'), findsNothing);
       await tester.ensureVisible(find.byKey(const Key('move-learners')));
       await tester.tap(find.byKey(const Key('move-learners')));
@@ -317,7 +335,7 @@ void main() {
     tester,
   ) async {
     await open(tester, MoveDex([scarlet.byId[85]!]), 'Thunderbolt');
-    expect(find.text('No TM/HM in Scarlet'), findsOneWidget);
+    expect(find.byKey(const Key('move-machine')), findsNothing);
     expect(find.text('No known learners'), findsOneWidget);
   });
 }
