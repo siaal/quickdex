@@ -347,6 +347,27 @@ class Team extends ChangeNotifier {
     _changed();
   }
 
+  /// Swaps deck member [d] for a new member [slot], as if [d] were benched and
+  /// [slot] added: [d] stays in the deck, and [slot] takes its squad place (or
+  /// stays out, like [d]). Returns the new member's deck index.
+  int swap(int d, TeamSlot slot) {
+    assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
+    _deck.add(slot);
+    _memberIds.add(_nextMemberId++);
+    final added = _deck.length - 1;
+    final i = _squad.indexOf(d);
+    if (i >= 0) {
+      trace('team.member.swap.squad', {'from': d, 'to': added, 'slot': i});
+      _bench(d);
+      _squad[i] = added;
+    } else {
+      trace('team.member.swap.bench', {'from': d, 'to': added});
+    }
+    _changed();
+    assert(slotOf(d) == null, 'swapped-out member left in the squad');
+    return added;
+  }
+
   /// Adds [slot] to the deck, into the first empty squad slot if any; returns
   /// its deck index.
   int add(TeamSlot slot) {

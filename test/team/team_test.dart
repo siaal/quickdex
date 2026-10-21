@@ -96,6 +96,40 @@ void main() {
   });
 
   group('sidedeck', () {
+    test('swap benches the old member and puts the new one in its place', () {
+      final t = Team();
+      t.add(TeamSlot(named('Golem').id, moves: [1]));
+      t.add(TeamSlot(named('Pikachu').id));
+      final pikachuId = t.memberId(1);
+      final d = t.swap(1, TeamSlot(named('Bronzong').id));
+      expect(d, 2);
+      expect(t.deck.length, 3, reason: 'nothing deleted');
+      expect(t[1]!.pokemon, named('Bronzong').id, reason: 'same squad slot');
+      expect(t.slotOf(1), isNull);
+      expect(t.deck[1].pokemon, named('Pikachu').id);
+      expect(t.memberId(1), pikachuId);
+      expect(t.deck[1].lastBenched, greaterThan(0), reason: 'just benched');
+
+      // A benched member's swap stays out of the squad.
+      final out = t.swap(1, TeamSlot(named('Gastly').id));
+      expect(t.slotOf(out), isNull);
+      expect(t.squadCount, 2);
+      expect(t.deck.length, 4);
+    });
+
+    test('swap keeps an overflow position', () {
+      final t = Team();
+      for (var i = 0; i < 7; i++) {
+        t.add(TeamSlot(named('Golem').id)); // the first six go in
+      }
+      t.toggle(6, allowOverflow: true);
+      expect(t.squadCount, 7);
+      final d = t.swap(6, TeamSlot(named('Pikachu').id));
+      expect(t.squadCount, 7);
+      expect(t.slotOf(d), 6);
+      expect(t.slotOf(6), isNull);
+    });
+
     test('bench recency survives edits, serialization and later removals', () {
       final t = Team();
       t.add(TeamSlot(named('Golem').id));

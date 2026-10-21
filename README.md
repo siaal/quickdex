@@ -58,7 +58,10 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   leaving the sidedeck. If an overfull squad is restored or otherwise reaches the
   planner, an error message shows the count and explains that only the first six
   are shown and included in matchups.
-  Removing a Pokémon from a squad slot only benches it; builds save the whole deck. Save names
+  Removing a Pokémon from a squad slot only benches it, and so does
+  changing a slot's Pokemon (the new one is a fresh sidedeck member in that slot; the
+  old one keeps its ability and moves); only the trash icon on a benched member or a
+  swipe in the Sidedeck deletes. Builds save the whole deck. Save names
   the shown team as a build (it offers the loaded build's name, so one tap overwrites
   it, and lists the side's builds, shown as thumbnails, most recent first, filtered as
   you type; tap one to

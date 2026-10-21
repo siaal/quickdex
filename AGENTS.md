@@ -85,6 +85,8 @@
   shell's tab guard block leaving until legal. Restored overflow is preserved and
   shown as error text in the planner. Shell back must use `maybePop` to honour
   route guards; editors bench by deck index (`team.toggle(member)`), not slot index.
+  Changing a member's Pokemon never overwrites it: `Team.swap` benches the old member
+  and adds the new one in its squad place; the slot editor then follows the new index.
   Sidedeck's header has Sort and + actions. `Team.sidedeckSort` persists Recency
   (default) or Name; both put party members first. Sorting is a frozen view updated
   only on entry or menu selection, never after toggling/editing. Stable transient

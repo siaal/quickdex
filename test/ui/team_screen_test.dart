@@ -231,6 +231,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(team[0]!.pokemon, pikachu.id);
     expect(
+      team.deck.map((s) => s.pokemon),
+      contains(named('Golem').id),
+      reason: 'Golem was benched, not deleted',
+    );
+    expect(team.deck.length, 3);
+    expect(
       find.byKey(const Key('team-remove')),
       findsNothing,
       reason: 'back on the planner, not the slot editor',
@@ -242,6 +248,55 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('team-pick-search')), findsOneWidget);
+  });
+
+  testWidgets('changing the Pok\u00e9mon in the editor benches the old one', (
+    tester,
+  ) async {
+    final golem = named('Golem');
+    final pikachu = named('Pikachu');
+    final start = golemBronzong();
+    start[0] = start[0]!.copyWith(moves: [move('earthquake')]);
+    final team = await pump(tester, start);
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('team-pokemon')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('team-pick-search')),
+      'pikachu',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(pickRow(pikachu.id));
+    await tester.pumpAndSettle();
+
+    expect(team[0]!.pokemon, pikachu.id);
+    expect(team[0]!.moves, isEmpty, reason: 'a new member');
+    final old = team.deck.indexWhere((s) => s.pokemon == golem.id);
+    expect(team.slotOf(old), isNull, reason: 'benched');
+    expect(team.deck[old].moves, [move('earthquake')], reason: 'kept as is');
+    expect(find.text('Slot 1'), findsOneWidget, reason: 'still editing');
+    expect(find.text('Pikachu'), findsWidgets);
+
+    // The editor now edits Pikachu: its trash benches Pikachu, not Golem.
+    await tester.tap(find.byKey(const Key('team-remove')));
+    await tester.pumpAndSettle();
+    expect(team[0], isNull);
+    expect(team.deck.length, 3, reason: 'only deleting deletes');
+
+    // Picking the same Pok\u00e9mon again is no change.
+    await tester.tap(find.byKey(const Key('team-slot-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('team-pokemon')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('team-pick-search')),
+      'bronzong',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(pickRow(named('Bronzong').id));
+    await tester.pumpAndSettle();
+    expect(team.deck.length, 3);
   });
 
   List<String> rowOrder(WidgetTester tester) {

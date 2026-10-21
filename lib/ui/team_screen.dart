@@ -111,8 +111,9 @@ class _TeamScreenState extends State<TeamScreen> {
     return _reversed ? out.reversed.toList() : out;
   }
 
-  /// Pick a Pokémon for slot [i] (resetting its ability and moves); returns
-  /// false if cancelled.
+  /// Pick a Pokémon for slot [i]; returns false if cancelled. A filled slot's
+  /// member is benched (kept in the sidedeck) for a new one, as [Team.swap].
+  /// Picking the same Pokémon again changes nothing.
   Future<bool> _choose(int i) async {
     final e = await Navigator.of(context).push(
       MaterialPageRoute<PokemonEntry>(
@@ -124,7 +125,15 @@ class _TeamScreenState extends State<TeamScreen> {
       trace('team.choose.cancelled', {'slot': i});
       return false;
     }
-    _team[i] = TeamSlot(e.id, ability: e.abilities.first);
+    final slot = TeamSlot(e.id, ability: e.abilities.first);
+    switch (_team.lineup.squad[i]) {
+      case final d? when _team.deck[d].pokemon == e.id:
+        trace('team.choose.same', {'slot': i, 'pokemon': e.id});
+      case final d?:
+        _team.swap(d, slot);
+      case null:
+        _team[i] = slot;
+    }
     return true;
   }
 
@@ -663,8 +672,9 @@ class _SlotCard extends StatelessWidget {
 
 /// Edit one slot: change the Pokémon, pick its ability and up to four moves
 /// (`team-move-<k>`, cleared with `team-move-clear-<k>`, left out of the
-/// analysis with `team-move-hide-<k>`), or remove it.
-class TeamSlotPage extends StatelessWidget {
+/// analysis with `team-move-hide-<k>`), or remove it. Changing the Pokemon
+/// swaps in a new member ([Team.swap]) and edits that from then on.
+class TeamSlotPage extends StatefulWidget {
   const TeamSlotPage({
     super.key,
     required this.dex,
@@ -683,6 +693,46 @@ class TeamSlotPage extends StatelessWidget {
   final Future<MoveDex> moves;
   final FrecencyScores moveFrecency;
 
+  @override
+  State<TeamSlotPage> createState() => _TeamSlotPageState();
+}
+
+class _TeamSlotPageState extends State<TeamSlotPage> {
+  late int _member = widget.member;
+
+  @override
+  Widget build(BuildContext context) => _SlotEditor(
+    dex: widget.dex,
+    team: widget.team,
+    member: _member,
+    index: widget.index,
+    frecency: widget.frecency,
+    moves: widget.moves,
+    moveFrecency: widget.moveFrecency,
+    onSwapped: (d) => setState(() => _member = d),
+  );
+}
+
+class _SlotEditor extends StatelessWidget {
+  const _SlotEditor({
+    required this.dex,
+    required this.team,
+    required this.member,
+    required this.index,
+    required this.frecency,
+    required this.moves,
+    required this.moveFrecency,
+    required this.onSwapped,
+  });
+  final Pokedex dex;
+  final Team team;
+  final int member;
+  final SearchIndex<PokemonEntry> index;
+  final FrecencyScores frecency;
+  final Future<MoveDex> moves;
+  final FrecencyScores moveFrecency;
+  final ValueChanged<int> onSwapped;
+
   Future<void> _changePokemon(BuildContext context) async {
     final e = await Navigator.of(context).push(
       MaterialPageRoute<PokemonEntry>(
@@ -693,8 +743,13 @@ class TeamSlotPage extends StatelessWidget {
       trace('team.slot.change.cancelled', {'member': member});
       return;
     }
-    // Abilities and moves belong to the old Pokémon.
-    team.setMember(member, TeamSlot(e.id, ability: e.abilities.first));
+    if (member >= team.deck.length) return; // removed meanwhile
+    if (team.deck[member].pokemon == e.id) {
+      trace('team.slot.change.same', {'member': member, 'pokemon': e.id});
+      return;
+    }
+    // The old member stays in the sidedeck, benched, with its ability and moves.
+    onSwapped(team.swap(member, TeamSlot(e.id, ability: e.abilities.first)));
   }
 
   Future<void> _pickMove(BuildContext context, TeamSlot s, int k) async {
