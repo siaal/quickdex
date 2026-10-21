@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -66,6 +67,94 @@ void main() {
     await tester.tap(find.text('Search'));
     await tester.pumpAndSettle();
     expect(find.byType(PokemonPage), findsNothing);
+  });
+
+  int tab(WidgetTester tester) =>
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
+
+  List<MethodCall> recordPlatform(WidgetTester tester) {
+    final calls = <MethodCall>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (c) async {
+        calls.add(c);
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    return calls;
+  }
+
+  group('back after a pill', () {
+    testWidgets('returns to the Pokémon page it came from', (tester) async {
+      await pumpApp(tester);
+      await tester.enterText(find.byKey(const Key('search-field')), 'pikachu');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('row-25')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find
+            .byWidgetPredicate((w) => w is TypeBadge && w.type == 'electric')
+            .hitTestable()
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expectFocused(tester, 'Electric');
+      final calls = recordPlatform(tester);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(tab(tester), 0);
+      expect(find.byKey(const Key('portrait-25')), findsOneWidget);
+      expect(calls.where((c) => c.method == 'SystemNavigator.pop'), isEmpty);
+    });
+
+    testWidgets('returns to the Team Planner, mouse back too', (tester) async {
+      final team = Team(
+        slots: [TeamSlot(named('Golem').id), null, null, null, null, null],
+      );
+      await pumpApp(tester, team: team);
+      await tester.tap(find.text('Team Planner'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('team-slot-type-rock')));
+      await tester.pumpAndSettle();
+      expectFocused(tester, 'Rock');
+      final g = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kBackMouseButton,
+      );
+      await g.down(tester.getCenter(find.byType(NavigationBar)));
+      await g.up();
+      await tester.pumpAndSettle();
+      expect(tab(tester), 2);
+      expect(find.byKey(const Key('team-slot-0')), findsOneWidget);
+    });
+
+    testWidgets('only once, and not after choosing a tab yourself', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.enterText(find.byKey(const Key('search-field')), 'pikachu');
+      await tester.pump();
+      await tester.tap(pill(find.byKey(const Key('row-25')), 'electric'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Team Planner'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Type Chart'));
+      await tester.pumpAndSettle();
+      final calls = recordPlatform(tester);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(tab(tester), 1, reason: 'a chosen tab is a fresh start');
+      expect(
+        calls.where((c) => c.method == 'SystemNavigator.pop'),
+        hasLength(1),
+      );
+    });
   });
 
   testWidgets('the move page type pill opens the type', (tester) async {

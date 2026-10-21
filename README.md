@@ -20,7 +20,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   Pokémon/move/build/learner lists and Type Finder; with no matches, it does nothing.
   Tapping a type pill anywhere (search rows, Pokémon and move pages, sidedeck, team
   planner, pickers) opens that type in the Type Chart's Focus tab, closing any sheet
-  it was in; on the Focus tab itself, pills pick the type there instead.
+  it was in (back, by swipe, button or mouse, returns to where you tapped it, unless
+  you've since picked a tab yourself); on the Focus tab itself, pills pick the type there instead.
 - **Moves** (in Search): every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description (for Emerald, led by how the effect differed back then).

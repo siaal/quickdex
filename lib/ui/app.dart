@@ -104,6 +104,10 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   Team? _openDeck;
 
+  /// The tab a type pill was tapped on, so back from the Type Chart's root
+  /// returns there. Cleared once used or when a tab is chosen by hand.
+  int? _typeReturn;
+
   /// Bumped to make the search screen focus its field and show the keyboard.
   final _searchFocusRequests = ValueNotifier(0);
 
@@ -115,7 +119,11 @@ class _HomeShellState extends State<HomeShell> {
     trace('shell.open_type', {'type': type, 'from_tab': _tab});
     _navigators[1].currentState?.popUntil((r) => r.isFirst);
     _typeFocus.show(type, FocusMode.defender);
-    setState(() => _tab = 1);
+    setState(() {
+      // From the Type Chart itself, keep wherever back already led.
+      if (_tab != 1) _typeReturn = _tab;
+      _tab = 1;
+    });
   }
 
   /// From the Type Chart's Finder: open the page within the Type Chart tab.
@@ -169,6 +177,14 @@ class _HomeShellState extends State<HomeShell> {
       trace('shell.back.pop_tab', {'tab': _tab});
       // Honour the active route's PopScope, including Sidedeck legality.
       nav.maybePop();
+      return;
+    }
+    if (_tab == 1 && _typeReturn != null) {
+      trace('shell.back.type_return', {'to': _typeReturn});
+      setState(() {
+        _tab = _typeReturn!;
+        _typeReturn = null;
+      });
       return;
     }
     if (!exit) {
@@ -263,6 +279,7 @@ class _HomeShellState extends State<HomeShell> {
           selectedIndex: _tab,
           onDestinationSelected: (i) {
             if (_deckBlocks('tab:$i')) return;
+            _typeReturn = null;
             trace(i == _tab ? 'shell.tab.reselect' : 'shell.tab.select', {
               'tab': i,
             });

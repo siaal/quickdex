@@ -66,7 +66,9 @@
 - Type pills: `TypeBadge` with no handlers taps through the nearest `TypeOpener`
   (provided by the app shell) to open the type in the Type Chart's Focus tab, popping
   a sheet/dialog it sits in first. Don't add per-screen type callbacks for new pills.
-  Opening a type obeys the overfull-Sidedeck guard like tab switches do.
+  Opening a type obeys the overfull-Sidedeck guard like tab switches do. The shell
+  remembers the tab it came from (`_typeReturn`): back at the Type Chart's root goes
+  there once; choosing a tab by hand forgets it.
 - Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds a sidedeck
   `Lineup`: any number of `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move
   ids ignored by the analysis) plus a six-slot squad of deck indices. `team[i]` is the
