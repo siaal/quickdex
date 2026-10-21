@@ -57,11 +57,16 @@
   launch; move results and learnset tables appear once loaded. Vanilla learnsets carry
   `machines` (["TM034"/"HM05", move], in-game version group only, so fallback learnsets
   have none); Scrambled's carry badge `tms` instead. `LearnFilter` (Level up | All | TM)
-  drives both the Pokémon page and the team move picker. Move flags and `contact` come
+  drives the Pokémon page, the team move picker and the move learners page
+  (`lib/ui/move_learners.dart`; each keeps its own per-game choice). Move flags and `contact` come
   from Showdown's moves.json (`.cache/showdown/`, downloaded once; delete to refresh), since
   PokéAPI lacks Gen 9 flags; the build cross-checks the two and fails on disagreement.
   Before Gen 4 a damaging move's category follows its type; Curse is type `unknown`
   (shown as ???) in Gen 2–4.
+- Type pills: `TypeBadge` with no handlers taps through the nearest `TypeOpener`
+  (provided by the app shell) to open the type in the Type Chart's Focus tab, popping
+  a sheet/dialog it sits in first. Don't add per-screen type callbacks for new pills.
+  Opening a type obeys the overfull-Sidedeck guard like tab switches do.
 - Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds a sidedeck
   `Lineup`: any number of `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move
   ids ignored by the analysis) plus a six-slot squad of deck indices. `team[i]` is the

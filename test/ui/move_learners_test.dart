@@ -9,6 +9,7 @@ import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/frecency/frecency.dart';
 import 'package:quickdex/search/search_index.dart';
+import 'package:quickdex/ui/move_learners.dart';
 import 'package:quickdex/ui/pokemon_page.dart';
 import 'package:quickdex/ui/move_page.dart';
 import 'package:quickdex/ui/search_screen.dart';
@@ -48,6 +49,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  final learnerList = find.descendant(
+    of: find.byType(ListView),
+    matching: find.byType(Scrollable),
+  );
+
   testWidgets('search -> move -> learners -> Pokemon -> move', (tester) async {
     await open(tester, scarlet, 'Thunderbolt');
     expect(find.text('TM126'), findsOneWidget);
@@ -55,7 +61,7 @@ void main() {
     await tester.tap(find.byKey(const Key('move-learners')));
     await tester.pumpAndSettle();
     final learner = find.byKey(const Key('move-learner-25'));
-    await tester.scrollUntilVisible(learner, 400);
+    await tester.scrollUntilVisible(learner, 400, scrollable: learnerList);
     await tester.tap(learner);
     await tester.pumpAndSettle();
     expect(find.byType(PokemonPage), findsOneWidget);
@@ -125,7 +131,7 @@ void main() {
       await tester.tap(find.byKey(const Key('move-learners')));
       await tester.pumpAndSettle();
       final learner = find.byKey(const Key('move-learner-25'));
-      await tester.scrollUntilVisible(learner, 400);
+      await tester.scrollUntilVisible(learner, 400, scrollable: learnerList);
       await tester.tap(learner);
       await tester.pumpAndSettle();
       final page = tester.widget<PokemonPage>(find.byType(PokemonPage));
@@ -134,6 +140,158 @@ void main() {
       expect(find.byKey(const Key('portrait-25')), findsOneWidget);
     },
   );
+
+  Future<void> openLearners(WidgetTester tester) async {
+    await tester.ensureVisible(find.byKey(const Key('move-learners')));
+    await tester.tap(find.byKey(const Key('move-learners')));
+    await tester.pumpAndSettle();
+  }
+
+  Set<int> listed(WidgetTester tester) => {
+    for (final w in tester.widgetList<ListTile>(find.byType(ListTile)))
+      if (w.key case ValueKey<String>(
+        value: final k,
+      ) when k.startsWith('move-learner-'))
+        int.parse(k.substring('move-learner-'.length)),
+  };
+
+  group('learners page', () {
+    setUp(MoveLearners.resetFilters);
+    tearDown(MoveLearners.resetFilters);
+
+    // Thunderbolt in Scarlet: some learn it by level only, some by TM only.
+    ({Set<int> level, Set<int> tm}) sources() {
+      final level = <int>{};
+      final tm = <int>{};
+      for (final MapEntry(key: id, value: l) in scarlet.learnsets.entries) {
+        if (!dex.byId.containsKey(id)) continue;
+        if (l.moves.any((m) => m.move == 85)) level.add(id);
+        if (l.machines.any((m) => m.move == 85)) tm.add(id);
+      }
+      return (level: level, tm: tm);
+    }
+
+    Future<void> tall(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(480, 40000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('search field is present but not focused; All to start', (
+      tester,
+    ) async {
+      await tall(tester);
+      await open(tester, scarlet, 'Thunderbolt');
+      await openLearners(tester);
+      final search = tester.widget<TextField>(
+        find.byKey(const Key('learners-search')),
+      );
+      expect(search.autofocus, isFalse);
+      expect(search.focusNode?.hasFocus ?? false, isFalse);
+      expect(
+        tester
+            .widget<SegmentedButton<LearnFilter>>(
+              find.byKey(const Key('learn-filter')),
+            )
+            .selected,
+        {LearnFilter.all},
+      );
+      final s = sources();
+      expect(listed(tester), s.level.union(s.tm));
+    });
+
+    testWidgets('Level up and TM narrow the list to that source', (
+      tester,
+    ) async {
+      await tall(tester);
+      final s = sources();
+      expect(s.level.difference(s.tm), isNotEmpty);
+      expect(s.tm.difference(s.level), isNotEmpty);
+      await open(tester, scarlet, 'Thunderbolt');
+      await openLearners(tester);
+      await tester.tap(find.byKey(const Key('learn-filter-levelUp')));
+      await tester.pumpAndSettle();
+      expect(listed(tester), s.level);
+      await tester.tap(find.byKey(const Key('learn-filter-tm')));
+      await tester.pumpAndSettle();
+      expect(listed(tester), s.tm);
+    });
+
+    testWidgets('typing filters by name within the chosen source', (
+      tester,
+    ) async {
+      await tall(tester);
+      await open(tester, scarlet, 'Thunderbolt');
+      await openLearners(tester);
+      await tester.enterText(find.byKey(const Key('learners-search')), 'pika');
+      await tester.pump();
+      expect(listed(tester), contains(25));
+      expect(
+        listed(
+          tester,
+        ).every((id) => dex[id].name.toLowerCase().contains('pika')),
+        isTrue,
+      );
+      await tester.enterText(
+        find.byKey(const Key('learners-search')),
+        'no-such-pokemon',
+      );
+      await tester.pump();
+      expect(listed(tester), isEmpty);
+      expect(find.byKey(const Key('learners-none')), findsOneWidget);
+    });
+
+    testWidgets('changing the filter hides the keyboard, keeps the query', (
+      tester,
+    ) async {
+      await tall(tester);
+      await open(tester, scarlet, 'Thunderbolt');
+      await openLearners(tester);
+      final search = find.byKey(const Key('learners-search'));
+      await tester.showKeyboard(search);
+      await tester.enterText(search, 'pika');
+      await tester.tap(find.byKey(const Key('learn-filter-tm')));
+      await tester.pumpAndSettle();
+      final field = tester.widget<TextField>(search);
+      expect(field.focusNode!.hasFocus, isFalse);
+      expect(field.controller!.text, 'pika');
+    });
+
+    testWidgets('Enter opens the first listed learner', (tester) async {
+      await tall(tester);
+      await open(tester, scarlet, 'Thunderbolt');
+      await openLearners(tester);
+      await tester.enterText(
+        find.byKey(const Key('learners-search')),
+        'pikachu',
+      );
+      await tester.pump();
+      final first = listed(tester).first;
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key('portrait-$first')), findsOneWidget);
+    });
+
+    testWidgets('the filter is remembered when reopened', (tester) async {
+      await tall(tester);
+      await open(tester, scarlet, 'Thunderbolt');
+      await openLearners(tester);
+      await tester.tap(find.byKey(const Key('learn-filter-tm')));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await openLearners(tester);
+      expect(
+        tester
+            .widget<SegmentedButton<LearnFilter>>(
+              find.byKey(const Key('learn-filter')),
+            )
+            .selected,
+        {LearnFilter.tm},
+      );
+      expect(listed(tester), sources().tm);
+    });
+  });
 
   testWidgets('pending and failed move loading is visible', (tester) async {
     final pending = Completer<MoveDex>();

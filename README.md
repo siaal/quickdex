@@ -14,15 +14,21 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   shows what you opened most recently first; once you type, results are ranked by
   frecency (your team and the current zone float to the top). Swipe a recent away to forget it. Each Pokémon page shows artwork, types,
   base stats, type defences (Bulbapedia grouping, each group on a red/green tint) beside what its
-  own types hit super-effectively, not very effectively or not at all (tap any type pill to open it in the Type Chart as a
-  defender), form switching, moves under a Level up | All | TM toggle (All to start in Scrambled Scarlet,
+  own types hit super-effectively, not very effectively or not at all, form switching, moves under a Level up | All | TM toggle (All to start in Scrambled Scarlet,
   Level up elsewhere; the pick sticks until restart), and an Evo sheet (or drag from Evo and release on an evolution to
   jump straight to it). Enter selects the first displayed result in Search, the
-  Pokémon/move/build pickers and Type Finder; with no matches, it does nothing.
+  Pokémon/move/build/learner lists and Type Finder; with no matches, it does nothing.
+  Tapping a type pill anywhere (search rows, Pokémon and move pages, sidedeck, team
+  planner, pickers) opens that type in the Type Chart's Focus tab, closing any sheet
+  it was in; on the Focus tab itself, pills pick the type there instead.
 - **Moves** (in Search): every move; each page shows type, category,
   power/accuracy/PP/priority/effect chance, target, whether it makes contact, the in-game
   text and a longer description (for Emerald, led by how the effect differed back then).
-  Moves no Pokémon learns in the game are tagged "Not in <game>".
+  Moves no Pokémon learns in the game are tagged "Not in <game>". Below that: the
+  move's TM/HM (or Scrambled badge TM) in this game, and a "Who can learn it?"
+  button opening every learner, with a name filter (not focused on open) and a
+  Level up | All | TM toggle (All to start; the choice is remembered per game until
+  restart and hides the keyboard).
 - **Type Chart:** a Focus tab (pick a type to see defence and attack side by side, like the Pokémon page;
   long-press or right-click a second type for dual-type defence and two-type STAB
   coverage; result pills work the same way), a Finder tab (pick one or two types to list every Pokémon
