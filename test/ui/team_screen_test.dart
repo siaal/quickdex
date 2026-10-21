@@ -535,6 +535,14 @@ void main() {
     });
 
     group('versus', () {
+      test('2x and 4x hits differ in colour, not thickness', () {
+        expect(lineColor(2, mine: true), Colors.green);
+        expect(lineColor(4, mine: true), Colors.blue);
+        expect(lineColor(2, mine: false), Colors.red);
+        expect(lineColor(4, mine: false), Colors.purple);
+        expect(lineColor(1, mine: true), Colors.grey);
+      });
+
       Future<TeamPlanner> theirsPage(
         WidgetTester tester, {
         List<String> mine = const ['Golem', 'Pikachu'],

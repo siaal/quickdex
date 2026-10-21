@@ -59,8 +59,8 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   Doozdex (gyms, rivals, Team Star, Titans, Elite 4, both paths). Theirs opens with
   **Versus**: your team's sprites on the left, theirs on the right; tap one to draw a
   line to each Pokémon opposite, split in half: the half by your Pokémon is how hard
-  you hit them, the half by theirs is how hard they hit you (your strong hits green,
-  theirs red, neutral grey, resisted faded, immune dashed). Each team has six slots; tap one to
+  you hit them, the half by theirs is how hard they hit you (your 2× hits green and
+  4× blue, theirs red and 4× purple, neutral grey, resisted faded, immune dashed). Each team has six slots; tap one to
   pick a Pokémon, its ability and up to four
   moves (its learnable moves are suggested under a Level up | All | TM toggle, All to
   start; your choice is remembered for the next move, and changing it hides the

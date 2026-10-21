@@ -142,9 +142,11 @@ class _VersusViewState extends State<VersusView> {
   }
 }
 
-/// A hit's colour, from your side: your strong hits are green, theirs on you
-/// red; neutral grey; resisted faded; immune (drawn dashed) faded too.
+/// A hit's colour, from your side: your 2x hits are green and 4x blue, theirs
+/// on you red and 4x purple; neutral grey; resisted faded; immune (drawn
+/// dashed) faded too.
 Color lineColor(double m, {required bool mine}) {
+  if (m >= 4) return mine ? Colors.blue : Colors.purple;
   if (m > 1) return mine ? Colors.green : Colors.red;
   if (m == 1) return Colors.grey;
   return Colors.grey.withValues(alpha: 0.35);
@@ -175,7 +177,7 @@ class VersusLinesPainter extends CustomPainter {
     if (m == null) return; // deals no damage
     final paint = Paint()
       ..color = lineColor(m, mine: mine)
-      ..strokeWidth = m == 4 ? 5 : (m > 1 ? 3.5 : 2.5)
+      ..strokeWidth = m > 1 ? 3.5 : 2.5
       ..strokeCap = StrokeCap.round;
     if (m > 0) {
       canvas.drawLine(a, b, paint);
