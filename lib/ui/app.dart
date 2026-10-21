@@ -14,6 +14,7 @@ import 'pokemon_page.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'team_screen.dart';
+import 'type_badge.dart';
 import 'type_chart_screen.dart';
 import 'type_focus.dart';
 
@@ -110,6 +111,7 @@ class _HomeShellState extends State<HomeShell> {
 
   /// From a Pokémon page: show [type] as a defender on the Type Chart tab.
   void _openType(String type) {
+    if (_deckBlocks('type:$type')) return;
     trace('shell.open_type', {'type': type, 'from_tab': _tab});
     _navigators[1].currentState?.popUntil((r) => r.isFirst);
     _typeFocus.show(type, FocusMode.defender);
@@ -177,8 +179,30 @@ class _HomeShellState extends State<HomeShell> {
     SystemNavigator.pop();
   }
 
+  /// An overfull open Sidedeck keeps the Team Planner tab until it's legal.
+  bool _deckBlocks(String to) {
+    final deck = _openDeck;
+    if (_tab != 2 || deck == null || deck.isLegal) return false;
+    trace('shell.tab.blocked_overfull_deck', {
+      'to': to,
+      'count': deck.squadCount,
+    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Choose at most 6 Pokémon before leaving Sidedeck.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    return true;
+  }
+
   @override
-  Widget build(BuildContext context) => PopScope(
+  Widget build(BuildContext context) =>
+      TypeOpener(open: _openType, child: _shell(context));
+
+  Widget _shell(BuildContext context) => PopScope(
     canPop: false,
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop) _back();
@@ -238,23 +262,7 @@ class _HomeShellState extends State<HomeShell> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _tab,
           onDestinationSelected: (i) {
-            if (_tab == 2 && _openDeck != null && !_openDeck!.isLegal) {
-              trace('shell.tab.blocked_overfull_deck', {
-                'tab': i,
-                'count': _openDeck!.squadCount,
-              });
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Choose at most 6 Pokémon before leaving Sidedeck.',
-                    ),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              return;
-            }
+            if (_deckBlocks('tab:$i')) return;
             trace(i == _tab ? 'shell.tab.reselect' : 'shell.tab.select', {
               'tab': i,
             });

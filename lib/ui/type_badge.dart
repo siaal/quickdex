@@ -1,7 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../trace.dart';
 import 'art.dart';
 import 'type_style.dart';
+
+/// Opens a type in the Type Chart's Focus tab. Every [TypeBadge] below it
+/// without its own handlers taps through to [open].
+class TypeOpener extends InheritedWidget {
+  const TypeOpener({super.key, required this.open, required super.child});
+  final ValueChanged<String> open;
+
+  static TypeOpener? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TypeOpener>();
+
+  @override
+  bool updateShouldNotify(TypeOpener old) => old.open != open;
+}
 
 class TypeBadge extends StatelessWidget {
   const TypeBadge(
@@ -19,6 +33,7 @@ class TypeBadge extends StatelessWidget {
   final bool icon;
 
   /// When set, the badge is tappable; long-press or right-click calls [onAdd].
+  /// With neither, a tap opens the type through the nearest [TypeOpener].
   final VoidCallback? onTap;
   final VoidCallback? onAdd;
 
@@ -26,11 +41,22 @@ class TypeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     assert(typeColors.containsKey(type), 'unknown type $type');
     final badge = _badge();
-    if (onTap == null && onAdd == null) return badge;
+    var tap = onTap;
+    if (tap == null && onAdd == null) {
+      final opener = TypeOpener.maybeOf(context);
+      if (opener == null) return badge;
+      tap = () {
+        // A sheet or dialog would otherwise stay open behind the Type Chart.
+        final popup = ModalRoute.of(context) is PopupRoute;
+        trace('badge.open_type', {'type': type, 'close_popup': popup});
+        if (popup) Navigator.of(context).pop();
+        opener.open(type);
+      };
+    }
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: tap,
         onLongPress: onAdd,
         onSecondaryTap: onAdd,
         child: badge,

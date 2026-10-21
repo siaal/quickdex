@@ -269,7 +269,7 @@ void main() {
     await tester.tap(find.text('Team Planner'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('team-type-fire')));
-    await tester.longPress(find.byKey(const Key('team-type-fire')));
+    await tester.tap(find.byKey(const Key('team-type-fire')));
     await tester.pumpAndSettle();
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,

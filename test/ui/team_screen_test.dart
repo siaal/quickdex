@@ -293,19 +293,17 @@ void main() {
     );
   });
 
-  testWidgets('long-press a type pill opens it in the Type Chart', (
-    tester,
-  ) async {
+  testWidgets('tapping a type pill opens it in the Type Chart', (tester) async {
     await pump(tester, golemBronzong());
-    await tester.longPress(find.byKey(const Key('team-type-water')));
+    await tester.tap(find.byKey(const Key('team-type-water')));
     await tester.pump();
     expect(openedTypes, ['water']);
     expect(
       find.byKey(const Key('team-detail-water')),
       findsNothing,
-      reason: 'long-press does not toggle the row',
+      reason: 'the pill does not toggle the row',
     );
-    await tester.longPress(find.byKey(const Key('team-slot-type-steel')));
+    await tester.tap(find.byKey(const Key('team-slot-type-steel')));
     await tester.pumpAndSettle();
     expect(openedTypes, ['water', 'steel']);
     expect(
