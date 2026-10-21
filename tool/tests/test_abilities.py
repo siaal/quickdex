@@ -40,11 +40,13 @@ def test_emerald_abilities_carry_notes_on_how_they_differed(db, emerald):
     rod = table["31"]  # Lightning Rod: immunity only from Gen 5
     assert rod["effect"] == "Draws electrical moves."  # Emerald's own text
     first, *_ = rod["description"].split("\n\n")
-    before_dp = ("• Does not affect non-damaging Electric moves, i.e. Thunder Wave. "
-                 "Increases the frequency of Match Call calls on the overworld if any party "
+    # Since PokéAPI #1699 each note is the whole text as it was, not just the change.
+    redirect = ("If this Pokemon is not the target of a single-target Electric-type move "
+                "used by another Pokemon, this Pokemon redirects that move to itself.")
+    before_dp = (f"• {redirect} Does not redirect Hidden Power. Overworld: Increases "
+                 "the frequency of Match Call calls on the overworld if any party "
                  "Pokémon has this ability.")
-    before_bw = ("• Redirects Electric moves without negating them or granting any "
-                 "Special Attack boost. Does not redirect Hidden Power.")
+    before_bw = f"• {redirect} Does not redirect Hidden Power or Judgement."
     assert first.splitlines() == ["In Emerald:", before_dp, before_bw]
     lev = table["26"]  # unchanged since: modern text, no notes
     assert lev["effect"] == "Evades Ground moves."
