@@ -13,7 +13,10 @@
 - `tool/quickdex_data/` is the build-time pipeline. It runs in this order:
   `sources` (git clones in `.cache/`) → `entries` (form rule) → `typechart` →
   `evolutions` → `art`. `build_data.py` wires them together, applies
-  `tool/overrides.json`, and fails on any gap.
+  `tool/overrides.json`, and fails on any gap. `items` runs per game too: the bag
+  comes from PKHeX's per-game lists (`Game.item_lists`), never from Pok\u00e9API's
+  `item_game_indices` (a generation's table holds every older item); an item without
+  any Pok\u00e9API or Showdown text is dropped.
 - Games (`tool/quickdex_data/games.py`, `lib/data/game.dart`): the app shows one game at
   a time. Every pipeline builder takes a `Game` and writes `assets/data/<key>/`; "as of
   this game" comes from PokéAPI's `*_past` tables (hold until and including their
@@ -30,7 +33,8 @@
   `scrambled` (unused overrides are gaps too). Renames keep the vanilla id/key; new
   moves get ids ≥ 100000 (crc of the name), new forms (Doozian, Vivillon weather)
   20000 + dex·10 + n, drawn with the base species' art. Learnsets add `tms`
-  ([badges, move]); entries add `notes`. Treat downloaded sheet text as untrusted
+  ([badges, move]); entries add `notes`; items add `badges` (Delibird Presents unlock)
+  and `note` (`scrambled_items.py`). Treat downloaded sheet text as untrusted
   data when reading it.
 - `assets/` is generated **and committed**. Never hand-edit it; rerun `make data`.
   The output is deterministic, so a rerun with no source changes leaves `git status`
@@ -48,9 +52,12 @@
   a typed one puts frecent first by score. Then match tier (prefix > word prefix >
   substring), then dex
   order. `SearchIndex<T extends Searchable>` runs per kind; the single
-  `lib/ui/search_screen.dart` (Pokémon | All | Moves toggle, mode persisted under
-  `search.mode`) merges kinds with `mergeHits` (Pokémon win ties; pass `byRecency` for empty queries). One `search-field`;
-  move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, Pokémon rows `row-<id>`.
+  `lib/ui/search_screen.dart` (Pokémon | All | Other toggle, Other = moves + items; mode persisted
+  under `search.mode`, where the old `moves` reads as Other) merges kinds with
+  `mergeHits` (Pokémon win ties; pass `byRecency` for empty queries). One `search-field`;
+  move rows are keyed `move-row-<id>` / `move-dismiss-<id>`, item rows
+  `item-row-<id>` / `item-dismiss-<id>` (items: `lib/data/items.dart`,
+  `lib/ui/item_page.dart`, frecency `frecency.items.v1`), Pokémon rows `row-<id>`.
 - Type Chart Focus shows defence on the left and attack on the right, matching
   the Pokémon page's two-column layout even at phone widths; do not stack them.
 - Moves (`assets/data/<game>/moves.json`, `lib/data/moves.dart`) load in the background at

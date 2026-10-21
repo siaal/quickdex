@@ -62,6 +62,21 @@
       "Navi Starmobile": ["Revavroom", "Navi Starmobile"],
       "Ruchbah Starmobile": ["Revavroom", "Ruchbah Starmobile"],
       "Caph Starmobile": ["Revavroom", "Caph Starmobile"]
+    },
+    "item_groups": {
+      "All Weather Rocks": ["Damp Rock", "Heat Rock", "Icy Rock", "Smooth Rock"],
+      "All 4 Terrain Seeds": ["Electric Seed", "Grassy Seed", "Misty Seed", "Psychic Seed"],
+      "All Arceus Plates": "cat:Plates",
+      "All Super-Effective / Type Weakening Berries": "cat:Type protection"
+    },
+    "item_comments": [
+      "Still an amazing pivot item",
+      "Pic later",
+      "Can be used to rack up",
+      "Great with Rapid Fire"
+    ],
+    "item_badges": {
+      "Focus Sash": 4
     }
   }
 }

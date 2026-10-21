@@ -23,7 +23,7 @@ def test_games_json_lists_every_bundle():
     assert games == [{"key": g.key, "name": g.name, "gen": g.generation} for g in GAMES]
     assert {p.name for p in DATA.iterdir() if p.is_dir()} == {g.key for g in GAMES}
     for g in GAMES:
-        for f in ("pokedex.json", "moves.json"):
+        for f in ("pokedex.json", "moves.json", "items.json"):
             meta = json.loads((DATA / g.key / f).read_text())["game"]
             assert meta == {"key": g.key, "name": g.name, "gen": g.generation}
 
@@ -44,6 +44,14 @@ def test_no_orphan_art_files():
     ids = {f"{i}.webp" for i in _all_ids()}
     for sub in ("full", "thumb"):
         assert {p.name for p in (ART / sub).glob("*.webp")} == ids
+
+
+def test_item_sprites_match_items():
+    items = [i for g in GAMES
+             for i in json.loads((DATA / g.key / "items.json").read_text())["items"]]
+    with_sprite = {f"{i['id']}.webp" for i in items if i["sprite"]}
+    assert {p.name for p in (ART / "items").glob("*.webp")} == with_sprite
+    assert len(with_sprite) > 300
 
 
 @pytest.mark.parametrize("game,count", [("scarlet", 18), ("emerald", 17)])

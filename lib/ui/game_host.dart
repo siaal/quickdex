@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/game.dart';
+import '../data/items.dart';
 import '../data/loader.dart';
 import '../data/models.dart';
 import '../data/moves.dart';
@@ -21,8 +22,10 @@ class GameSession {
     this.game,
     this.dex,
     this.moves,
+    this.items,
     this.frecency,
     this.moveFrecency,
+    this.itemFrecency,
     this.planner,
   );
 
@@ -32,8 +35,9 @@ class GameSession {
     SharedPreferences prefs,
     GameInfo game,
   ) async {
-    // Not awaited: move results and learnsets appear once loaded.
+    // Not awaited: move and item results and learnsets appear once loaded.
     final moves = loadMoves(bundle, game);
+    final items = loadItems(bundle, game);
     final dex = await loadPokedex(bundle, game);
     FrecencyStore store(String base) {
       final key = game.prefsKey(base);
@@ -66,8 +70,10 @@ class GameSession {
       game,
       dex,
       moves,
+      items,
       store(FrecencyStore.prefsKey),
       store(FrecencyStore.movesPrefsKey),
+      store(FrecencyStore.itemsPrefsKey),
       TeamPlanner(
         mine: TeamSide(
           team: team(Team.prefsKey),
@@ -87,9 +93,20 @@ class GameSession {
   final GameInfo game;
   final Pokedex dex;
   final Future<MoveDex> moves;
+  final Future<ItemDex> items;
   final FrecencyStore frecency;
   final FrecencyStore moveFrecency;
+  final FrecencyStore itemFrecency;
   final TeamPlanner planner;
+}
+
+/// The saved search mode; "moves" (before items joined it) is now Other.
+SearchMode savedSearchMode(String? name) {
+  final mode = name == 'moves'
+      ? SearchMode.other
+      : SearchMode.values.asNameMap()[name];
+  trace('search.mode.saved', {'name': name, 'mode': mode?.name});
+  return mode ?? SearchMode.all;
 }
 
 /// Prefs key of the chosen game.
@@ -166,12 +183,12 @@ class _GameHostState extends State<GameHost> {
         frecency: s.frecency,
         moves: s.moves,
         moveFrecency: s.moveFrecency,
+        items: s.items,
+        itemFrecency: s.itemFrecency,
         planner: s.planner,
         games: widget.games,
         onGameChanged: _switch,
-        initialSearchMode:
-            SearchMode.values.asNameMap()[prefs.getString(_modeKey)] ??
-            SearchMode.all,
+        initialSearchMode: savedSearchMode(prefs.getString(_modeKey)),
         onSearchModeChanged: (m) => prefs.setString(_modeKey, m.name),
       ),
     );

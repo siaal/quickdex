@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quickdex/data/items.dart';
 import 'package:quickdex/data/loader.dart';
 import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
@@ -12,10 +13,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Pokedex dex;
   late MoveDex moves;
+  late ItemDex items;
   late SearchIndex<PokemonEntry> index;
   setUpAll(() async {
     dex = await loadPokedex(rootBundle);
     moves = await loadMoves(rootBundle);
+    items = await loadItems(rootBundle);
     index = SearchIndex(dex.entries);
   });
 
@@ -44,6 +47,8 @@ void main() {
           index: index,
           moves: Future.value(moves),
           moveFrecency: moveFrecency,
+          items: Future.value(items),
+          itemFrecency: FrecencyStore(),
           initialMode: mode,
           onModeChanged: modeChanges.add,
           onOpenSettings: onOpenSettings,
@@ -111,7 +116,7 @@ void main() {
 
   testWidgets('mode toggle sits above the search field', (tester) async {
     await pump(tester);
-    for (final m in ['Pokémon', 'All', 'Moves']) {
+    for (final m in ['Pokémon', 'All', 'Other']) {
       expect(find.text(m), findsOneWidget);
     }
     expect(
@@ -122,24 +127,36 @@ void main() {
     );
   });
 
-  testWidgets('All finds Pokémon and moves; each mode filters', (tester) async {
+  testWidgets('All finds Pokémon, moves and items; each mode filters', (
+    tester,
+  ) async {
     final thunder = Key('move-row-${moveId('Thunder')}');
+    final stone = Key(
+      'item-row-${items.items.firstWhere((i) => i.name == 'Thunder Stone').id}',
+    );
+    // Tall enough for every "thund" row.
+    tester.view.physicalSize = const Size(800, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await pump(tester, mode: SearchMode.all);
     await type(tester, 'thund');
     expect(find.byKey(const Key('row-642')), findsOneWidget);
     expect(find.byKey(thunder), findsOneWidget);
+    expect(find.byKey(stone), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('mode-pokemon')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('row-642')), findsOneWidget);
     expect(find.byKey(thunder), findsNothing);
+    expect(find.byKey(stone), findsNothing);
 
-    await tester.tap(find.byKey(const Key('mode-moves')));
+    await tester.tap(find.byKey(const Key('mode-other')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('row-642')), findsNothing);
     expect(find.byKey(thunder), findsOneWidget);
+    expect(find.byKey(stone), findsOneWidget);
 
-    expect(modeChanges, [SearchMode.pokemon, SearchMode.moves]);
+    expect(modeChanges, [SearchMode.pokemon, SearchMode.other]);
     final field = tester.widget<TextField>(
       find.byKey(const Key('search-field')),
     );

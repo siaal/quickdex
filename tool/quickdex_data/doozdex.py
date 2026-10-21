@@ -26,13 +26,15 @@ ABILITIES_TAB = "911772807"
 TMS_TAB = "1857980463"
 VANILLA_BOSSES_TAB = "366088713"
 REVERSE_BOSSES_TAB = "748281054"
+ITEM_SHOP_TAB = "1348877308"  # Item Locations (Shop Guide)
+ITEM_CHANGES_TAB = "1324157418"  # Held Item Buffs/Changes
 OTHER_TABS = (
     "1333102210",  # Table of Contents
     VANILLA_BOSSES_TAB,
     REVERSE_BOSSES_TAB,
     "1014285145",  # Egg/Encounter Guide
-    "1348877308",  # Item Locations (Shop Guide)
-    "1324157418",  # Held Item Buffs/Changes
+    ITEM_SHOP_TAB,
+    ITEM_CHANGES_TAB,
     "1531307935",  # Type Change Cheat Sheet
     "832607334",  # Level Caps + Boss Locations/Paths
 )
@@ -105,6 +107,7 @@ def image_path(doozdex: Path, url: str) -> Path:
 class Cell:
     text: str = ""
     imgs: list[str] = field(default_factory=list)
+    span: int = 1  # columns the merged cell covers
 
     @property
     def flat(self) -> str:
@@ -162,6 +165,7 @@ def read_grid(path: Path) -> list[list[Cell]]:
             while (r, c) in covered:
                 out.append(Cell())
                 c += 1
+            cell.span = colspan
             out.append(cell)
             covered.update((r + dr, c + dc) for dr in range(rowspan) for dc in range(colspan)
                            if dr or dc)

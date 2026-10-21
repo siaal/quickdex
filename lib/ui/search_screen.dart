@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/items.dart';
 import '../data/models.dart';
 import '../data/moves.dart';
 import '../frecency/frecency.dart';
@@ -8,18 +9,21 @@ import '../search/search_index.dart';
 import '../search/searchable.dart';
 import '../trace.dart';
 import 'art.dart';
+import 'item_page.dart';
 import 'move_page.dart';
 import 'pokemon_page.dart';
 import 'move_tile.dart';
 import 'pokemon_tile.dart';
 
-enum SearchMode { pokemon, all, moves }
+/// Other is moves and items.
+enum SearchMode { pokemon, all, other }
 
-/// Live search over Pokémon and/or moves: with nothing typed, recently visited
-/// first; once typed, frecent hits first; a mode toggle sits
+/// Live search over Pokémon, moves and items: with nothing typed, recently
+/// visited first; once typed, frecent hits first; a mode toggle sits
 /// above the field so results never cover it. Frecent rows swipe away with Undo.
 /// Keys: `search-mode`, `mode-<mode>`, `search-settings`, `search-field`; Pokémon rows `row-<id>` /
-/// `dismiss-<id>`, move rows `move-row-<id>` / `move-dismiss-<id>`.
+/// `dismiss-<id>`, move rows `move-row-<id>` / `move-dismiss-<id>`, item rows
+/// `item-row-<id>` / `item-dismiss-<id>`.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({
     super.key,
@@ -28,6 +32,8 @@ class SearchScreen extends StatefulWidget {
     required this.index,
     required this.moves,
     required this.moveFrecency,
+    this.items,
+    this.itemFrecency,
     this.initialMode = SearchMode.all,
     this.onModeChanged,
     this.focusRequests,
@@ -41,6 +47,10 @@ class SearchScreen extends StatefulWidget {
   /// Loaded in the background; until then move results are simply absent.
   final Future<MoveDex> moves;
   final FrecencyStore moveFrecency;
+
+  /// Like [moves]; null (with [itemFrecency]) leaves items out.
+  final Future<ItemDex>? items;
+  final FrecencyStore? itemFrecency;
   final SearchMode initialMode;
   final ValueChanged<SearchMode>? onModeChanged;
 
@@ -64,6 +74,7 @@ class _SearchScreenState extends State<SearchScreen> {
   final _focus = FocusNode();
   late SearchMode _mode = widget.initialMode;
   SearchIndex<Move>? _moveIndex;
+  SearchIndex<Item>? _itemIndex;
   late List<SearchHit<Searchable>> _hits = _search('');
   bool _precached = false;
 
@@ -79,6 +90,21 @@ class _SearchScreenState extends State<SearchScreen> {
         _refresh();
       },
       onError: (Object e) => trace('search.moves.load_failed', {
+        'error': e.runtimeType.toString(),
+      }),
+    );
+    assert(
+      (widget.items == null) == (widget.itemFrecency == null),
+      'items need their frecency store',
+    );
+    widget.items?.then(
+      (items) {
+        if (!mounted) return;
+        trace('search.items.ready', {'count': items.items.length});
+        _itemIndex = SearchIndex(items.items);
+        _refresh();
+      },
+      onError: (Object e) => trace('search.items.load_failed', {
         'error': e.runtimeType.toString(),
       }),
     );
@@ -117,22 +143,33 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
-  FrecencyStore _storeFor(Searchable e) =>
-      e is Move ? widget.moveFrecency : widget.frecency;
+  FrecencyStore _storeFor(Searchable e) => switch (e) {
+    Move() => widget.moveFrecency,
+    Item() => widget.itemFrecency!,
+    _ => widget.frecency,
+  };
 
-  String _prefixFor(Searchable e) => e is Move ? 'move-' : '';
+  String _prefixFor(Searchable e) => switch (e) {
+    Move() => 'move-',
+    Item() => 'item-',
+    _ => '',
+  };
 
   List<SearchHit<Searchable>> _search(String q) {
     final sw = Stopwatch()..start();
-    List<SearchHit<Move>> moveHits() =>
-        _moveIndex?.search(q, widget.moveFrecency) ?? const [];
+    final byRecency = isRecencyQuery(q);
+    List<SearchHit<Searchable>> other() => mergeHits(
+      _moveIndex?.search(q, widget.moveFrecency) ?? const [],
+      _itemIndex?.search(q, widget.itemFrecency!) ?? const [],
+      byRecency: byRecency,
+    );
     final hits = switch (_mode) {
       SearchMode.pokemon => widget.index.search(q, widget.frecency),
-      SearchMode.moves => moveHits(),
+      SearchMode.other => other(),
       SearchMode.all => mergeHits(
         widget.index.search(q, widget.frecency),
-        moveHits(),
-        byRecency: isRecencyQuery(q),
+        other(),
+        byRecency: byRecency,
       ),
     };
     trace('search.query.done', {
@@ -171,6 +208,7 @@ class _SearchScreenState extends State<SearchScreen> {
       pokemonFrecency: widget.frecency,
       onOpenType: widget.onOpenType,
     ),
+    Item() => ItemPage(item: e, frecency: widget.itemFrecency!),
     _ => throw StateError('unknown searchable ${e.runtimeType}'),
   };
 
@@ -214,7 +252,8 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final waitingForMoves = _mode == SearchMode.moves && _moveIndex == null;
+    final waitingForOther =
+        _mode == SearchMode.other && _moveIndex == null && _itemIndex == null;
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -246,8 +285,8 @@ class _SearchScreenState extends State<SearchScreen> {
                             label: Text('All', key: Key('mode-all')),
                           ),
                           ButtonSegment(
-                            value: SearchMode.moves,
-                            label: Text('Moves', key: Key('mode-moves')),
+                            value: SearchMode.other,
+                            label: Text('Other', key: Key('mode-other')),
                           ),
                         ],
                         selected: {_mode},
@@ -279,8 +318,8 @@ class _SearchScreenState extends State<SearchScreen> {
                 decoration: InputDecoration(
                   hintText: switch (_mode) {
                     SearchMode.pokemon => 'Search Pokémon',
-                    SearchMode.all => 'Search Pokémon and moves',
-                    SearchMode.moves => 'Search moves',
+                    SearchMode.all => 'Search Pokémon, moves and items',
+                    SearchMode.other => 'Search moves and items',
                   },
                   prefixIcon: const Icon(Icons.search),
                   border: const OutlineInputBorder(),
@@ -297,7 +336,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             Expanded(
-              child: waitingForMoves
+              child: waitingForOther
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.builder(
                       keyboardDismissBehavior:
@@ -320,6 +359,7 @@ class _SearchScreenState extends State<SearchScreen> {
       child: switch (e) {
         PokemonEntry() => PokemonTile(e, onTap: () => _open(e)),
         Move() => MoveTile(e, onTap: () => _open(e)),
+        Item() => ItemTile(e, onTap: () => _open(e)),
         _ => throw StateError('unknown searchable ${e.runtimeType}'),
       },
     );

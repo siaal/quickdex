@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/game.dart';
+import '../data/items.dart';
 import '../data/models.dart';
 import '../data/moves.dart';
 import '../frecency/frecency.dart';
@@ -26,6 +27,8 @@ class QuickDexApp extends StatelessWidget {
     required this.moves,
     required this.moveFrecency,
     required this.planner,
+    this.items,
+    this.itemFrecency,
     this.initialSearchMode = SearchMode.all,
     this.onSearchModeChanged,
     this.games = const [],
@@ -38,6 +41,10 @@ class QuickDexApp extends StatelessWidget {
   /// Loaded in the background so it doesn't delay startup.
   final Future<MoveDex> moves;
   final FrecencyStore moveFrecency;
+
+  /// Loaded in the background; without them Search has no items.
+  final Future<ItemDex>? items;
+  final FrecencyStore? itemFrecency;
   final SearchMode initialSearchMode;
   final ValueChanged<SearchMode>? onSearchModeChanged;
 
@@ -59,6 +66,8 @@ class QuickDexApp extends StatelessWidget {
       frecency: frecency,
       moves: moves,
       moveFrecency: moveFrecency,
+      items: items,
+      itemFrecency: itemFrecency,
       planner: planner,
       initialSearchMode: initialSearchMode,
       onSearchModeChanged: onSearchModeChanged,
@@ -76,6 +85,8 @@ class HomeShell extends StatefulWidget {
     required this.moves,
     required this.moveFrecency,
     required this.planner,
+    this.items,
+    this.itemFrecency,
     this.initialSearchMode = SearchMode.all,
     this.onSearchModeChanged,
     this.games = const [],
@@ -86,6 +97,8 @@ class HomeShell extends StatefulWidget {
   final TeamPlanner planner;
   final Future<MoveDex> moves;
   final FrecencyStore moveFrecency;
+  final Future<ItemDex>? items;
+  final FrecencyStore? itemFrecency;
   final SearchMode initialSearchMode;
   final ValueChanged<SearchMode>? onSearchModeChanged;
   final List<GameInfo> games;
@@ -243,6 +256,8 @@ class _HomeShellState extends State<HomeShell> {
                 index: _index,
                 moves: widget.moves,
                 moveFrecency: widget.moveFrecency,
+                items: widget.items,
+                itemFrecency: widget.itemFrecency,
                 initialMode: widget.initialSearchMode,
                 onModeChanged: widget.onSearchModeChanged,
                 focusRequests: _searchFocusRequests,

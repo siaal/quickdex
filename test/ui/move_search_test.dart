@@ -29,7 +29,7 @@ void main() {
           index: SearchIndex(dex.entries),
           moves: Future.value(moves),
           moveFrecency: f,
-          initialMode: SearchMode.moves,
+          initialMode: SearchMode.other,
         ),
       ),
     );

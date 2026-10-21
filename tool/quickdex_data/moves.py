@@ -81,21 +81,21 @@ def _as_of_game(db: CsvDb, eras: Eras) -> dict[str, dict[str, str]]:
 UNUSABLE_TEXT = "This move can't be used."
 
 
-def _game_text(db: CsvDb, eras: Eras) -> dict[str, str]:
-    """Move id -> English in-game text: the game's own, else the latest from a version
-    group of its generation or earlier. Placeholder texts don't count."""
+def game_text(db: CsvDb, eras: Eras, table: str = "move_flavor_text",
+              id_col: str = "move_id") -> dict[str, str]:
+    """Move (or item) id -> English in-game text: the game's own, else the latest
+    from a version group of its generation or earlier. Placeholder texts don't count."""
     best: dict[str, tuple[tuple[bool, int], str]] = {}
     gen = eras.game.generation
-    for r in db.rows("move_flavor_text", ("move_id", "version_group_id", "language_id",
-                                          "flavor_text")):
+    for r in db.rows(table, (id_col, "version_group_id", "language_id", "flavor_text")):
         vg = r["version_group_id"]
         if r["language_id"] != ENGLISH or eras.vg_generation[vg] > gen:
             continue
         if r["flavor_text"].startswith(UNUSABLE_TEXT):
             continue
         rank = (vg == eras.game.version_group, eras.order[vg])
-        if r["move_id"] not in best or rank > best[r["move_id"]][0]:
-            best[r["move_id"]] = (rank, r["flavor_text"])
+        if r[id_col] not in best or rank > best[r[id_col]][0]:
+            best[r[id_col]] = (rank, r["flavor_text"])
     return {mid: text for mid, (_, text) in best.items()}
 
 
@@ -127,7 +127,7 @@ def build_moves(db: CsvDb, desc_overrides: dict[str, str],
     pokeapi_flags: dict[str, set[str]] = defaultdict(set)
     for r in db.rows("move_flag_map", ("move_id", "move_flag_id")):
         pokeapi_flags[r["move_id"]].add(POKEAPI_FLAGS.get(r["move_flag_id"], ""))
-    text = _game_text(db, eras)
+    text = game_text(db, eras)
     past = _as_of_game(db, eras)
 
     rows = db.rows("moves", ("id", "identifier", "generation_id", "type_id", "power", "pp",

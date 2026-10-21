@@ -20,7 +20,22 @@ class Game:
     extra_moves: frozenset[str] = frozenset()
     # A romhack read from the Doozdex sheet (scrambled.py) rather than PokéAPI.
     doozdex: bool = False
+    # The game's bag (items.py): PKHeX (file, array) lists of in-game item indices,
+    # arrays to subtract, and PKHeX's English item names by index.
+    item_lists: tuple[tuple[str, str], ...] = ()
+    item_exclusions: tuple[tuple[str, str], ...] = ()
+    item_names: str = ""
 
+
+# Every pocket except TMs (move pages cover those); Unreleased are in the bag data
+# but can't be obtained.
+SV_ITEMS = {
+    "item_lists": tuple(("ItemStorage9SV.cs", a) for a in (
+        "Medicine", "Balls", "Battle", "Berry", "Other", "Treasure", "Picnic", "Event",
+        "Material")),
+    "item_exclusions": (("ItemStorage9SV.cs", "Unreleased"),),
+    "item_names": "text_Items_en.txt",
+}
 
 SCARLET = Game(
     key="scarlet", name="Scarlet", generation=9, version_group="25",
@@ -34,6 +49,7 @@ SCARLET = Game(
     extra_moves=frozenset({"struggle", "behemoth-blade", "behemoth-bash",
                            "blazing-torque", "wicked-torque", "noxious-torque",
                            "combat-torque", "magical-torque"}),
+    **SV_ITEMS,
 )
 
 EMERALD = Game(
@@ -41,12 +57,17 @@ EMERALD = Game(
     dexes=(("4", "Hoenn"),),
     fallback_games=(("7", "FireRed/LeafGreen"), ("5", "Ruby/Sapphire")),
     extra_moves=frozenset({"struggle"}),
+    # PKHeX's Gen 3 "Unreleased" (Safari Ball, Berry Juice) only can't sit in the
+    # bag; both are in Emerald, so nothing is subtracted.
+    item_lists=(*(("ItemStorage3RS.cs", a) for a in ("General", "Berry", "Balls")),
+                ("ItemStorage3E.cs", "Key")),
+    item_names="text_ItemsG3_en.txt",
 )
 
 # The Scrambled Scarlet romhack: Scarlet with the Doozdex's changes (scrambled.py).
 SCRAMBLED = Game(
     key="scrambled", name="Scrambled Scarlet", generation=9, version_group="25",
-    dexes=SCARLET.dexes, friendship=160, doozdex=True,
+    dexes=SCARLET.dexes, friendship=160, doozdex=True, **SV_ITEMS,
 )
 
 GAMES = (SCARLET, EMERALD, SCRAMBLED)

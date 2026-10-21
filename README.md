@@ -7,8 +7,8 @@ they were in that game, and its own team and recents. Scrambled Scarlet's data c
 from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by badge.
 
 
-- **Search:** one search for Pokémon and moves, with a Pokémon | All | Moves toggle
-  above the field (the last mode is remembered), with the settings cog on its right.
+- **Search:** one search for Pokémon, moves and items, with a Pokémon | All | Other toggle
+  (Other is moves and items) above the field (the last mode is remembered), with the settings cog on its right.
   Pokémon show the game's regional dex number (Scarlet: Paldea, Kitakami or Blueberry;
   Emerald: Hoenn) next to the National one, and either finds them. With nothing typed, the list
   shows what you opened most recently first; once you type, results are ranked by
@@ -30,6 +30,12 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   button opening every learner, with a name filter (not focused on open) and a
   Level up | All | TM toggle (All to start; the choice is remembered per game until
   restart and hides the keyboard).
+- **Items** (in Search, under Other and All): everything in the game's bag that has a
+  description, TMs aside (move pages cover them). Each page shows the sprite, category,
+  the in-game text and what it does. In Scrambled Scarlet, battle items show when
+  Delibird Presents starts selling them ("Shop: 3 badges", right of the name and on
+  the row), and the hack's changes (buffed items, the unobtainable Leppa Berry) sit in
+  an "In Scrambled Scarlet" box.
 - **Type Chart:** a Focus tab (pick a type to see defence and attack side by side, like the Pokémon page;
   long-press or right-click a second type for dual-type defence and two-type STAB
   coverage; result pills work the same way), a Finder tab (pick one or two types to list every Pokémon
@@ -131,13 +137,23 @@ Without `key.properties` outside CI, release builds fall back to the debug key.
     weight), evolution chains, and ability descriptions
   - `types.json`: the game's type chart (18×18; 17×17 before Fairy)
   - `moves.json`: moves and learnsets (level-up moves plus TMs/HMs by number)
+  - `items.json`: the game's items (`tool/quickdex_data/items.py`). Which items a game
+    has comes from PKHeX's bag lists (`.cache/pkhex/`, downloaded once); PokéAPI's
+    item table lists every old item in each generation. Text is PokéAPI's, with
+    Showdown's `items.ts` (`.cache/showdown/`) for battle items PokéAPI doesn't
+    describe; items with no text at all (picnic ingredients, Tera Shards, materials,
+    most key items) are left out.
+- `assets/art/items/<id>.webp`: item sprites (lossless), shared by all games
 - `assets/art/full/<id>.webp` (256px) and `assets/art/thumb/<id>.webp` (128px)
 - Scrambled Scarlet (`tool/quickdex_data/scrambled.py`): Scarlet's data with the
   Doozdex sheet's changes. The sheet is hand-written, so the build fails on anything
   it can't match; fix those in `tool/overrides.json` under `scrambled`. Its pages are
   cached in `.cache/doozdex/` (delete to refresh). Renamed moves and abilities keep the
   vanilla id/key they replace. Stats are vanilla + the sheet's per-stat changes, unless
-  its stat bar picture and its total both say otherwise.
+  its stat bar picture and its total both say otherwise. Items are Scarlet's plus the
+  Item Locations tab's badge unlocks and the Held Item Buffs tab's changes
+  (`scrambled_items.py`); group lines ("All Arceus Plates"), commentary cells and
+  items under no single badge heading are spelled out in the overrides.
 - `assets/art/types/<type>.png`: Scarlet/Violet type icons (60px), plus a drawn grey
   one for ??? (Curse's type in Gen 2–4); shared by all games, like the artwork
 

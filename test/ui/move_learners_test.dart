@@ -37,7 +37,7 @@ void main() {
           index: SearchIndex((gameDex ?? dex).entries),
           moves: Future.value(moves),
           moveFrecency: FrecencyStore(),
-          initialMode: SearchMode.moves,
+          initialMode: SearchMode.other,
         ),
       ),
     );

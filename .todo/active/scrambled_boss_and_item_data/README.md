@@ -15,5 +15,9 @@ see `tool/quickdex_data/doozdex.py` for the gid of each tab):
 - Level Caps + Boss Locations/Paths
 - Egg/Encounter Guide, Item Locations (Shop Guide), Held Item Buffs/Changes
 
+Done since: boss teams (Theirs presets), and items (shop badge unlocks and held-item
+buffs, `scrambled_items.py`). Still unused: Level Caps + Boss Locations/Paths and the
+Egg/Encounter Guide.
+
 The owner plans team planner improvements next: saving and loading teams, including
 the enemy gym teams from the boss fight tabs.
