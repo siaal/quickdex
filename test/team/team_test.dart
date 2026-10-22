@@ -117,6 +117,65 @@ void main() {
       expect(t.deck.length, 4);
     });
 
+    test('picking a benched Pokemon brings it back instead of a duplicate', () {
+      final golem = named('Golem');
+      final t = Team();
+      t.add(TeamSlot(golem.id, moves: [1]));
+      t.add(TeamSlot(golem.id, moves: [2]));
+      t.add(TeamSlot(named('Pikachu').id));
+      t.toggle(0);
+      t.toggle(1); // benched last: the one to reuse
+      expect(t.benchedOf(golem.id), 1);
+      expect(t.benchedOf(named('Pikachu').id), isNull, reason: 'in squad');
+
+      // Swapping the squad's Pikachu for Golem brings back Golem #1.
+      expect(t.swap(2, TeamSlot(golem.id)), 1);
+      expect(t.deck.length, 3);
+      expect(t.slotOf(1), isNotNull);
+      expect(t.deck[1].moves, [2], reason: 'kept as it was');
+      expect(t.slotOf(2), isNull, reason: 'Pikachu benched');
+
+      // Filling an empty slot reuses benched Pikachu, in that exact slot.
+      expect(t.fill(5, TeamSlot(named('Pikachu').id)), 2);
+      expect(t.slotOf(2), 5);
+      expect(t.fill(4, TeamSlot(named('Gastly').id)), 3, reason: 'new');
+      expect(t.slotOf(3), 4);
+
+      // Adding from the sidedeck reuses too, into the first empty slot.
+      expect(t.addOrReuse(TeamSlot(golem.id)), 0);
+      expect(t.slotOf(0), isNotNull);
+      expect(t.deck.length, 4);
+      expect(t.addOrReuse(TeamSlot(golem.id)), 4, reason: 'none benched');
+    });
+
+    test('addOrReuse leaves the benched member out when the squad is full', () {
+      final t = Team();
+      for (var i = 0; i < 7; i++) {
+        t.add(TeamSlot(named(i == 6 ? 'Pikachu' : 'Golem').id));
+      }
+      expect(t.addOrReuse(TeamSlot(named('Pikachu').id)), 6);
+      expect(t.slotOf(6), isNull);
+      expect(t.deck.length, 7);
+    });
+
+    test('clear empties deck, squad and build name, keeping the sort', () {
+      final saved = <String>[];
+      final t = Team(onChanged: saved.add);
+      for (var i = 0; i < 7; i++) {
+        t.add(TeamSlot(named('Golem').id));
+      }
+      t.toggle(6, allowOverflow: true);
+      t.name = 'Rain';
+      t.sidedeckSort = SidedeckSort.name;
+      t.clear();
+      expect(t.deck, isEmpty);
+      expect(t.lineup.squad, List.filled(Team.size, null));
+      expect(t.name, isNull);
+      expect(t.sidedeckSort, SidedeckSort.name);
+      final back = Team.fromJson(saved.last, dex);
+      expect(back.deck, isEmpty);
+    });
+
     test('swap keeps an overflow position', () {
       final t = Team();
       for (var i = 0; i < 7; i++) {
@@ -415,16 +474,19 @@ void main() {
     test('chosen damaging moves plus STAB while any move slot is unknown', () {
       final golem = named('Golem');
       List<String> attack(List<String> keys, {Set<String> hidden = const {}}) =>
-          resolveMember(
-            0,
-            TeamSlot(
-              golem.id,
-              moves: [for (final k in keys) move(k)],
-              hidden: {for (final k in hidden) move(k)},
-            ),
-            dex,
-            moves,
-          ).attackTypes;
+          [
+            for (final a in resolveMember(
+              0,
+              TeamSlot(
+                golem.id,
+                moves: [for (final k in keys) move(k)],
+                hidden: {for (final k in hidden) move(k)},
+              ),
+              dex,
+              moves,
+            ).attacks)
+              a.single,
+          ];
       expect(attack([]), golem.types, reason: 'four unknown slots');
       expect(
         attack(['flamethrower', 'swords-dance']),
@@ -453,10 +515,64 @@ void main() {
         reason: "hidden moves aren't unknown",
       );
       expect(
-        resolveMember(0, TeamSlot(golem.id, moves: [1]), dex, null).attackTypes,
-        golem.types,
+        resolveMember(0, TeamSlot(golem.id, moves: [1]), dex, null).attacks,
+        [
+          for (final t in golem.types) [t],
+        ],
         reason: 'moves not loaded yet',
       );
+    });
+
+    test('Flying Press hits as Fighting and Flying at once', () {
+      final pikachu = resolveMember(
+        0,
+        TeamSlot(
+          named('Pikachu').id,
+          moves: [
+            for (final k in ['flying-press', 'protect', 'rest', 'calm-mind'])
+              move(k),
+          ],
+        ),
+        dex,
+        moves,
+      );
+      expect(pikachu.attacks, [
+        ['fighting', 'flying'],
+      ], reason: 'not Fighting or Flying STAB, still both');
+      final offense = {
+        for (final r in analyseTeam([pikachu], dex.types)) r.type: r.offense[0],
+      };
+      expect(offense['normal'], 2, reason: 'fighting 2 x flying 1');
+      expect(offense['grass'], 2, reason: 'fighting 1 x flying 2');
+      expect(offense['rock'], 1, reason: 'fighting 2 x flying 0.5');
+      expect(offense['ghost'], 0);
+      final abomasnow = resolveMember(
+        1,
+        TeamSlot(named('Abomasnow').id),
+        dex,
+        moves,
+      );
+      expect(hit(pikachu, abomasnow), 4, reason: 'grass/ice: 2 x 2');
+    });
+
+    test("Revelation Dance takes the user's first type", () {
+      final golem = named('Golem');
+      final m = resolveMember(
+        0,
+        TeamSlot(
+          golem.id,
+          moves: [
+            for (final k in ['revelation-dance', 'protect', 'rest', 'roar'])
+              move(k),
+          ],
+        ),
+        dex,
+        moves,
+      );
+      expect(m.attacks, [
+        [golem.types.first],
+      ]);
+      expect(moves.byId[move('revelation-dance')]!.type, 'normal');
     });
 
     test('only status moves: no hits, no Hit SE, edges from defence only', () {

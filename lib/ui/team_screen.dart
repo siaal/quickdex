@@ -112,7 +112,8 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   /// Pick a Pokémon for slot [i]; returns false if cancelled. A filled slot's
-  /// member is benched (kept in the sidedeck) for a new one, as [Team.swap].
+  /// member is benched (kept in the sidedeck) for the new one, as [Team.swap];
+  /// a benched member of the picked Pokemon is reused rather than duplicated.
   /// Picking the same Pokémon again changes nothing.
   Future<bool> _choose(int i) async {
     final e = await Navigator.of(context).push(
@@ -132,7 +133,7 @@ class _TeamScreenState extends State<TeamScreen> {
       case final d?:
         _team.swap(d, slot);
       case null:
-        _team[i] = slot;
+        _team.fill(i, slot);
     }
     return true;
   }
@@ -274,7 +275,9 @@ class _TeamScreenState extends State<TeamScreen> {
               trace('team.deck.add.cancelled');
               return;
             }
-            final member = team.add(TeamSlot(e.id, ability: e.abilities.first));
+            final member = team.addOrReuse(
+              TeamSlot(e.id, ability: e.abilities.first),
+            );
             await nav.push(_editRoute(member));
           },
         ),

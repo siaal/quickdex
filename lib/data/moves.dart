@@ -57,6 +57,20 @@ class Move implements Searchable {
 
   /// `unknown` is the ??? type (Curse before Gen 5).
   final String type;
+
+  /// The types a hit from a Pokemon of [userTypes] has; with two, their
+  /// multipliers multiply. Flying Press is Fighting and Flying at once (even
+  /// on a Pokemon with neither), and Revelation Dance takes the user's first
+  /// type. Every other move is just [type].
+  List<String> hitTypes(List<String> userTypes) {
+    assert(userTypes.isNotEmpty, 'a Pokemon has a type');
+    return switch (key) {
+      'flying-press' => const ['fighting', 'flying'],
+      'revelation-dance' => [userTypes.first],
+      _ => [type],
+    };
+  }
+
   final MoveCategory category;
 
   /// Null when the move has no fixed power / never misses.

@@ -299,6 +299,30 @@ void main() {
     expect(team.deck.length, 3);
   });
 
+  testWidgets('picking a benched Pokemon for a slot brings it back', (
+    tester,
+  ) async {
+    final golem = named('Golem');
+    final start = golemBronzong();
+    start[0] = start[0]!.copyWith(moves: [move('earthquake')]);
+    start[0] = null; // Golem benched, moves kept
+    final team = await pump(tester, start);
+    await tester.tap(find.byKey(const Key('team-slot-3')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('team-pick-search')), 'golem');
+    await tester.pumpAndSettle();
+    await tester.tap(pickRow(golem.id));
+    await tester.pumpAndSettle();
+    expect(team.deck.length, 2, reason: 'no duplicate Golem');
+    expect(team[3]!.pokemon, golem.id);
+    expect(team[3]!.moves, [move('earthquake')]);
+    expect(
+      find.byKey(const Key('team-remove')),
+      findsOne,
+      reason: 'opens its editor, as for a new one',
+    );
+  });
+
   List<String> rowOrder(WidgetTester tester) {
     final rows = find.byWidgetPredicate(
       (w) =>

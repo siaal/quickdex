@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/ability_guard.dart';
 import '../data/models.dart';
 import '../data/moves.dart';
@@ -6,7 +8,7 @@ import 'team.dart';
 
 /// A filled team slot resolved against the data.
 class TeamMember {
-  const TeamMember(this.slot, this.entry, this.defense, this.attackTypes);
+  const TeamMember(this.slot, this.entry, this.defense, this.attacks);
   final int slot;
   final PokemonEntry entry;
 
@@ -14,10 +16,13 @@ class TeamMember {
   /// no ability chosen, only a guaranteed immunity (all abilities) counts.
   final Map<String, double> defense;
 
-  /// Types of the chosen damaging moves that aren't hidden, plus the entry's
-  /// own types while any of its four move slots is unknown (not yet chosen, or
-  /// moves not loaded). Empty when it has four moves and none deal damage.
-  final List<String> attackTypes;
+  /// What it can hit with: one list of types per distinct attack (its
+  /// multipliers multiply, e.g. Flying Press is `[fighting, flying]`; see
+  /// [Move.hitTypes]). From the chosen damaging moves that aren't hidden, plus
+  /// one per own type while any of its four move slots is unknown (not yet
+  /// chosen, or moves not loaded). Empty when it has four moves and none deal
+  /// damage.
+  final List<List<String>> attacks;
 }
 
 TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
@@ -32,7 +37,11 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
   for (final t in immune) {
     defense[t] = 0;
   }
-  final attack = <String>[];
+  final attack = <List<String>>[];
+  void addAttack(List<String> types) {
+    if (!attack.any((a) => listEquals(a, types))) attack.add(types);
+  }
+
   // Move slots not yet chosen are unknown, not empty: they could be STAB.
   final unknown = moves == null
       ? TeamSlot.maxMoves
@@ -47,15 +56,14 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
         trace('team.member.unknown_move', {'slot': i, 'move': id});
       } else if (s.hidden.contains(id)) {
         trace('team.member.hidden_move', {'slot': i, 'move': id});
-      } else if (m.category != MoveCategory.status &&
-          !attack.contains(m.type)) {
-        attack.add(m.type);
+      } else if (m.category != MoveCategory.status) {
+        addAttack(m.hitTypes(e.types));
       }
     }
   }
   if (unknown > 0) {
     for (final t in e.types) {
-      if (!attack.contains(t)) attack.add(t);
+      addAttack([t]);
     }
   }
   trace(attack.isEmpty ? 'team.member.no_damage' : 'team.member.attack', {
@@ -67,13 +75,18 @@ TeamMember resolveMember(int i, TeamSlot s, Pokedex dex, MoveDex? moves) {
   return TeamMember(i, e, defense, attack);
 }
 
-/// How hard [attacker] hits [defender]: the best multiplier any of its attack
-/// types deals, counting the defender's ability immunity (as [analyseTeam]
+/// How hard [attacker] hits [defender]: the best multiplier any of its
+/// attacks deals, counting the defender's ability immunity (as [analyseTeam]
 /// does). Null when it has only status moves.
-double? hit(TeamMember attacker, TeamMember defender) {
-  if (attacker.attackTypes.isEmpty) return null;
-  return attacker.attackTypes
-      .map((t) => defender.defense[t]!)
+double? hit(TeamMember attacker, TeamMember defender) =>
+    _best(attacker.attacks, (t) => defender.defense[t]!);
+
+/// The best of [attacks], each the product of its types' multipliers [of];
+/// null when there are none.
+double? _best(List<List<String>> attacks, double Function(String type) of) {
+  if (attacks.isEmpty) return null;
+  return attacks
+      .map((a) => a.map(of).reduce((x, y) => x * y))
       .reduce((x, y) => x > y ? x : y);
 }
 
@@ -130,11 +143,7 @@ List<TypeMatchup> analyseTeam(List<TeamMember> members, TypeChart chart) {
         [for (final m in members) m.defense[t]!],
         [
           for (final m in members)
-            m.attackTypes.isEmpty
-                ? null
-                : m.attackTypes
-                      .map((a) => chart.multiplier(a, t))
-                      .reduce((x, y) => x > y ? x : y),
+            _best(m.attacks, (a) => chart.multiplier(a, t)),
         ],
       ),
   ];

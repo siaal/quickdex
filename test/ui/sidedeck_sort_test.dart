@@ -227,4 +227,39 @@ void main() {
     expect(t.slotOf(1), isNotNull);
     expect(t.deck[1].pokemon, slot('Pikachu').pokemon);
   });
+
+  testWidgets('the trash icon clears the whole sidedeck after confirming', (
+    tester,
+  ) async {
+    final t = team()..name = 'Rain';
+    await host(tester, t);
+    final clear = find.byKey(const Key('deck-clear'));
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: clear),
+      findsOneWidget,
+    );
+    await tester.tap(clear);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('This deletes all 4 Pok\u00e9mon. Saved builds are kept.'),
+      findsOne,
+    );
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(t.deck, hasLength(4), reason: 'cancel keeps everything');
+
+    await tester.tap(clear);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('deck-clear-confirm')));
+    await tester.pumpAndSettle();
+    expect(t.deck, isEmpty);
+    expect(t.isEmpty, isTrue);
+    expect(t.name, isNull);
+    expect(order(tester), isEmpty);
+    expect(
+      tester.widget<IconButton>(clear).onPressed,
+      isNull,
+      reason: 'nothing left to clear',
+    );
+  });
 }

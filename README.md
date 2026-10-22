@@ -53,7 +53,10 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   party members first. Recency puts the most recently benched members first.
   Order is calculated only on entry or a sort selection: toggling or editing never
   moves a row, and new members append until the next sort. Sort choice and bench
-  recency survive restarts, separately for each team and game.
+  recency survive restarts, separately for each team and game. The header's trash
+  icon clears the whole sidedeck (after confirming), back to a blank team. Picking a
+  Pokemon that's benched in the Sidedeck (for a slot, a change, or +) brings that
+  member back, ability and moves included, instead of adding a duplicate.
   You can select more than six while rearranging, but must bench the extras before
   leaving the sidedeck. If an overfull squad is restored or otherwise reaches the
   planner, an error message shows the count and explains that only the first six
@@ -83,7 +86,9 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   ability's immunity counts, e.g. Levitate), and how many hit it super-effectively
   with their damaging moves. Move slots start as "? Unknown", and while any slot is
   unknown the Pokémon also counts its own types (it could still learn STAB); four
-  known moves that are all status moves hit nothing. A row is red
+  known moves that are all status moves hit nothing. Flying Press counts as Fighting
+  and Flying at once (multipliers multiply, whoever uses it), and Revelation Dance as
+  the user's first type. A row is red
   when more members lose that matchup than win it, green when more win (each member
   compares what it deals with what it takes, so resisting counts as winning and taking
   2× while dealing 2× is even). Tap a type for

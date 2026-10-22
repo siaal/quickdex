@@ -86,8 +86,10 @@
   shown as error text in the planner. Shell back must use `maybePop` to honour
   route guards; editors bench by deck index (`team.toggle(member)`), not slot index.
   Changing a member's Pokemon never overwrites it: `Team.swap` benches the old member
-  and adds the new one in its squad place; the slot editor then follows the new index.
-  Sidedeck's header has Sort and + actions. `Team.sidedeckSort` persists Recency
+  and brings the new one into its squad place; the slot editor then follows the new
+  index. Picking a Pokemon reuses its most recently benched member if any
+  (`benchedOf`, via `swap` / `fill` / `addOrReuse`) instead of duplicating it.
+  Sidedeck's header has Clear (`Team.clear`: empty deck/squad, no name), Sort and +. `Team.sidedeckSort` persists Recency
   (default) or Name; both put party members first. Sorting is a frozen view updated
   only on entry or menu selection, never after toggling/editing. Stable transient
   `memberId`s keep rows in place across edits and deck-index compaction; new members
@@ -96,7 +98,9 @@
   Saved in shared_preferences under
   `team.v1` (`team.v1.<game>` for games other than Scarlet); unknown ids are dropped on load. `resolveMember` applies the chosen
   ability's immunity (`abilityImmunities`, shared with `guaranteedGuard`; no ability →
-  guaranteed guard only) and takes attack types from non-hidden damaging moves, plus
+  guaranteed guard only) and takes `attacks` (type lists whose multipliers multiply,
+  from `Move.hitTypes`: Flying Press is Fighting+Flying, Revelation Dance the user's
+  first type) from non-hidden damaging moves, plus
   STAB while any of the four move slots is unchosen ("? Unknown", not empty; hidden
   moves aren't unknown). Four known moves with no damage mean no attack types: `hit`/`offense` are null (Deals shows "—", no Versus half-line). `analyseTeam` gives one `TypeMatchup` row per type;
   its `edges` (doublings dealt minus taken, 0× = 3 halvings) drive the row tint.

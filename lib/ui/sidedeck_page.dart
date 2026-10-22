@@ -11,7 +11,8 @@ import 'type_badge.dart';
 /// Every Pokémon in a team's sidedeck: tap one (`deck-row-<deck index>`) to put
 /// it in or take it out of the squad, long-press to edit it, swipe it away to
 /// delete it (after `deck-delete-confirm`). Header actions sort (`deck-sort`)
-/// or add (`deck-add`). Row order is frozen until entry or a sort selection.
+/// add (`deck-add`), or clear the whole deck (`deck-clear`, then
+/// `deck-clear-confirm`). Row order is frozen until entry or a sort selection.
 /// The squad count shows top right (`deck-count`). Extra selections are allowed,
 /// but back navigation stays blocked until at most six remain.
 class SidedeckPage extends StatefulWidget {
@@ -141,6 +142,12 @@ class _SidedeckPageState extends State<SidedeckPage> {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
+            IconButton(
+              key: const Key('deck-clear'),
+              tooltip: 'Clear sidedeck',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: team.deck.isEmpty ? null : () => _clear(context),
+            ),
             PopupMenuButton<SidedeckSort>(
               key: const Key('deck-sort'),
               tooltip: 'Sort sidedeck',
@@ -191,6 +198,36 @@ class _SidedeckPageState extends State<SidedeckPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _clear(BuildContext context) async {
+    final n = team.deck.length;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Clear the sidedeck?'),
+        content: Text(
+          'This deletes all $n Pok\u00e9mon. Saved builds are kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(c).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            key: const Key('deck-clear-confirm'),
+            onPressed: () => Navigator.of(c).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) {
+      trace('deck.clear.cancelled', {'count': n});
+      return;
+    }
+    trace('deck.clear', {'count': n});
+    team.clear();
   }
 
   Widget _row(BuildContext context, int d, TeamSlot s, MoveDex? dexMoves) {

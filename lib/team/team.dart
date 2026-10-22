@@ -347,25 +347,79 @@ class Team extends ChangeNotifier {
     _changed();
   }
 
-  /// Swaps deck member [d] for a new member [slot], as if [d] were benched and
-  /// [slot] added: [d] stays in the deck, and [slot] takes its squad place (or
-  /// stays out, like [d]). Returns the new member's deck index.
-  int swap(int d, TeamSlot slot) {
-    assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
+  /// The most recently benched deck member that is Pokemon [pokemon], if any.
+  int? benchedOf(int pokemon) {
+    int? best;
+    for (final (d, s) in _deck.indexed) {
+      if (s.pokemon != pokemon || _squad.contains(d)) continue;
+      if (best == null || s.lastBenched > _deck[best].lastBenched) best = d;
+    }
+    trace('team.member.benched_of', {'pokemon': pokemon, 'deck_index': best});
+    return best;
+  }
+
+  /// The benched member that is [slot]'s Pokemon if there is one, else [slot]
+  /// added to the deck (out of the squad). Callers notify via [_changed].
+  int _reuseOrAppend(TeamSlot slot) {
+    if (benchedOf(slot.pokemon) case final d?) {
+      trace('team.member.reuse', {'deck_index': d, 'pokemon': slot.pokemon});
+      return d;
+    }
     _deck.add(slot);
     _memberIds.add(_nextMemberId++);
-    final added = _deck.length - 1;
+    trace('team.member.append', {'deck_index': _deck.length - 1});
+    return _deck.length - 1;
+  }
+
+  /// Swaps deck member [d] for [slot]'s Pokemon, as if [d] were benched and
+  /// that Pokemon added: [d] stays in the deck, and a benched member of that
+  /// Pokemon (kept as it was) or else [slot] as a new member takes [d]'s squad
+  /// place (or stays out, like [d]). Returns the incoming member's deck index.
+  int swap(int d, TeamSlot slot) {
+    assert(d >= 0 && d < _deck.length, 'deck index $d out of range');
     final i = _squad.indexOf(d);
+    final incoming = _reuseOrAppend(slot);
     if (i >= 0) {
-      trace('team.member.swap.squad', {'from': d, 'to': added, 'slot': i});
+      trace('team.member.swap.squad', {'from': d, 'to': incoming, 'slot': i});
       _bench(d);
-      _squad[i] = added;
+      _squad[i] = incoming;
     } else {
-      trace('team.member.swap.bench', {'from': d, 'to': added});
+      trace('team.member.swap.bench', {'from': d, 'to': incoming});
     }
     _changed();
     assert(slotOf(d) == null, 'swapped-out member left in the squad');
-    return added;
+    return incoming;
+  }
+
+  /// Fills empty squad slot [i] with a benched member that is [slot]'s
+  /// Pokemon, or else [slot] as a new member. Returns its deck index.
+  int fill(int i, TeamSlot slot) {
+    assert(_squad[i] == null, 'slot $i is filled');
+    final d = _reuseOrAppend(slot);
+    trace('team.slot.fill', {'slot': i, 'deck_index': d});
+    _squad[i] = d;
+    _changed();
+    return d;
+  }
+
+  /// Like [add], but brings in a benched member that is [slot]'s Pokemon
+  /// (into the first empty squad slot, if any) instead of adding a duplicate.
+  int addOrReuse(TeamSlot slot) {
+    final d = benchedOf(slot.pokemon);
+    if (d == null) return add(slot);
+    if (_squad.contains(null)) {
+      toggle(d);
+    } else {
+      trace('team.member.reuse.squad_full', {'deck_index': d});
+    }
+    return d;
+  }
+
+  /// Deletes every member: an empty deck and squad, and no build name.
+  void clear() {
+    trace('team.clear', {'deck': _deck.length});
+    load(Lineup.empty, name: null);
+    assert(_deck.isEmpty && isEmpty);
   }
 
   /// Adds [slot] to the deck, into the first empty squad slot if any; returns
