@@ -30,6 +30,7 @@ void main() {
   int move(String key) => moves.moves.firstWhere((m) => m.key == key).id;
 
   final openedTypes = <String>[];
+  final openedPokemon = <int>[];
 
   Future<Team> pump(
     WidgetTester tester, [
@@ -37,6 +38,7 @@ void main() {
     TeamPlanner? planner,
   ]) async {
     openedTypes.clear();
+    openedPokemon.clear();
     tester.view.physicalSize = const Size(480, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -51,6 +53,7 @@ void main() {
           moves: Future.value(moves),
           moveFrecency: FrecencyStore(),
           onOpenType: openedTypes.add,
+          onOpenPokemon: (e) => openedPokemon.add(e.id),
         ),
       ),
     );
@@ -215,12 +218,23 @@ void main() {
     );
   }
 
-  testWidgets('long-press or right-click a slot goes straight to the chooser', (
+  testWidgets('hold a filled slot for its page, an empty one for the chooser', (
     tester,
   ) async {
     final team = await pump(tester, golemBronzong());
-    final pikachu = named('Pikachu');
     await tester.longPress(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('team-slot-1')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    expect(openedPokemon, [named('Golem').id, named('Bronzong').id]);
+    expect(find.byKey(const Key('team-pick-search')), findsNothing);
+    expect(team.deck.length, 2);
+
+    final pikachu = named('Pikachu');
+    await tester.longPress(find.byKey(const Key('team-slot-2')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('team-pick-search')),
@@ -229,13 +243,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(pickRow(pikachu.id));
     await tester.pumpAndSettle();
-    expect(team[0]!.pokemon, pikachu.id);
-    expect(
-      team.deck.map((s) => s.pokemon),
-      contains(named('Golem').id),
-      reason: 'Golem was benched, not deleted',
-    );
-    expect(team.deck.length, 3);
+    expect(team[2]!.pokemon, pikachu.id);
     expect(
       find.byKey(const Key('team-remove')),
       findsNothing,

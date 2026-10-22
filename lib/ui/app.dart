@@ -142,7 +142,19 @@ class _HomeShellState extends State<HomeShell> {
   /// From the Type Chart's Finder: open the page within the Type Chart tab.
   void _openFromFinder(PokemonEntry e) {
     trace('shell.finder_open', {'id': e.id});
-    _navigators[1].currentState?.push(
+    _pushPokemon(1, e);
+  }
+
+  /// From a Team Planner slot: open the page within the Team tab, so back
+  /// returns to the planner.
+  void _openFromTeam(PokemonEntry e) {
+    trace('shell.team_open', {'id': e.id});
+    _pushPokemon(2, e);
+  }
+
+  void _pushPokemon(int tab, PokemonEntry e) {
+    assert(tab == _tab, 'pushing onto a hidden tab');
+    _navigators[tab].currentState?.push(
       MaterialPageRoute<void>(
         builder: (_) => PokemonPage(
           dex: widget.dex,
@@ -285,6 +297,7 @@ class _HomeShellState extends State<HomeShell> {
                 moves: widget.moves,
                 moveFrecency: widget.moveFrecency,
                 onOpenType: _openType,
+                onOpenPokemon: _openFromTeam,
                 onDeckChanged: (team) => _openDeck = team,
               ),
             ),

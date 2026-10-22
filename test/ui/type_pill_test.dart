@@ -113,6 +113,34 @@ void main() {
       expect(calls.where((c) => c.method == 'SystemNavigator.pop'), isEmpty);
     });
 
+    testWidgets('holding a team slot opens its page; back returns', (
+      tester,
+    ) async {
+      final team = Team(
+        slots: [TeamSlot(named('Golem').id), null, null, null, null, null],
+      );
+      await pumpApp(tester, team: team);
+      await tester.tap(find.text('Team Planner'));
+      await tester.pumpAndSettle();
+      await tester.longPress(find.byKey(const Key('team-slot-0')));
+      await tester.pumpAndSettle();
+      final golem = named('Golem').id;
+      expect(find.byKey(Key('portrait-$golem')), findsOneWidget);
+      expect(tab(tester), 2, reason: 'within the Team tab');
+      expect(team.deck.length, 1, reason: 'the team is untouched');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key('portrait-$golem')), findsNothing);
+      expect(find.byKey(const Key('team-slot-0')), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const Key('team-slot-0')),
+        buttons: kSecondaryButton,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(Key('portrait-$golem')), findsOneWidget);
+    });
+
     testWidgets('returns to the Team Planner, mouse back too', (tester) async {
       final team = Team(
         slots: [TeamSlot(named('Golem').id), null, null, null, null, null],

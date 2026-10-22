@@ -34,6 +34,7 @@ class TeamScreen extends StatefulWidget {
     required this.moves,
     required this.moveFrecency,
     this.onOpenType,
+    this.onOpenPokemon,
     this.onDeckChanged,
   });
   final Pokedex dex;
@@ -46,6 +47,10 @@ class TeamScreen extends StatefulWidget {
   /// Long-press/right-click on a type pill: open it in the Type Chart (as a
   /// defender). Pills do nothing when null.
   final ValueChanged<String>? onOpenType;
+
+  /// Long-press/right-click on a filled slot: open that Pokemon's page (on
+  /// top of the planner, so back returns here). Does nothing when null.
+  final ValueChanged<PokemonEntry>? onOpenPokemon;
 
   /// Lets the shell guard tab navigation for an overfull open sidedeck.
   final ValueChanged<Team?>? onDeckChanged;
@@ -380,9 +385,17 @@ class _TeamScreenState extends State<TeamScreen> {
                   null => null,
                 },
                 onTap: () => _tapSlot(i),
-                onChoose: () {
-                  trace('team.slot.choose', {'slot': i});
-                  _choose(i);
+                onHold: () {
+                  if (_team[i] case final s?) {
+                    trace('team.slot.open_page', {
+                      'slot': i,
+                      'pokemon': s.pokemon,
+                    });
+                    widget.onOpenPokemon?.call(widget.dex[s.pokemon]);
+                  } else {
+                    trace('team.slot.choose', {'slot': i});
+                    _choose(i);
+                  }
                 },
                 onOpenType: _openType,
               ),
@@ -618,14 +631,15 @@ class _SlotCard extends StatelessWidget {
     super.key,
     required this.entry,
     required this.onTap,
-    required this.onChoose,
+    required this.onHold,
     required this.onOpenType,
   });
   final PokemonEntry? entry;
   final VoidCallback onTap;
 
-  /// Long-press/right-click: straight to the Pokémon chooser.
-  final VoidCallback onChoose;
+  /// Long-press/right-click: the Pokemon's page if filled (see
+  /// [TeamScreen.onOpenPokemon]), else straight to the chooser.
+  final VoidCallback onHold;
   final VoidCallback? Function(String type, String from) onOpenType;
 
   @override
@@ -636,8 +650,8 @@ class _SlotCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        onLongPress: onChoose,
-        onSecondaryTap: onChoose,
+        onLongPress: onHold,
+        onSecondaryTap: onHold,
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: e == null
