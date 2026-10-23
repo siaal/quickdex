@@ -218,23 +218,12 @@ void main() {
     );
   }
 
-  testWidgets('hold a filled slot for its page, an empty one for the chooser', (
+  testWidgets('long-press or right-click a slot goes straight to the chooser', (
     tester,
   ) async {
     final team = await pump(tester, golemBronzong());
-    await tester.longPress(find.byKey(const Key('team-slot-0')));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('team-slot-1')),
-      buttons: kSecondaryButton,
-    );
-    await tester.pumpAndSettle();
-    expect(openedPokemon, [named('Golem').id, named('Bronzong').id]);
-    expect(find.byKey(const Key('team-pick-search')), findsNothing);
-    expect(team.deck.length, 2);
-
     final pikachu = named('Pikachu');
-    await tester.longPress(find.byKey(const Key('team-slot-2')));
+    await tester.longPress(find.byKey(const Key('team-slot-0')));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('team-pick-search')),
@@ -243,7 +232,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(pickRow(pikachu.id));
     await tester.pumpAndSettle();
-    expect(team[2]!.pokemon, pikachu.id);
+    expect(team[0]!.pokemon, pikachu.id);
+    expect(
+      team.deck.map((s) => s.pokemon),
+      contains(named('Golem').id),
+      reason: 'Golem was benched, not deleted',
+    );
+    expect(openedPokemon, isEmpty, reason: 'no page from the planner');
     expect(
       find.byKey(const Key('team-remove')),
       findsNothing,
@@ -305,6 +300,24 @@ void main() {
     await tester.tap(pickRow(named('Bronzong').id));
     await tester.pumpAndSettle();
     expect(team.deck.length, 3);
+  });
+
+  testWidgets('in the slot editor, hold the Pokemon to open its page', (
+    tester,
+  ) async {
+    final team = await pump(tester, golemBronzong());
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(const Key('team-pokemon')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('team-pokemon')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    expect(openedPokemon, [named('Golem').id, named('Golem').id]);
+    expect(find.byKey(const Key('team-pick-search')), findsNothing);
+    expect(team.deck.length, 2, reason: 'the team is untouched');
   });
 
   testWidgets('picking a benched Pokemon for a slot brings it back', (

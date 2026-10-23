@@ -76,6 +76,11 @@
   Opening a type obeys the overfull-Sidedeck guard like tab switches do. The shell
   remembers the tab it came from (`_typeReturn`): back at the Type Chart's root goes
   there once; choosing a tab by hand forgets it.
+- Back: Android's default predictive-back page transition is replaced (`app.dart`
+  `_transitions`) because the current page of every tab navigator, hidden tabs
+  included, claims a back swipe; keep it off so all back goes through the shell's
+  `PopScope`. Test swipes with `startBackGesture`/`commitBackGesture` on
+  `SystemChannels.backGesture` (`handlePopRoute` takes a different path).
 - Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds a sidedeck
   `Lineup`: any number of `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move
   ids ignored by the analysis) plus a six-slot squad of deck indices. `team[i]` is the

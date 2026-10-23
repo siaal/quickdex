@@ -48,8 +48,8 @@ class TeamScreen extends StatefulWidget {
   /// defender). Pills do nothing when null.
   final ValueChanged<String>? onOpenType;
 
-  /// Long-press/right-click on a filled slot: open that Pokemon's page (on
-  /// top of the planner, so back returns here). Does nothing when null.
+  /// Long-press/right-click on the slot editor's Pokemon: open its page (on
+  /// top of the editor, so back returns there). Does nothing when null.
   final ValueChanged<PokemonEntry>? onOpenPokemon;
 
   /// Lets the shell guard tab navigation for an overfull open sidedeck.
@@ -167,6 +167,7 @@ class _TeamScreenState extends State<TeamScreen> {
       frecency: widget.frecency,
       moves: widget.moves,
       moveFrecency: widget.moveFrecency,
+      onOpenPokemon: widget.onOpenPokemon,
     ),
   );
 
@@ -385,17 +386,9 @@ class _TeamScreenState extends State<TeamScreen> {
                   null => null,
                 },
                 onTap: () => _tapSlot(i),
-                onHold: () {
-                  if (_team[i] case final s?) {
-                    trace('team.slot.open_page', {
-                      'slot': i,
-                      'pokemon': s.pokemon,
-                    });
-                    widget.onOpenPokemon?.call(widget.dex[s.pokemon]);
-                  } else {
-                    trace('team.slot.choose', {'slot': i});
-                    _choose(i);
-                  }
+                onChoose: () {
+                  trace('team.slot.choose', {'slot': i});
+                  _choose(i);
                 },
                 onOpenType: _openType,
               ),
@@ -631,15 +624,14 @@ class _SlotCard extends StatelessWidget {
     super.key,
     required this.entry,
     required this.onTap,
-    required this.onHold,
+    required this.onChoose,
     required this.onOpenType,
   });
   final PokemonEntry? entry;
   final VoidCallback onTap;
 
-  /// Long-press/right-click: the Pokemon's page if filled (see
-  /// [TeamScreen.onOpenPokemon]), else straight to the chooser.
-  final VoidCallback onHold;
+  /// Long-press/right-click: straight to the Pokemon chooser.
+  final VoidCallback onChoose;
   final VoidCallback? Function(String type, String from) onOpenType;
 
   @override
@@ -650,8 +642,8 @@ class _SlotCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        onLongPress: onHold,
-        onSecondaryTap: onHold,
+        onLongPress: onChoose,
+        onSecondaryTap: onChoose,
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: e == null
@@ -701,6 +693,7 @@ class TeamSlotPage extends StatefulWidget {
     required this.frecency,
     required this.moves,
     required this.moveFrecency,
+    this.onOpenPokemon,
   });
   final Pokedex dex;
   final Team team;
@@ -709,6 +702,9 @@ class TeamSlotPage extends StatefulWidget {
   final FrecencyScores frecency;
   final Future<MoveDex> moves;
   final FrecencyScores moveFrecency;
+
+  /// Long-press/right-click on the Pokemon (`team-pokemon`): its page.
+  final ValueChanged<PokemonEntry>? onOpenPokemon;
 
   @override
   State<TeamSlotPage> createState() => _TeamSlotPageState();
@@ -727,6 +723,7 @@ class _TeamSlotPageState extends State<TeamSlotPage> {
     moves: widget.moves,
     moveFrecency: widget.moveFrecency,
     onSwapped: (d) => setState(() => _member = d),
+    onOpenPokemon: widget.onOpenPokemon,
   );
 }
 
@@ -740,6 +737,7 @@ class _SlotEditor extends StatelessWidget {
     required this.moves,
     required this.moveFrecency,
     required this.onSwapped,
+    required this.onOpenPokemon,
   });
   final Pokedex dex;
   final Team team;
@@ -749,6 +747,7 @@ class _SlotEditor extends StatelessWidget {
   final Future<MoveDex> moves;
   final FrecencyScores moveFrecency;
   final ValueChanged<int> onSwapped;
+  final ValueChanged<PokemonEntry>? onOpenPokemon;
 
   Future<void> _changePokemon(BuildContext context) async {
     final e = await Navigator.of(context).push(
@@ -842,6 +841,13 @@ class _SlotEditor extends StatelessWidget {
               e,
               key: const Key('team-pokemon'),
               onTap: () => _changePokemon(context),
+              onHold: () {
+                trace('team.slot.open_page', {
+                  'member': member,
+                  'pokemon': e.id,
+                });
+                onOpenPokemon?.call(e);
+              },
             ),
             _heading(context, 'Ability'),
             _abilities(context, s, e),

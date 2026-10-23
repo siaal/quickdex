@@ -91,6 +91,45 @@ void main() {
   }
 
   group('back after a pill', () {
+    // Android (predictive back) only sends a back gesture to Flutter while the
+    // framework says it handles back; otherwise the system closes the app.
+    testWidgets('tells Android it handles back on the Type Chart', (
+      tester,
+    ) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final calls = recordPlatform(tester);
+      await pumpApp(tester);
+      bool? handles() =>
+          calls
+                  .lastWhere(
+                    (c) =>
+                        c.method == 'SystemNavigator.setFrameworkHandlesBack',
+                  )
+                  .arguments
+              as bool?;
+      await tester.enterText(find.byKey(const Key('search-field')), 'pikachu');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('row-25')));
+      await tester.pumpAndSettle();
+      expect(handles(), isTrue, reason: 'a page is open');
+      await tester.tap(
+        find
+            .byWidgetPredicate((w) => w is TypeBadge && w.type == 'electric')
+            .hitTestable()
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expectFocused(tester, 'Electric');
+      expect(handles(), isTrue, reason: 'back returns to the Pokemon page');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(tab(tester), 0);
+      expect(handles(), isTrue, reason: 'still on the Pokemon page');
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(handles(), isFalse, reason: 'at the root, back leaves the app');
+    });
+
     testWidgets('returns to the Pokémon page it came from', (tester) async {
       await pumpApp(tester);
       await tester.enterText(find.byKey(const Key('search-field')), 'pikachu');
@@ -113,33 +152,76 @@ void main() {
       expect(calls.where((c) => c.method == 'SystemNavigator.pop'), isEmpty);
     });
 
-    testWidgets('holding a team slot opens its page; back returns', (
-      tester,
-    ) async {
-      final team = Team(
-        slots: [TeamSlot(named('Golem').id), null, null, null, null, null],
-      );
-      await pumpApp(tester, team: team);
-      await tester.tap(find.text('Team Planner'));
-      await tester.pumpAndSettle();
-      await tester.longPress(find.byKey(const Key('team-slot-0')));
-      await tester.pumpAndSettle();
-      final golem = named('Golem').id;
-      expect(find.byKey(Key('portrait-$golem')), findsOneWidget);
-      expect(tab(tester), 2, reason: 'within the Team tab');
-      expect(team.deck.length, 1, reason: 'the team is untouched');
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.byKey(Key('portrait-$golem')), findsNothing);
-      expect(find.byKey(const Key('team-slot-0')), findsOneWidget);
+    testWidgets(
+      'holding the slot editor Pokemon opens its page; back returns',
+      (tester) async {
+        final team = Team(
+          slots: [TeamSlot(named('Golem').id), null, null, null, null, null],
+        );
+        await pumpApp(tester, team: team);
+        await tester.tap(find.text('Team Planner'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('team-slot-0')));
+        await tester.pumpAndSettle();
+        await tester.longPress(find.byKey(const Key('team-pokemon')));
+        await tester.pumpAndSettle();
+        final golem = named('Golem').id;
+        expect(find.byKey(Key('portrait-$golem')), findsOneWidget);
+        expect(tab(tester), 2, reason: 'within the Team tab');
+        expect(team.deck.length, 1, reason: 'the team is untouched');
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byKey(Key('portrait-$golem')), findsNothing);
+        expect(
+          find.byKey(const Key('team-pokemon')),
+          findsOneWidget,
+          reason: 'back on the slot editor',
+        );
+      },
+    );
 
-      await tester.tap(
-        find.byKey(const Key('team-slot-0')),
-        buttons: kSecondaryButton,
-      );
-      await tester.pumpAndSettle();
-      expect(find.byKey(Key('portrait-$golem')), findsOneWidget);
-    });
+    testWidgets(
+      'an Android back swipe returns to the Pokemon page too',
+      (tester) async {
+        await pumpApp(tester);
+        await tester.enterText(
+          find.byKey(const Key('search-field')),
+          'pikachu',
+        );
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('row-25')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find
+              .byWidgetPredicate((w) => w is TypeBadge && w.type == 'electric')
+              .hitTestable()
+              .first,
+        );
+        await tester.pumpAndSettle();
+        expectFocused(tester, 'Electric');
+
+        Future<void> gesture(String method, [Object? args]) =>
+            tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+              SystemChannels.backGesture.name,
+              SystemChannels.backGesture.codec.encodeMethodCall(
+                MethodCall(method, args),
+              ),
+              (_) {},
+            );
+        final event = <String, Object?>{
+          'touchOffset': <double>[5, 300],
+          'progress': 0.0,
+          'swipeEdge': 0,
+        };
+        await gesture('startBackGesture', event);
+        await gesture('updateBackGestureProgress', {...event, 'progress': 0.6});
+        await gesture('commitBackGesture');
+        await tester.pumpAndSettle();
+        expect(tab(tester), 0);
+        expect(find.byKey(const Key('portrait-25')), findsOneWidget);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.android),
+    );
 
     testWidgets('returns to the Team Planner, mouse back too', (tester) async {
       final team = Team(

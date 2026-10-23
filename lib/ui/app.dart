@@ -52,13 +52,33 @@ class QuickDexApp extends StatelessWidget {
   final List<GameInfo> games;
   final ValueChanged<GameInfo>? onGameChanged;
 
+  /// Not Android's default predictive-back transition: with it, the current
+  /// page of every tab's navigator, hidden tabs included, claims a back swipe,
+  /// so a swipe on one tab silently popped another's page. Without it every
+  /// back reaches the shell's [PopScope], which knows which tab is showing.
+  static const _transitions = PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: ZoomPageTransitionsBuilder(),
+      // The rest as Flutter's defaults.
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+      TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+    },
+  );
+
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'QuickDex',
-    theme: ThemeData(colorSchemeSeed: Colors.red, brightness: Brightness.light),
+    theme: ThemeData(
+      colorSchemeSeed: Colors.red,
+      brightness: Brightness.light,
+      pageTransitionsTheme: _transitions,
+    ),
     darkTheme: ThemeData(
       colorSchemeSeed: Colors.red,
       brightness: Brightness.dark,
+      pageTransitionsTheme: _transitions,
     ),
     themeMode: ThemeMode.system,
     home: HomeShell(
@@ -145,8 +165,8 @@ class _HomeShellState extends State<HomeShell> {
     _pushPokemon(1, e);
   }
 
-  /// From a Team Planner slot: open the page within the Team tab, so back
-  /// returns to the planner.
+  /// From the Team Planner's slot editor: open the page within the Team tab,
+  /// so back returns to the editor.
   void _openFromTeam(PokemonEntry e) {
     trace('shell.team_open', {'id': e.id});
     _pushPokemon(2, e);

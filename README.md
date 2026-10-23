@@ -93,9 +93,10 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   compares what it deals with what it takes, so resisting counts as winning and taking
   2× while dealing 2× is even). Tap a type for
   each member's multipliers; tap a column header to sort by it (again to reverse).
-  Long-press or right-click a filled slot to open that Pokemon's page (back returns to
-  the planner), or an empty slot to go straight to the Pokémon chooser, or a type
-  pill to open it in the Type Chart as a defender. The team is saved on the device.
+  Long-press or right-click a slot to go straight to the Pokémon chooser, or a type
+  pill to open it in the Type Chart as a defender. In a slot's editor, long-press or
+  right-click the Pokemon to open its page (back returns to the editor). The team is
+  saved on the device.
 
 On desktop, the mouse back button goes back like a back swipe (but never closes the
 app).
