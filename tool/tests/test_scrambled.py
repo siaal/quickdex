@@ -19,6 +19,8 @@ from quickdex_data.scrambled import (
     reconcile_stats,
     split_ability,
 )
+from quickdex_data.scrambled_items import resolve_boss_items
+from quickdex_data.typechart import TYPE_ORDER
 
 DOOZDEX = ROOT / ".cache" / "doozdex"
 
@@ -172,6 +174,12 @@ def test_scrambled_bosses(scrambled):
     assert scrambled.art[segin["id"]] == 966
     giacomo = bosses[("Star Boss Giacomo", "Vanilla")]["team"][-1]
     assert "Wicked Torque" in [moves[m] for m in giacomo["m"]], "a Scarlet move kept"
+    carmine = bosses[("Carmine (Entering Kitakami)", None)]["team"]
+    assert [t.get("item") for t in carmine[:3]] == ["Leftovers", "Damp Rock", "Mystic Water"]
+    assert len(carmine[0]["m"]) == 3, "the sheet lists only three moves"
+    assert all(t["t"] in TYPE_ORDER for b in scrambled.bosses for t in b["team"] if "t" in t)
+    geeta = bosses[("Champion Geeta", None)]["team"]
+    assert {by_id[t["p"]]["name"]: t.get("t") for t in geeta}["Glimmora"] == "grass"
 
 
 def test_scrambled_evolutions(scrambled):
@@ -181,3 +189,17 @@ def test_scrambled_evolutions(scrambled):
     edge = next(e for e in chain["edges"] if e["to"] == tusk["id"])
     assert edge["from"] == by_name["Donphan"]["id"]
     assert edge["method"] == "Lv. 45+, knows Primal Energy (optional)"
+
+
+def test_resolve_boss_items():
+    items = [{"id": 1, "key": "quick-claw", "name": "Quick Claw"},
+             {"id": 2, "key": "leftovers", "name": "Leftovers"}]
+    bosses = [{"name": "Boss", "team": [
+        {"p": 1, "item": "Quick Claw (Buffed)"}, {"p": 2, "item": "Not an item"},
+        {"p": 3}, {"p": 4, "item": "Odd name"}, {"p": 5, "item": "Mystery"}]}]
+    gaps = resolve_boss_items(bosses, items, {"Not an item": None, "Odd name": "leftovers",
+                                              "Unused": None})
+    assert bosses[0]["team"] == [{"p": 1, "i": 1}, {"p": 2}, {"p": 3}, {"p": 4, "i": 2},
+                                 {"p": 5}]
+    assert len(gaps) == 2
+    assert "'Mystery'" in gaps[0] and "unused" in gaps[1]

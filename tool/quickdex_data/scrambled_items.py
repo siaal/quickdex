@@ -153,3 +153,37 @@ def apply_scrambled_items(items: list[dict], doozdex: Path, fix: dict) -> list[s
     log.debug("scrambled_items.done shop=%d notes=%d gaps=%d",
               sum("badges" in i for i in items), sum("note" in i for i in items), len(gaps))
     return gaps
+
+
+def resolve_boss_items(bosses: list[dict], items: list[dict], fixes: dict) -> list[str]:
+    """Replaces each boss member's held item name (`item`, as the sheet writes it,
+    e.g. "Quick Claw (Buffed)") with its id `i`, in place; returns gaps.
+
+    `fixes` is overrides.json "scrambled" `boss_items`: a sheet name to an item key,
+    or null for text that isn't an item."""
+    gaps: list[str] = []
+    by_name = {norm(i["name"]): i for i in items}
+    by_key = {i["key"]: i for i in items}
+    used: set[str] = set()
+    for boss in bosses:
+        for member in boss["team"]:
+            raw = member.pop("item", None)
+            if raw is None:
+                continue
+            if raw in fixes:
+                used.add(raw)
+                if fixes[raw] is None:
+                    log.debug("scrambled_items.boss.not_item %r", raw)
+                    continue
+                item = by_key.get(fixes[raw])
+            else:
+                item = by_name.get(norm(_PARENS.sub("", raw).strip()))
+            if item is None:
+                gaps.append(f"{boss['name']}: held item {raw!r} matches no Scarlet item "
+                            "(add to overrides.json scrambled.boss_items)")
+                continue
+            member["i"] = item["id"]
+    gaps += [f"unused override scrambled.boss_items: {k!r}" for k in fixes if k not in used]
+    log.debug("scrambled_items.boss.done held=%d gaps=%d",
+              sum("i" in m for b in bosses for m in b["team"]), len(gaps))
+    return gaps

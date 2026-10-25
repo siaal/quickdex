@@ -111,6 +111,19 @@ SearchMode savedSearchMode(String? name) {
 
 /// Prefs key of the chosen game.
 const gamePrefsKey = 'game';
+
+/// Prefs key of Day | Auto | Night ([ThemeMode.name]), shared by all games.
+const themePrefsKey = 'theme';
+
+/// The saved theme mode, else Auto (follow the system).
+ThemeMode savedThemeMode(String? name) {
+  final mode = ThemeMode.values.asNameMap()[name];
+  trace(mode == null ? 'theme.saved.default' : 'theme.saved.found', {
+    'name': name,
+  });
+  return mode ?? ThemeMode.system;
+}
+
 const _modeKey = 'search.mode';
 
 /// The game saved in [prefs], else Scarlet (also if it's no longer bundled).
@@ -144,6 +157,22 @@ class GameHost extends StatefulWidget {
 
 class _GameHostState extends State<GameHost> {
   late GameSession _session = widget.initial;
+
+  /// Outlives game switches, so the theme doesn't flash on a reload.
+  late final _theme = ValueNotifier(
+    savedThemeMode(widget.prefs.getString(themePrefsKey)),
+  )..addListener(_saveTheme);
+
+  void _saveTheme() {
+    trace('theme.save', {'mode': _theme.value.name});
+    widget.prefs.setString(themePrefsKey, _theme.value.name);
+  }
+
+  @override
+  void dispose() {
+    _theme.dispose();
+    super.dispose();
+  }
 
   /// The game being loaded, so a second tap doesn't start another load.
   GameInfo? _loading;
@@ -188,6 +217,7 @@ class _GameHostState extends State<GameHost> {
         planner: s.planner,
         games: widget.games,
         onGameChanged: _switch,
+        themeMode: _theme,
         initialSearchMode: savedSearchMode(prefs.getString(_modeKey)),
         onSearchModeChanged: (m) => prefs.setString(_modeKey, m.name),
       ),

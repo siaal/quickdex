@@ -2,7 +2,7 @@
 
 Offline, low-latency Pokédex for Android. It shows one game at a time: Scarlet (Gen 9),
 Emerald (Gen 3) or the Scrambled Scarlet romhack, picked from the cog on the Search
-screen. Each game has its own types, typings, stats, abilities, moves and evolutions as
+screen, which also sets the theme: Day, Auto (follows the system) or Night. Each game has its own types, typings, stats, abilities, moves and evolutions as
 they were in that game, and its own team and recents. Scrambled Scarlet's data comes
 from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by badge.
 
@@ -53,7 +53,10 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   party members first. Recency puts the most recently benched members first.
   Order is calculated only on entry or a sort selection: toggling or editing never
   moves a row, and new members append until the next sort. Sort choice and bench
-  recency survive restarts, separately for each team and game. The header's trash
+  recency survive restarts, separately for each team and game. The Sort menu's Hide
+  duplicate types collapses benched Pokémon sharing any type with the squad; while
+  it's on, a Pokémon you put in the squad moves up with it straight away (saved per
+  team, like Sort). The header's trash
   icon clears the whole sidedeck (after confirming), back to a blank team. Picking a
   Pokemon that's benched in the Sidedeck (for a slot, a change, or +) brings that
   member back, ability and moves included, instead of adding a duplicate.
@@ -71,11 +74,19 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   overwrite it instead); Load lists that side's builds most recently used first, typing ranks them like
   search, and a loaded team can be undone from the snackbar; swipe a build away to
   delete it. In Scrambled Scarlet, Theirs can also load every boss team from the
-  Doozdex (gyms, rivals, Team Star, Titans, Elite 4, both paths). Theirs opens with
+  Doozdex (gyms, rivals, Team Star, Titans, Elite 4, both paths), held items included;
+  their empty move slots read None (the sheet lists every move they have). Theirs opens with
   **Versus**: your team's sprites on the left, theirs on the right; tap one to draw a
-  line to each Pokémon opposite, split in half: the half by your Pokémon is how hard
+  line to each Pokémon opposite, fanning out from it like a `{` and then running
+  flat to each target, split in half: the half by your Pokémon is how hard
   you hit them, the half by theirs is how hard they hit you (your 2× hits green and
-  4× blue, theirs red and 4× purple, neutral grey, resisted faded, immune dashed). Each team has six slots; tap one to
+  4× blue, theirs red and 4× purple, neutral grey, resisted faded, immune dashed).
+  A type pill above each half shows what it attacks with to get that (every
+  type that ties, `+` joining one move's types like Flying Press).
+  Long-press or right-click one to open its slot editor, on either side. In Scarlet
+  and Scrambled Scarlet each side has a small Tera Orb beside its first Pokémon: drag it onto one of
+  that side's Pokémon with a Tera type to terastallize it (its lines then use its
+  Tera type, and its tile turns that type's colour), and drag it off again to undo. Each team has six slots; tap one to
   pick a Pokémon, its ability and up to four
   moves (its learnable moves are suggested under a Level up | All | TM toggle, All to
   start; your choice is remembered for the next move, and changing it hides the
@@ -93,10 +104,16 @@ from its Doozdex sheet: the hack's Pokémon only, with their notes and TMs by ba
   compares what it deals with what it takes, so resisting counts as winning and taking
   2× while dealing 2× is even). Tap a type for
   each member's multipliers; tap a column header to sort by it (again to reverse).
-  Long-press or right-click a slot to go straight to the Pokémon chooser, or a type
-  pill to open it in the Type Chart as a defender. In a slot's editor, long-press or
-  right-click the Pokemon to open its page (back returns to the editor). The team is
-  saved on the device.
+  Hold a filled slot (or, with a mouse, just drag it) onto another to swap the two
+  (or move it into an empty slot). Long-press without dragging, or right-click, to open its Pokémon's
+  page (an empty one goes to the chooser), or a type pill to open it in the Type Chart as a defender.
+  Each Pokémon has a held item slot (Unknown until you pick one in its editor),
+  shown on its slot card with its chosen ability and (Gen 9) its Tera type, picked in
+  the editor; boss Tera types come from the Doozdex; long-press or right-click an item (in the editor or the
+  item search) to read what it does. A slot's editor shows its matchups as the Pokémon page does, 1× included, with
+  the chosen ability's immunity and strengths from its actual moves (unchosen moves
+  count as STAB). In the editor, long-press or right-click the Pokemon to open its
+  page (back returns to the editor). The team is saved on the device.
 
 On desktop, the mouse back button goes back like a back swipe (but never closes the
 app).

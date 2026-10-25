@@ -223,6 +223,8 @@ class BossFight {
         (
           pokemon: m['p'] as int,
           ability: m['a'] as int?,
+          item: m['i'] as int?,
+          tera: m['t'] as String?,
           moves: (m['m'] as List).cast<int>(),
         ),
     ],
@@ -233,7 +235,10 @@ class BossFight {
   final String name;
   final int level;
   final String? path;
-  final List<({int pokemon, int? ability, List<int> moves})> team;
+  final List<
+    ({int pokemon, int? ability, int? item, String? tera, List<int> moves})
+  >
+  team;
 }
 
 class Pokedex {

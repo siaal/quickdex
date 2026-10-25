@@ -79,6 +79,11 @@
     ],
     "item_badges": {
       "Focus Sash": 4
+    },
+    "boss_items": {
+      "Immune to crits, status, most status moves, flinching, etc": null,
+      "Immune to all status moves": null,
+      "Teal Mask": null
     }
   }
 }

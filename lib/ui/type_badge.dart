@@ -25,9 +25,13 @@ class TypeBadge extends StatelessWidget {
     this.icon = false,
     this.onTap,
     this.onAdd,
+    this.prefix = '',
   });
   final String type;
   final bool compact;
+
+  /// Before the type's name, e.g. `Tera: ` for a Tera type.
+  final String prefix;
 
   /// Show the Scarlet type icon before the label (key `type-icon-<type>`).
   final bool icon;
@@ -91,7 +95,7 @@ class TypeBadge extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                typeLabel(type),
+                '$prefix${typeLabel(type)}',
                 style: TextStyle(
                   color: typeTextColor(type),
                   fontWeight: FontWeight.w600,

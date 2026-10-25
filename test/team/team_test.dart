@@ -242,6 +242,10 @@ void main() {
       expect(t.sidedeckSort, SidedeckSort.name);
       final legacy = Team.fromJson('[{"p":${named('Golem').id},"m":[]}]', dex);
       expect(legacy.sidedeckSort, SidedeckSort.recency);
+      expect(legacy.hideDuplicateTypes, isFalse);
+      expect(t.toJson(), isNot(contains('"hd"')), reason: 'off is omitted');
+      t.hideDuplicateTypes = true;
+      expect(Team.fromJson(saved.last, dex).hideDuplicateTypes, isTrue);
       expect(legacy.deck.single.lastBenched, 0);
     });
 
@@ -388,6 +392,79 @@ void main() {
       t.remove(0);
       expect(squad(t), ['-', 'Pikachu', 'Bronzong', '-', '-', '-']);
       expect(t.deck, hasLength(2));
+    });
+
+    test('the held item round-trips; withItem sets or clears only it', () {
+      final t = Team()..add(slot('Golem').withItem(234));
+      expect(t[0]!.item, 234);
+      final back = Team.fromJson(t.toJson(), dex);
+      expect(back[0]!.item, 234);
+      expect(back[0]!.copyWith(moves: const []).item, 234);
+      expect(back[0]!.withItem(null).toJson(), isNot(contains('i')));
+      expect(Team.fromJson(Team().toJson(), dex).deck, isEmpty);
+    });
+
+    test('the Tera type round-trips; an unknown one is dropped', () {
+      final t = Team()..add(slot('Golem').withTera('water').withItem(234));
+      final back = Team.fromJson(t.toJson(), dex);
+      expect(back[0]!.tera, 'water');
+      expect(back[0]!.item, 234, reason: 'withTera keeps the rest');
+      expect(back[0]!.copyWith(moves: const []).tera, 'water');
+      expect(back[0]!.withTera(null).toJson(), isNot(contains('t')));
+      final json = t.toJson().replaceAll('"water"', '"stellar"');
+      expect(Team.fromJson(json, dex)[0]!.tera, isNull);
+    });
+
+    test('terastallized, a member defends as its Tera type', () {
+      final s = slot('Golem').withTera('water');
+      final m = resolveMember(0, s, dex, null, terastallized: true);
+      expect(m.tera, 'water');
+      expect(m.defense['grass'], 2);
+      expect(m.defense['water'], 0.5, reason: 'no longer 4× weak');
+      expect(
+        m.attacks,
+        [
+          ['rock'],
+          ['ground'],
+        ],
+        reason: 'its unknown moves keep its own types, not the Tera type',
+      );
+      expect(resolveMember(0, s, dex, null).defense['water'], 4);
+    });
+
+    test('terastallized, only Tera Blast takes on the Tera type', () {
+      final s = slot('Golem')
+          .withTera('water')
+          .copyWith(moves: [move('tera-blast'), move('rock-slide')]);
+      final tera = resolveMember(0, s, dex, moves, terastallized: true);
+      expect(tera.attacks, [
+        ['water'], // Tera Blast
+        ['rock'], // Rock Slide, and STAB for the unknown slots
+        ['ground'],
+      ]);
+      expect(
+        resolveMember(0, s, dex, moves).attacks.first,
+        ['normal'],
+        reason: 'Normal until it terastallizes',
+      );
+    });
+
+    test('moveSlot swaps two slots or moves into an empty one', () {
+      final saved = <String>[];
+      final t = Team(onChanged: saved.add);
+      for (final n in ['Golem', 'Pikachu', 'Bronzong']) {
+        t.add(slot(n));
+      }
+      final deck = t.deck;
+      t.moveSlot(0, 2);
+      expect(squad(t), ['Bronzong', 'Pikachu', 'Golem', '-', '-', '-']);
+      t.moveSlot(1, 5);
+      expect(squad(t), ['Bronzong', '-', 'Golem', '-', '-', 'Pikachu']);
+      expect(t.deck, deck, reason: 'only the squad order changes');
+      expect(squad(Team.fromJson(saved.last, dex)), squad(t));
+      final changes = saved.length;
+      t.moveSlot(3, 3);
+      expect(saved, hasLength(changes), reason: 'no-op');
     });
 
     test('the deck and squad round-trip; unknown Pokémon leave both', () {

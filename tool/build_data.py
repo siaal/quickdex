@@ -16,7 +16,7 @@ from quickdex_data.games import GAMES, SCARLET, Game
 from quickdex_data.items import build_items, convert_item_sprites, load_showdown_item_text
 from quickdex_data.moves import build_learnsets, build_moves, load_showdown
 from quickdex_data.scrambled import build_scrambled
-from quickdex_data.scrambled_items import apply_scrambled_items
+from quickdex_data.scrambled_items import apply_scrambled_items, resolve_boss_items
 from quickdex_data.sources import (
     ensure_pkhex,
     ensure_showdown_item_text,
@@ -63,6 +63,8 @@ def build_scrambled_game(db: CsvDb, game: Game, overrides: dict,
     art = [SimpleNamespace(id=e["id"], name=e["name"]) for e in s.entries]
     overrides["art"].update({str(k): v for k, v in s.art.items()})
     gaps = s.gaps + apply_scrambled_items(items, doozdex, overrides.get("scrambled", {}))
+    gaps += resolve_boss_items(s.bosses, items,
+                               overrides.get("scrambled", {}).get("boss_items", {}))
     if gaps:
         return art, gaps
     meta = game_meta(game)
@@ -74,7 +76,8 @@ def build_scrambled_game(db: CsvDb, game: Game, overrides: dict,
                 {"game": meta, "moves": s.moves, "learnsets": s.learnsets})
     _write_json(out / game.key / "items.json", {"game": meta, "items": items})
     print(f"{game.name}: {len(s.entries)} entries, {len(s.chains)} chains, "
-          f"{len(s.moves)} moves, {len(order)} types, {len(s.bosses)} boss teams, "
+          f"{len(s.moves)} moves, {len(order)} types, {len(s.bosses)} boss teams "
+          f"({sum('i' in m for b in s.bosses for m in b['team'])} held items), "
           f"{len(items)} items ({sum('badges' in i for i in items)} in shops, "
           f"{sum('note' in i for i in items)} changed)")
     return art, []

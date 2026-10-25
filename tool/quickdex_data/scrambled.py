@@ -750,7 +750,9 @@ def _looks_like_move(text: str) -> bool:
 
 def read_bosses(doozdex: Path, resolve, ability_id, move_id,
                 fixes: dict[str, str | None]) -> tuple[list[dict], list[str]]:
-    """Both boss tabs as team presets {name, level, path, team: [{p, a, m}]}. A fight
+    """Both boss tabs as team presets {name, level, path, team: [{p, a, m, item, t}]}
+    (item: the held item's name as written, for resolve_boss_items; t: the Tera
+    type, when the sheet gives one). A fight
     the same on both paths has path null. Allies ("Arven's Shellder", Carmine's "Ally"
     fight) are skipped; a fight with more than six foes is split into parts.
 
@@ -792,6 +794,11 @@ def read_bosses(doozdex: Path, resolve, ability_id, move_id,
                 name = re.sub(r"^Titan(?:ic)?\s+", "", name)
                 types = [t for k in range(b + 21, b + 42)
                          if (t := cell(grid, name_row, k).text.strip().lower()) in TYPE_ORDER]
+                # "Tera Water" beside the types: the Tera type it uses.
+                tera = next((m[1] for k in range(b + 21, b + 42)
+                             if (m := re.fullmatch(r"tera (\w+)",
+                                                   cell(grid, name_row, k).text.strip().lower()))
+                             and m[1] in TYPE_ORDER), None)
                 stats_row = next((r for r in range(i + 1, min(i + 20, len(grid)))
                                   if re.match(r"\d+ HP\b", cell(grid, r, b).text)), None)
                 if stats_row is None:
@@ -822,7 +829,16 @@ def read_bosses(doozdex: Path, resolve, ability_id, move_id,
                             moves.append(mid)
                 if not moves:
                     gaps.append(f"{where}: {current[0]} {name}: no moves")
-                current[2].append({"p": pid, **({"a": got[0]} if got else {}), "m": moves})
+                # The held item sits under the ability, above the nature line
+                # ("Timid | Max HP/Speed"); resolve_boss_items matches its name.
+                item = next((t for r in range(i + 1, stats_row) for k in range(c, c + 21)
+                             if (t := re.sub(r"\s+", " ", cell(grid, r, k).text).strip())
+                             and "|" not in t), None)
+                if item is None:
+                    log.debug("scrambled.bosses.no_item %s %s", current[0], name)
+                current[2].append({"p": pid, **({"a": got[0]} if got else {}), "m": moves,
+                                   **({"item": item} if item else {}),
+                                   **({"t": tera} if tera else {})})
     # One preset per distinct fight; the path only where the two paths differ.
     teams: dict[str, list[tuple[str, list[dict]]]] = {}
     for path, title, level, team in fights:

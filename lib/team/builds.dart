@@ -36,7 +36,15 @@ List<TeamBuild> bossBuilds(Pokedex dex) => [
       Lineup.ofSlots(
         Team.parseSlots([
           for (final m in b.team)
-            {'p': m.pokemon, 'a': ?m.ability, 'm': m.moves},
+            {
+              'p': m.pokemon,
+              'a': ?m.ability,
+              'i': ?m.item,
+              't': ?m.tera,
+              'm': m.moves,
+              // The game's data lists every move a boss has.
+              'k': true,
+            },
         ], dex),
       ),
     ),

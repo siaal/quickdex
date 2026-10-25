@@ -1,10 +1,13 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:quickdex/data/game.dart';
+import 'package:quickdex/data/items.dart';
 import 'package:quickdex/data/loader.dart';
+import 'package:quickdex/data/moves.dart';
 import 'package:quickdex/data/models.dart';
 import 'package:quickdex/team/builds.dart';
 import 'package:quickdex/team/team.dart';
+import 'package:quickdex/team/team_analysis.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -89,6 +92,36 @@ void main() {
         reason: "kept though Magneton can't have it",
       );
       expect(bosses.map((b) => b.id).toSet(), hasLength(bosses.length));
+      final items = await loadItems(
+        rootBundle,
+        games.firstWhere((g) => g.key == 'scrambled'),
+      );
+      final morpeko = bosses
+          .firstWhere((b) => b.name.startsWith('Carmine (Entering Kitakami)'))
+          .slots
+          .first!;
+      expect(items.byId[morpeko.item]!.name, 'Leftovers', reason: 'held item');
+      expect(morpeko.moves, hasLength(3));
+      expect(morpeko.unknownMoves, 0, reason: "a boss's moveset is complete");
+      expect(
+        bosses.expand((b) => b.slots.nonNulls).where((s) => s.tera != null),
+        isNotEmpty,
+        reason: 'the sheet gives some Tera types',
+      );
+      final moves = await loadMoves(
+        rootBundle,
+        games.firstWhere((g) => g.key == 'scrambled'),
+      );
+      final types = scrambled[morpeko.pokemon].types;
+      expect(
+        resolveMember(0, morpeko, scrambled, moves).attacks,
+        {
+          for (final id in morpeko.moves)
+            if (moves.byId[id]!.category != MoveCategory.status)
+              moves.byId[id]!.hitTypes(types),
+        }.toList(),
+        reason: 'no STAB guess for an empty boss move slot',
+      );
     },
   );
 }

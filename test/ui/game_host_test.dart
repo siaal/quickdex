@@ -73,6 +73,42 @@ void main() {
     expect(find.text('Not in Emerald'), findsOne);
   });
 
+  testWidgets('Settings picks Day | Auto | Night; saved, kept across games', (
+    tester,
+  ) async {
+    ThemeMode mode() =>
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;
+    Brightness shown() => Theme.of(
+      tester.element(find.byKey(const Key('search-field'))),
+    ).brightness;
+    final prefs = await pumpHost(tester, {themePrefsKey: 'dark'});
+    expect(mode(), ThemeMode.dark, reason: 'the saved choice');
+    expect(shown(), Brightness.dark);
+
+    await tester.tap(find.byKey(const Key('search-settings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('theme-light')));
+    await tester.pumpAndSettle();
+    expect(mode(), ThemeMode.light);
+    expect(prefs.getString(themePrefsKey), 'light');
+    await tester.tap(find.byKey(const Key('theme-system')));
+    await tester.pumpAndSettle();
+    expect(prefs.getString(themePrefsKey), 'system');
+    await tester.tap(find.byKey(const Key('theme-dark')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('game-emerald')));
+    await settle(tester);
+    expect(mode(), ThemeMode.dark, reason: 'not per game');
+    expect(shown(), Brightness.dark);
+  });
+
+  test('an unknown saved theme falls back to Auto', () {
+    expect(savedThemeMode(null), ThemeMode.system);
+    expect(savedThemeMode('sepia'), ThemeMode.system);
+    expect(savedThemeMode('light'), ThemeMode.light);
+  });
+
   testWidgets('starts in the saved game; team and recents are per game', (
     tester,
   ) async {

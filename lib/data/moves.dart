@@ -62,9 +62,12 @@ class Move implements Searchable {
   /// multipliers multiply. Flying Press is Fighting and Flying at once (even
   /// on a Pokemon with neither), and Revelation Dance takes the user's first
   /// type. Every other move is just [type].
-  List<String> hitTypes(List<String> userTypes) {
+  /// [tera]: the user's Tera type while terastallized, which only Tera Blast
+  /// takes on.
+  List<String> hitTypes(List<String> userTypes, {String? tera}) {
     assert(userTypes.isNotEmpty, 'a Pokemon has a type');
     return switch (key) {
+      'tera-blast' when tera != null => [tera],
       'flying-press' => const ['fighting', 'flying'],
       'revelation-dance' => [userTypes.first],
       _ => [type],

@@ -33,10 +33,15 @@ class QuickDexApp extends StatelessWidget {
     this.onSearchModeChanged,
     this.games = const [],
     this.onGameChanged,
+    this.themeMode,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
   final TeamPlanner planner;
+
+  /// Day | Auto | Night, changed from Settings; without it the app follows
+  /// the system and Settings has no Theme section.
+  final ValueNotifier<ThemeMode>? themeMode;
 
   /// Loaded in the background so it doesn't delay startup.
   final Future<MoveDex> moves;
@@ -68,7 +73,16 @@ class QuickDexApp extends StatelessWidget {
   );
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) {
+    final mode = themeMode;
+    if (mode == null) return _app(ThemeMode.system);
+    return ValueListenableBuilder(
+      valueListenable: mode,
+      builder: (_, m, _) => _app(m),
+    );
+  }
+
+  Widget _app(ThemeMode mode) => MaterialApp(
     title: 'QuickDex',
     theme: ThemeData(
       colorSchemeSeed: Colors.red,
@@ -80,7 +94,7 @@ class QuickDexApp extends StatelessWidget {
       brightness: Brightness.dark,
       pageTransitionsTheme: _transitions,
     ),
-    themeMode: ThemeMode.system,
+    themeMode: mode,
     home: HomeShell(
       dex: dex,
       frecency: frecency,
@@ -93,6 +107,7 @@ class QuickDexApp extends StatelessWidget {
       onSearchModeChanged: onSearchModeChanged,
       games: games,
       onGameChanged: onGameChanged,
+      themeMode: themeMode,
     ),
   );
 }
@@ -111,10 +126,12 @@ class HomeShell extends StatefulWidget {
     this.onSearchModeChanged,
     this.games = const [],
     this.onGameChanged,
+    this.themeMode,
   });
   final Pokedex dex;
   final FrecencyStore frecency;
   final TeamPlanner planner;
+  final ValueNotifier<ThemeMode>? themeMode;
   final Future<MoveDex> moves;
   final FrecencyStore moveFrecency;
   final Future<ItemDex>? items;
@@ -194,8 +211,11 @@ class _HomeShellState extends State<HomeShell> {
     trace('shell.settings.open', {'game': widget.dex.game.key});
     _navigators[0].currentState?.push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            SettingsScreen(games: widget.games, onGameChanged: onGameChanged),
+        builder: (_) => SettingsScreen(
+          games: widget.games,
+          onGameChanged: onGameChanged,
+          themeMode: widget.themeMode,
+        ),
       ),
     );
   }
@@ -316,6 +336,8 @@ class _HomeShellState extends State<HomeShell> {
                 frecency: widget.frecency,
                 moves: widget.moves,
                 moveFrecency: widget.moveFrecency,
+                items: widget.items,
+                itemFrecency: widget.itemFrecency,
                 onOpenType: _openType,
                 onOpenPokemon: _openFromTeam,
                 onDeckChanged: (team) => _openDeck = team,

@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quickdex/data/game.dart';
+import 'package:quickdex/data/items.dart';
 import 'package:quickdex/data/loader.dart';
 import 'package:quickdex/data/models.dart';
 import 'package:quickdex/data/moves.dart';
@@ -10,6 +12,7 @@ import 'package:quickdex/search/search_index.dart';
 import 'package:quickdex/team/builds.dart';
 import 'package:quickdex/team/team.dart';
 import 'package:quickdex/ui/team_screen.dart';
+import 'package:quickdex/ui/type_badge.dart';
 import 'package:quickdex/ui/versus_view.dart';
 import 'package:quickdex/ui/matchup_section.dart';
 
@@ -17,11 +20,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late Pokedex dex;
   late MoveDex moves;
+  late ItemDex items;
   setUp(MovePicker.resetFilters);
   tearDown(MovePicker.resetFilters);
   setUpAll(() async {
     dex = await loadPokedex(rootBundle);
     moves = await loadMoves(rootBundle);
+    items = await loadItems(rootBundle);
   });
 
   PokemonEntry named(String n) => dex.entries.firstWhere((e) => e.name == n);
@@ -52,6 +57,8 @@ void main() {
           frecency: FrecencyStore(),
           moves: Future.value(moves),
           moveFrecency: FrecencyStore(),
+          items: Future.value(items),
+          itemFrecency: FrecencyStore(),
           onOpenType: openedTypes.add,
           onOpenPokemon: (e) => openedPokemon.add(e.id),
         ),
@@ -99,8 +106,8 @@ void main() {
     expect(team[0]!.ability, ability('heatproof'));
     expect(
       find.text('Unknown'),
-      findsNWidgets(4),
-      reason: 'moves start unknown',
+      findsNWidgets(6),
+      reason: 'the item, Tera type and moves start unknown',
     );
 
     await tester.tap(find.byKey(const Key('team-move-3')));
@@ -218,33 +225,23 @@ void main() {
     );
   }
 
-  testWidgets('long-press or right-click a slot goes straight to the chooser', (
+  testWidgets('long-press or right-click a filled slot opens its page', (
     tester,
   ) async {
     final team = await pump(tester, golemBronzong());
-    final pikachu = named('Pikachu');
     await tester.longPress(find.byKey(const Key('team-slot-0')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('team-pick-search')),
-      'pikachu',
+    await tester.tap(
+      find.byKey(const Key('team-slot-1')),
+      buttons: kSecondaryButton,
     );
     await tester.pumpAndSettle();
-    await tester.tap(pickRow(pikachu.id));
-    await tester.pumpAndSettle();
-    expect(team[0]!.pokemon, pikachu.id);
-    expect(
-      team.deck.map((s) => s.pokemon),
-      contains(named('Golem').id),
-      reason: 'Golem was benched, not deleted',
-    );
-    expect(openedPokemon, isEmpty, reason: 'no page from the planner');
-    expect(
-      find.byKey(const Key('team-remove')),
-      findsNothing,
-      reason: 'back on the planner, not the slot editor',
-    );
+    expect(openedPokemon, [named('Golem').id, named('Bronzong').id]);
+    expect(find.byKey(const Key('team-pick-search')), findsNothing);
+    expect(find.byKey(const Key('team-remove')), findsNothing);
+    expect(team.deck.length, 2, reason: 'the team is untouched');
 
+    // An empty slot has no page: holding it goes to the chooser.
     await tester.tap(
       find.byKey(const Key('team-slot-5')),
       buttons: kSecondaryButton,
@@ -318,6 +315,482 @@ void main() {
     expect(openedPokemon, [named('Golem').id, named('Golem').id]);
     expect(find.byKey(const Key('team-pick-search')), findsNothing);
     expect(team.deck.length, 2, reason: 'the team is untouched');
+  });
+
+  Future<void> dragSlot(WidgetTester tester, int from, int to) async {
+    final g = await tester.startGesture(
+      tester.getCenter(find.byKey(Key('team-slot-$from'))),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await g.moveTo(tester.getCenter(find.byKey(Key('team-slot-$to'))));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('hold and drag a slot onto another to swap them', (tester) async {
+    final golem = named('Golem').id;
+    final bronzong = named('Bronzong').id;
+    final team = await pump(tester, golemBronzong());
+    final deck = team.deck;
+    await dragSlot(tester, 0, 1);
+    expect([team[0]?.pokemon, team[1]?.pokemon], [bronzong, golem]);
+    await dragSlot(tester, 1, 4);
+    expect([team[1], team[4]?.pokemon], [null, golem], reason: 'moved');
+    expect(team.deck, deck, reason: 'only the squad order changes');
+    expect(openedPokemon, isEmpty, reason: 'a drag is not a hold');
+    expect(find.byKey(const Key('team-pick-search')), findsNothing);
+
+    // An empty slot has nothing to drag: holding it opens the chooser.
+    await dragSlot(tester, 1, 0);
+    expect(team[0]?.pokemon, bronzong);
+    expect(find.byKey(const Key('team-pick-search')), findsOneWidget);
+  });
+
+  testWidgets('a mouse drags a slot straight away; a click still edits', (
+    tester,
+  ) async {
+    final golem = named('Golem').id;
+    final bronzong = named('Bronzong').id;
+    final team = await pump(tester, golemBronzong());
+    final g = await tester.startGesture(
+      tester.getCenter(find.byKey(const Key('team-slot-0'))),
+      kind: PointerDeviceKind.mouse,
+    );
+    await g.moveBy(const Offset(20, 0));
+    await tester.pump();
+    await g.moveTo(tester.getCenter(find.byKey(const Key('team-slot-1'))));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect([team[0]?.pokemon, team[1]?.pokemon], [bronzong, golem]);
+    expect(find.byKey(const Key('team-pokemon')), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('team-slot-0')),
+      kind: PointerDeviceKind.mouse,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('team-pokemon')), findsOne);
+  });
+
+  testWidgets('a held item on the card does not block the drag', (
+    tester,
+  ) async {
+    final leftovers = items.items.firstWhere((i) => i.key == 'leftovers');
+    final golem = named('Golem');
+    final team = await pump(
+      tester,
+      Team(
+        slots: [
+          TeamSlot(golem.id, item: leftovers.id),
+          null,
+          null,
+          null,
+          null,
+          null,
+        ],
+      ),
+    );
+    final g = await tester.startGesture(
+      tester.getCenter(find.byKey(const Key('team-slot-item-0'))),
+    );
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await g.moveTo(tester.getCenter(find.byKey(const Key('team-slot-2'))));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(team[2]?.pokemon, golem.id);
+  });
+
+  testWidgets('the card shows the chosen ability and Tera type', (
+    tester,
+  ) async {
+    final golem = named('Golem');
+    await pump(
+      tester,
+      Team(
+        slots: [
+          TeamSlot(
+            golem.id,
+            ability: ability('sturdy'),
+            tera: 'water',
+            item: items.items.firstWhere((i) => i.key == 'leftovers').id,
+          ),
+          TeamSlot(named('Bronzong').id),
+          null,
+          null,
+          null,
+          null,
+        ],
+      ),
+    );
+    expect(
+      tester.widget<Text>(find.byKey(const Key('team-slot-ability-0'))).data,
+      'Sturdy',
+    );
+    expect(find.byKey(const Key('team-slot-ability-1')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('team-slot-tera-0')),
+        matching: find.text('Tera: Water'),
+      ),
+      findsOne,
+      reason: "a pill like the types', in the type's colours",
+    );
+    expect(find.byKey(const Key('team-slot-tera-1')), findsNothing);
+
+    Rect rect(String k) => tester.getRect(find.byKey(Key(k)));
+    Rect sprite(int slot) => tester.getRect(
+      find
+          .descendant(
+            of: find.byKey(Key('team-slot-$slot')),
+            matching: find.byType(Image),
+          )
+          .first,
+    );
+    Rect name(int slot) => tester.getRect(
+      find.descendant(
+        of: find.byKey(Key('team-slot-$slot')),
+        matching: find.text(slot == 0 ? 'Golem' : 'Bronzong'),
+      ),
+    );
+
+    // Narrow (three to a phone): the sprite, name, types, then the Tera
+    // type, item and ability, all flush left.
+    var [tera, item, ab] = [
+      'team-slot-tera-0',
+      'team-slot-item-0',
+      'team-slot-ability-0',
+    ].map(rect).toList();
+    expect(sprite(0).left, name(0).left, reason: 'sprite and name aligned');
+    expect(tera.top, greaterThan(rect('team-slot-type-rock').bottom));
+    expect(tera.bottom, lessThanOrEqualTo(item.top));
+    expect(item.bottom, lessThanOrEqualTo(ab.top));
+    expect(name(1).top, name(0).top, reason: 'names line up across cards');
+    expect(sprite(1).size, sprite(0).size);
+
+    // Wide: the Tera type, item and ability beside a bigger sprite.
+    final narrowSprite = sprite(0).height;
+    tester.view.physicalSize = const Size(1200, 2400);
+    await tester.pumpAndSettle();
+    [tera, item, ab] = [
+      'team-slot-tera-0',
+      'team-slot-item-0',
+      'team-slot-ability-0',
+    ].map(rect).toList();
+    for (final r in [tera, item, ab]) {
+      expect(r.left, greaterThanOrEqualTo(sprite(0).right - 1));
+      expect(r.bottom, lessThan(name(0).top));
+    }
+    expect(tera.bottom, lessThanOrEqualTo(item.top));
+    expect(item.bottom, lessThanOrEqualTo(ab.top));
+    expect(sprite(0).left, name(0).left, reason: 'sprite and name aligned');
+    expect(sprite(0).height, greaterThan(narrowSprite * 1.4));
+    expect(name(1).top, name(0).top, reason: 'names line up across cards');
+  });
+
+  testWidgets('a Tera type is picked in the editor and cleared', (
+    tester,
+  ) async {
+    final team = await pump(tester, golemBronzong());
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('team-tera')),
+        matching: find.text('Unknown'),
+      ),
+      findsOne,
+    );
+    await tester.tap(find.byKey(const Key('team-tera')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('team-tera-pick-water')));
+    await tester.pumpAndSettle();
+    expect(team[0]!.tera, 'water');
+    expect(team[0]!.ability, isNotNull, reason: 'the rest is kept');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('team-slot-tera-0')), findsOne);
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('team-tera-clear')));
+    await tester.pump();
+    expect(team[0]!.tera, isNull);
+  });
+
+  testWidgets('before Gen 9 there are no Tera types', (tester) async {
+    // rootBundle's cached loads never finish in this test's fake-async zone.
+    final bundle = PlatformAssetBundle();
+    final emerald = (await tester.runAsync(() async {
+      final games = await loadGames(bundle);
+      return loadPokedex(bundle, games.firstWhere((g) => g.key == 'emerald'));
+    }))!;
+    final golem = emerald.entries.firstWhere((e) => e.name == 'Golem');
+    final planner = TeamPlanner(
+      mine: TeamSide(
+        team: Team(
+          slots: [
+            TeamSlot(golem.id, tera: 'water'),
+            null,
+            null,
+            null,
+            null,
+            null,
+          ],
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TeamScreen(
+          dex: emerald,
+          planner: planner,
+          index: SearchIndex(emerald.entries),
+          frecency: FrecencyStore(),
+          moveFrecency: FrecencyStore(),
+          moves: Future.value(moves),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('team-slot-tera-0')), findsNothing);
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('team-tera')), findsNothing);
+  });
+
+  Finder inSection(String section, String pill) => find.descendant(
+    of: find.byKey(Key(section)),
+    matching: find.byKey(Key(pill)),
+  );
+
+  testWidgets(
+    'the slot editor shows matchups, 1\u00d7 included, from its moves',
+    (tester) async {
+      final pikachu = named('Pikachu');
+      await pump(
+        tester,
+        Team(
+          slots: [
+            TeamSlot(
+              pikachu.id,
+              ability: pikachu.abilities.first,
+              moves: [
+                move('thunderbolt'),
+                move('thunder-wave'),
+                move('growl'),
+                move('tail-whip'),
+              ],
+            ),
+            null,
+            null,
+            null,
+            null,
+            null,
+          ],
+        ),
+      );
+      await tester.tap(find.byKey(const Key('team-slot-0')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('team-matchups')), findsOneWidget);
+      expect(inSection('def-section-Weak to', 'def-2.0-ground'), findsOne);
+      expect(inSection('def-section-Neutral', 'def-1.0-fire'), findsOne);
+      expect(inSection('def-section-Resistant to', 'def-0.5-flying'), findsOne);
+      // Only Thunderbolt deals damage: Electric coverage.
+      expect(inSection('off-section', 'off-water'), findsOne);
+      expect(inSection('off-section-neutral', 'off-normal'), findsOne);
+      expect(inSection('off-section-weak', 'off-grass'), findsOne);
+      expect(inSection('off-section-none', 'off-ground'), findsOne);
+    },
+  );
+
+  testWidgets('editor matchups name an ability immunity and status-only sets', (
+    tester,
+  ) async {
+    final bronzong = named('Bronzong');
+    final team = await pump(
+      tester,
+      Team(
+        slots: [
+          TeamSlot(
+            bronzong.id,
+            ability: ability('levitate'),
+            moves: [
+              move('hypnosis'),
+              move('trick-room'),
+              move('rain-dance'),
+              move('sunny-day'),
+            ],
+          ),
+          null,
+          null,
+          null,
+          null,
+          null,
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    expect(inSection('def-section-Immune to', 'def-guard-ground'), findsOne);
+    expect(find.text('(Levitate)'), findsOneWidget);
+    expect(find.byKey(const Key('off-no-damage')), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('team-ability-${ability('heatproof')}')));
+    await tester.pump();
+    expect(team[0]!.ability, ability('heatproof'));
+    expect(inSection('def-section-Weak to', 'def-2.0-ground'), findsOne);
+    expect(find.byKey(const Key('def-guard-ground')), findsNothing);
+  });
+
+  testWidgets('a held item starts unknown, is picked, shown and cleared', (
+    tester,
+  ) async {
+    final leftovers = items.items.firstWhere((i) => i.key == 'leftovers');
+    final team = await pump(tester, golemBronzong());
+    expect(team[0]!.item, isNull);
+    expect(find.byKey(const Key('team-slot-item-0')), findsNothing);
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('team-item')),
+        matching: find.text('Unknown'),
+      ),
+      findsOne,
+    );
+    await tester.tap(find.byKey(const Key('team-item')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('team-pick-search')),
+      'leftovers',
+    );
+    await tester.pumpAndSettle();
+    final sheet = find.byKey(const Key('item-details-sheet'));
+    await tester.longPress(pickRow(leftovers.id));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: sheet, matching: find.text(leftovers.effect!)),
+      findsOne,
+      reason: 'holding a picker row previews it',
+    );
+    await tester.tapAt(const Offset(10, 10)); // dismiss
+    await tester.pumpAndSettle();
+    expect(sheet, findsNothing);
+    await tester.tap(pickRow(leftovers.id));
+    await tester.pumpAndSettle();
+    expect(team[0]!.item, leftovers.id);
+    expect(team[0]!.moves, isEmpty, reason: 'the rest is kept');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('team-item')),
+        matching: find.text('Leftovers'),
+      ),
+      findsOne,
+    );
+    await tester.tap(
+      find.byKey(const Key('team-item')),
+      buttons: kSecondaryButton,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: sheet, matching: find.text(leftovers.effect!)),
+      findsOne,
+      reason: 'right-clicking the chosen item previews it',
+    );
+    expect(team[0]!.item, leftovers.id, reason: 'not a pick');
+    await tester.tapAt(const Offset(10, 10)); // dismiss
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    final card = tester.getRect(find.byKey(const Key('team-slot-0')));
+    final badge = tester.getRect(find.byKey(const Key('team-slot-item-0')));
+    expect(
+      badge.height,
+      greaterThanOrEqualTo(22),
+      reason: 'big enough to read',
+    );
+    expect(card.contains(badge.bottomRight), isTrue, reason: 'inside its card');
+    expect(find.text('Leftovers'), findsOne, reason: 'named beside its sprite');
+    expect(find.byKey(const Key('team-slot-item-1')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('team-item-clear')));
+    await tester.pump();
+    expect(team[0]!.item, isNull);
+    expect(find.text('Unknown'), findsWidgets);
+  });
+
+  testWidgets("a complete moveset's empty move slots read None", (
+    tester,
+  ) async {
+    final golem = named('Golem');
+    await pump(
+      tester,
+      Team(
+        slots: [
+          TeamSlot(golem.id, moves: [move('earthquake')], movesKnown: true),
+          null,
+          null,
+          null,
+          null,
+          null,
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    expect(find.text('None'), findsNWidgets(3));
+    expect(
+      find.text('Unknown'),
+      findsNWidgets(2),
+      reason: 'only the item and Tera type',
+    );
+  });
+
+  testWidgets('the slot cards stay three across, capped in height', (
+    tester,
+  ) async {
+    await pump(tester, golemBronzong());
+    final narrow = tester.getRect(find.byKey(const Key('team-slot-0')));
+    final third = tester.getRect(find.byKey(const Key('team-slot-2')));
+    expect(third.top, narrow.top, reason: 'three to a row on a phone');
+    expect(narrow.height, lessThanOrEqualTo(220));
+    tester.view.physicalSize = const Size(2400, 2400);
+    await tester.pumpAndSettle();
+    final wide = tester.getSize(find.byKey(const Key('team-slot-0')));
+    expect(wide.height, lessThanOrEqualTo(240), reason: 'never huge');
+  });
+
+  testWidgets('an ability outside the species list still shows, chosen', (
+    tester,
+  ) async {
+    final golem = named('Golem');
+    final levitate = ability('levitate');
+    expect([...golem.abilities, golem.hidden], isNot(contains(levitate)));
+    await pump(
+      tester,
+      Team(
+        slots: [
+          TeamSlot(golem.id, ability: levitate),
+          null,
+          null,
+          null,
+          null,
+          null,
+        ],
+      ),
+    );
+    await tester.tap(find.byKey(const Key('team-slot-0')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(find.byKey(Key('team-ability-$levitate')))
+          .selected,
+      isTrue,
+    );
   });
 
   testWidgets('picking a benched Pokemon for a slot brings it back', (
@@ -678,6 +1151,28 @@ void main() {
           (l.mineSlot, l.theirSlot, l.mineHit, l.theirHit),
       ];
 
+      test('lines fan out from the picked Pokémon like a {, then run flat', () {
+        const hub = Offset(48, 28);
+        for (final far in const [Offset(400, 308), Offset(400, 28)]) {
+          final (hubHalf, farHalf) = VersusLinesPainter.shape(hub, far);
+          final bend = hubHalf.computeMetrics().single;
+          expect(bend.getTangentForOffset(0)!.position, hub);
+          // Out to the target's row within the fan, flat from there on.
+          final atFan = bend
+              .getTangentForOffset(bend.length - (224 - 48 - 40))!
+              .position;
+          expect(atFan.dx, closeTo(48 + VersusLinesPainter.fan, 0.5));
+          expect(atFan.dy, closeTo(far.dy, 0.5));
+          expect(farHalf.getBounds(), Rect.fromLTRB(224, far.dy, 400, far.dy));
+        }
+        // The same from the right.
+        final (hubHalf, _) = VersusLinesPainter.shape(
+          const Offset(400, 28),
+          const Offset(48, 308),
+        );
+        expect(hubHalf.getBounds(), const Rect.fromLTRB(224, 28, 400, 308));
+      });
+
       testWidgets('only on Theirs, above the type table', (tester) async {
         await theirsPage(tester);
         expect(find.byKey(const Key('versus')), findsOne);
@@ -707,6 +1202,40 @@ void main() {
         },
       );
 
+      testWidgets('a pill above each half names the types it hits with', (
+        tester,
+      ) async {
+        await theirsPage(tester);
+        await tester.tap(find.byKey(const Key('versus-mine-0'))); // Golem
+        await tester.pump();
+        List<String> via(String k) => [
+          for (final b in tester.widgetList<TypeBadge>(
+            find.descendant(
+              of: find.byKey(Key('versus-via-$k')),
+              matching: find.byType(TypeBadge),
+            ),
+          ))
+            b.type,
+        ];
+        expect(via('mine-0-0'), ['rock'], reason: 'Rock 2x on Pelipper');
+        expect(via('theirs-0-0'), ['water'], reason: 'Water 4x on Golem');
+        expect(via('mine-0-1'), ['ground']);
+        expect(via('theirs-0-1'), ['steel']);
+        // Each sits above its own half, on the target's row.
+        final versus = tester.getRect(find.byKey(const Key('versus')));
+        final mine = tester.getRect(
+          find.byKey(const Key('versus-via-mine-0-1')),
+        );
+        final theirs = tester.getRect(
+          find.byKey(const Key('versus-via-theirs-0-1')),
+        );
+        expect(mine.right, lessThanOrEqualTo(versus.center.dx));
+        expect(theirs.left, greaterThanOrEqualTo(versus.center.dx));
+        final rowCentre = versus.top + VersusView.rowHeight * 1.5;
+        expect(mine.bottom, lessThan(rowCentre));
+        expect(mine.bottom, greaterThan(rowCentre - VersusView.rowHeight / 2));
+      });
+
       testWidgets('tapping theirs draws to each of yours', (tester) async {
         await theirsPage(tester);
         await tester.tap(find.byKey(const Key('versus-theirs-0'))); // Pelipper
@@ -715,6 +1244,98 @@ void main() {
           (0, 0, 2, 4), // Golem
           (1, 0, 4, 1), // Pikachu
         ]);
+      });
+
+      testWidgets("right-click or long-press opens that side's slot editor", (
+        tester,
+      ) async {
+        final planner = await theirsPage(tester);
+        await tester.tap(
+          find.byKey(const Key('versus-mine-1')), // Pikachu
+          buttons: kSecondaryButton,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('team-pokemon')),
+            matching: find.text('Pikachu'),
+          ),
+          findsOne,
+        );
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('versus')), findsOne, reason: 'on Theirs');
+        expect(lines(tester), isEmpty, reason: 'not a pick');
+
+        await tester.longPress(find.byKey(const Key('versus-theirs-1')));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('team-pokemon')),
+            matching: find.text('Bronzong'),
+          ),
+          findsOne,
+        );
+        await tester.tap(find.byKey(const Key('team-remove')));
+        await tester.pumpAndSettle();
+        expect(planner.theirs.team[1], isNull, reason: 'edits Theirs');
+        expect(planner.mine.team[1], isNotNull);
+      });
+
+      testWidgets("a side's Tera Orb dropped on its Pokémon terastallizes it", (
+        tester,
+      ) async {
+        final planner = TeamPlanner(
+          mine: TeamSide(team: Team(slots: slots(['Golem', 'Pikachu']))),
+          theirs: TeamSide(
+            team: Team(
+              slots: [
+                TeamSlot(named('Pelipper').id, tera: 'grass'),
+                TeamSlot(named('Bronzong').id),
+                null,
+                null,
+                null,
+                null,
+              ],
+            ),
+          ),
+        );
+        await pump(tester, null, planner);
+        await tester.tap(find.text('Theirs'));
+        await tester.pumpAndSettle();
+        Future<void> dragOrb(String from, Offset to) async {
+          await tester.dragFrom(
+            tester.getCenter(find.byKey(Key(from))),
+            to - tester.getCenter(find.byKey(Key(from))),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        Offset at(String key) => tester.getCenter(find.byKey(Key(key)));
+
+        // Not onto a Pokémon without a Tera type, nor the other side's.
+        await dragOrb('versus-orb-theirs', at('versus-theirs-1'));
+        await dragOrb('versus-orb-theirs', at('versus-mine-0'));
+        await dragOrb('versus-orb-mine', at('versus-theirs-0'));
+        expect(find.byKey(const Key('versus-orb-theirs')), findsOne);
+        expect(find.byKey(const Key('versus-orb-mine')), findsOne);
+
+        await tester.tap(find.byKey(const Key('versus-theirs-0')));
+        await tester.pump();
+        expect(lines(tester), [(0, 0, 2, 4), (1, 0, 4, 1)]);
+
+        await dragOrb('versus-orb-theirs', at('versus-theirs-0'));
+        expect(find.byKey(const Key('versus-orb-theirs')), findsNothing);
+        expect(find.byKey(const Key('versus-tera-theirs-0')), findsOne);
+        expect(lines(tester), [
+          (0, 0, 1, 4), // Golem: rock 1×, ground 0.5× on Grass; Grass 4× back
+          (1, 0, 0.5, 1), // Pikachu: Electric 0.5× on Grass
+        ]);
+
+        // Dragged off to nowhere, it's back above the column.
+        await dragOrb('versus-tera-theirs-0', const Offset(240, 5));
+        expect(find.byKey(const Key('versus-orb-theirs')), findsOne);
+        expect(lines(tester), [(0, 0, 2, 4), (1, 0, 4, 1)]);
       });
 
       testWidgets('with Mine empty it says so', (tester) async {

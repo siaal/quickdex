@@ -262,4 +262,53 @@ void main() {
       reason: 'nothing left to clear',
     );
   });
+
+  testWidgets(
+    'Hide duplicate types collapses benched repeats and lifts picks',
+    (tester) async {
+      final t = team()
+        ..add(slot('Graveler'))
+        ..add(slot('Raichu'));
+      t.toggle(4);
+      t.toggle(5);
+      expect(
+        [for (var d = 0; d < 6; d++) t.slotOf(d) != null],
+        [false, true, false, true, false, false],
+      );
+      await host(tester, t);
+      bool shown(int d) =>
+          tester.any(find.byKey(Key('deck-row-$d')).hitTestable());
+      expect([for (var d = 0; d < 6; d++) shown(d)], everyElement(isTrue));
+
+      await tester.tap(find.byKey(const Key('deck-sort')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('deck-hide-dupes')));
+      await tester.pumpAndSettle();
+      expect(t.hideDuplicateTypes, isTrue);
+      expect(shown(4), isFalse, reason: 'Graveler shares Golem\'s types');
+      expect(shown(2), isTrue, reason: 'no Electric in the squad yet');
+      expect(shown(5), isTrue);
+
+      await tester.tap(find.byKey(const Key('deck-row-2')));
+      await tester.pump();
+      expect(order(tester).take(3), [2, 1, 3], reason: 'Pikachu joins the top');
+      await tester.pumpAndSettle();
+      expect(shown(5), isFalse, reason: 'Raichu now repeats Electric');
+      expect(shown(0), isTrue);
+
+      await tester.tap(find.byKey(const Key('deck-row-2')));
+      await tester.pumpAndSettle();
+      expect(shown(5), isTrue, reason: 'benching frees Electric again');
+      expect(order(tester).take(3), [2, 1, 3], reason: 'benching stays put');
+
+      final restored = Team.fromJson(t.toJson(), dex);
+      expect(restored.hideDuplicateTypes, isTrue, reason: 'persisted');
+      await tester.tap(find.byKey(const Key('deck-sort')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('deck-hide-dupes')));
+      await tester.pumpAndSettle();
+      expect(t.hideDuplicateTypes, isFalse);
+      expect([for (var d = 0; d < 6; d++) shown(d)], everyElement(isTrue));
+    },
+  );
 }

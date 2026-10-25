@@ -6,10 +6,11 @@ import 'matchup_section.dart';
 import 'type_badge.dart';
 
 /// Two columns: what hits this Pokémon (defenses, keys `def-<m>-<type>` /
-/// `def-guard-<type>`) and how well its own types hit (strengths, keys
-/// `off-<type>`): super effective, then the types both its types are resisted by
-/// (`off-section-weak`) or can't touch (`off-section-none`), shown only when
-/// non-empty. Each multiplier is a tinted [MatchupSection].
+/// `def-guard-<type>`) and how well it hits (strengths, keys `off-<type>`):
+/// super effective, then (with [neutral]) 1× (`off-section-neutral`), then
+/// the types it is resisted by (`off-section-weak`) or can't touch
+/// (`off-section-none`), shown only when non-empty. Each multiplier is a
+/// tinted [MatchupSection].
 class DefenseTable extends StatelessWidget {
   const DefenseTable({
     super.key,
@@ -18,11 +19,16 @@ class DefenseTable extends StatelessWidget {
     required this.order,
     this.guard,
     this.onOpenType,
+    this.neutral = false,
   });
   final Map<String, double> defense;
 
-  /// Best multiplier per defending type across this Pokémon's own types.
-  final Map<String, double> coverage;
+  /// Best multiplier per defending type of what it attacks with (e.g. its own
+  /// types). Null when it has no damaging attack (`off-no-damage`).
+  final Map<String, double>? coverage;
+
+  /// Also list 1× types, in both columns (`def-section-Neutral`).
+  final bool neutral;
   final List<String> order;
   final AbilityGuard? guard;
 
@@ -33,11 +39,17 @@ class DefenseTable extends StatelessWidget {
       onOpenType == null ? null : () => onOpenType!(t);
 
   List<Widget> _defenses(BuildContext context) => [
-    for (final g in defenseGroups(defense, order, guard: guard))
+    for (final g in defenseGroups(
+      defense,
+      order,
+      guard: guard,
+      neutral: neutral,
+    ))
       MatchupSection(
         key: Key('def-section-${g.label}'),
         label: g.label,
-        tint: matchupTint(
+        tint: _tint(
+          context,
           extremeMultiplier([
             for (final (m, _) in g.buckets) m,
             if (g.guard != null) 0.0,
@@ -79,43 +91,71 @@ class DefenseTable extends StatelessWidget {
       ),
   ];
 
-  List<String> _hitAt(double m) => [
+  /// [matchupTint], except 1× (transparent there) gets a faint neutral fill
+  /// so its section still reads as one.
+  static Color _tint(
+    BuildContext context,
+    double m, {
+    required bool defending,
+  }) => m == 1
+      ? Theme.of(context).colorScheme.surfaceContainerHighest
+      : matchupTint(m, defending: defending);
+
+  List<String> _hitAt(Map<String, double> coverage, double m) => [
     for (final t in order)
       if (coverage[t] == m) t,
   ];
 
-  List<Widget> _weakHits() => [
-    for (final (key, label, m) in const [
-      ('off-section-weak', 'Not very effective', 0.5),
-      ('off-section-none', 'No effect', 0.0),
-    ])
-      if (_hitAt(m) case final types when types.isNotEmpty)
-        MatchupSection(
-          key: Key(key),
-          label: label,
-          tint: matchupTint(m, defending: false),
-          rows: [
-            (
-              multLabel(m),
-              [
-                for (final t in types)
-                  TypeBadge(
-                    t,
-                    compact: true,
-                    key: Key('off-$t'),
-                    onTap: _open(t),
-                  ),
-              ],
+  /// Strength sections; super effective is always shown, the rest only when
+  /// non-empty. 4× and ¼× only arise from multi-type attacks such as Flying
+  /// Press.
+  List<Widget> _strengths(BuildContext context, Map<String, double> coverage) {
+    assert(coverage.length == order.length, 'coverage must cover every type');
+    return [
+      for (final (key, label, mults) in [
+        ('off-section', 'Super effective', const [4.0, 2.0]),
+        if (neutral) ('off-section-neutral', 'Neutral', const [1.0]),
+        ('off-section-weak', 'Not very effective', const [0.5, 0.25]),
+        ('off-section-none', 'No effect', const [0.0]),
+      ])
+        if (key == 'off-section' ||
+            mults.any((m) => _hitAt(coverage, m).isNotEmpty))
+          MatchupSection(
+            key: Key(key),
+            label: label,
+            tint: _tint(
+              context,
+              extremeMultiplier([
+                for (final m in mults)
+                  if (_hitAt(coverage, m).isNotEmpty) m,
+                if (key == 'off-section') 2.0,
+              ]),
+              defending: false,
             ),
-          ],
-        ),
-  ];
+            rows: [
+              for (final m in mults)
+                if (_hitAt(coverage, m) case final types when types.isNotEmpty)
+                  (
+                    multLabel(m),
+                    [
+                      for (final t in types)
+                        TypeBadge(
+                          t,
+                          compact: true,
+                          key: Key('off-$t'),
+                          onTap: _open(t),
+                        ),
+                    ],
+                  ),
+            ],
+          ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    assert(coverage.length == order.length, 'coverage must cover every type');
     final theme = Theme.of(context);
-    final strong = _hitAt(2);
+    final coverage = this.coverage;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -141,27 +181,10 @@ class DefenseTable extends StatelessWidget {
                 children: [
                   Text('Strengths', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
-                  MatchupSection(
-                    key: const Key('off-section'),
-                    label: 'Super effective',
-                    tint: matchupTint(2, defending: false),
-                    rows: [
-                      if (strong.isNotEmpty)
-                        (
-                          multLabel(2),
-                          [
-                            for (final t in strong)
-                              TypeBadge(
-                                t,
-                                compact: true,
-                                key: Key('off-$t'),
-                                onTap: _open(t),
-                              ),
-                          ],
-                        ),
-                    ],
-                  ),
-                  ..._weakHits(),
+                  if (coverage == null)
+                    const Text('No damaging moves', key: Key('off-no-damage'))
+                  else
+                    ..._strengths(context, coverage),
                 ],
               ),
             ),

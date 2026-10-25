@@ -11,10 +11,12 @@ class DefenseGroup {
 
 /// Bulbapedia-style grouping of a defensive multiplier map. Empty groups are omitted.
 /// Types in [guard] leave their chart bucket and are listed under 'Immune to'.
+/// With [neutral], 1× types get a 'Neutral' group between weak and resistant.
 List<DefenseGroup> defenseGroups(
   Map<String, double> defense,
   List<String> order, {
   AbilityGuard? guard,
+  bool neutral = false,
 }) {
   assert(defense.length == order.length, 'defense map must cover every type');
   final guarded = guard?.types.toSet() ?? const <String>{};
@@ -34,6 +36,7 @@ List<DefenseGroup> defenseGroups(
   }
 
   add('Weak to', [4.0, 2.0]);
+  if (neutral) add('Neutral', [1.0]);
   add('Resistant to', [0.5, 0.25]);
   add('Immune to', [0.0], guard: guard);
   return groups;

@@ -23,7 +23,9 @@
   generation) and `*_changelog` tables (hold the values from before their version
   group), via `Eras`. Adding a game = a `Game` entry + a pubspec asset line. The app
   loads one `GameSession` (`lib/ui/game_host.dart`); switching rebuilds `QuickDexApp`
-  keyed by game. `GameScope` gives widgets the game's name. Per-game prefs keys come
+  keyed by game. `GameScope` gives widgets the game's name. The theme mode
+  (Day | Auto | Night, prefs `theme`, shared by all games) is a `ValueNotifier` owned
+  by `GameHost`, so it survives the rebuild; Settings writes it. Per-game prefs keys come
   from `GameInfo.prefsKey` (Scarlet keeps the unsuffixed originals).
 - Scrambled Scarlet (`Game.doozdex`) is a romhack, built by `scrambled.py` from the
   Doozdex Google Sheet (`doozdex.py` downloads the htmlview pages + images into
@@ -82,8 +84,11 @@
   `PopScope`. Test swipes with `startBackGesture`/`commitBackGesture` on
   `SystemChannels.backGesture` (`handlePopRoute` takes a different path).
 - Team Planner (`lib/team/`, `lib/ui/team_screen.dart`): `Team` holds a sidedeck
-  `Lineup`: any number of `TeamSlot`s (entry id, ability id, ≤4 move ids, hidden move
-  ids ignored by the analysis) plus a six-slot squad of deck indices. `team[i]` is the
+  `Lineup`: any number of `TeamSlot`s (entry id, ability id, held item id (JSON `i`,
+  null = unknown), ≤4 move ids, hidden move ids ignored by the analysis, and
+  `movesKnown` (JSON `k`, set for bosses: empty move slots are "None", not unknown
+  STAB), and Tera type (JSON `t`, Gen 9 only, from the sheet's `Tera X` cells for
+  bosses)) plus a six-slot squad of deck indices. `team[i]` is the
   squad view: setting an empty slot adds to the deck, null only benches. The
   analysis, Versus and build thumbnails use the first six selected members.
   `lib/ui/sidedeck_page.dart` allows temporary overflow; its `PopScope` and the
@@ -96,7 +101,14 @@
   (`benchedOf`, via `swap` / `fill` / `addOrReuse`) instead of duplicating it.
   Sidedeck's header has Clear (`Team.clear`: empty deck/squad, no name), Sort and +. `Team.sidedeckSort` persists Recency
   (default) or Name; both put party members first. Sorting is a frozen view updated
-  only on entry or menu selection, never after toggling/editing. Stable transient
+  only on entry or menu selection, never after toggling/editing, except that with
+  `Team.hideDuplicateTypes` (team JSON `hd`, omitted when off) selecting a member
+  re-sorts so it joins the squad block while benched members sharing a squad type
+  collapse (`_Collapse`; still in the tree, so test visibility with `hitTestable`).
+  A filled planner slot is a `LongPressDraggable`: dropping on another slot calls
+  `Team.moveSlot` (squad swap, deck untouched); dropping on itself (a plain hold)
+  opens the Pokémon page (`onOpenPokemon`), so its `InkWell` has no `onLongPress`. The slot editor shows a `DefenseTable(neutral: true)` built from
+  `resolveMember` + `coverageOf` (null coverage = status-only). Stable transient
   `memberId`s keep rows in place across edits and deck-index compaction; new members
   append. Slot JSON `b` stores the last-bench ordering counter, while team JSON
   `sort` stores the preference (omitted for the default); both read older data.
@@ -117,12 +129,30 @@
   `pokedex.json` `bosses` (Scrambled Scarlet only). Boss ids are a crc of
   name/level/path mod 1e9 so frecency survives data rebuilds; Theirs' saved build ids
   start above `SavedBuilds.theirsIdBase` (1e9) so they never collide. A slot keeps any ability the dex
-  knows, not just its species', since bosses break that rule.
+  knows, not just its species', since bosses break that rule (the editor adds its chip).
+  Boss members carry held items: `read_bosses` keeps the sheet's item text, and
+  `resolve_boss_items` (`scrambled_items.py`, after the items are built) turns it
+  into an id; non-item text there goes in overrides.json `scrambled.boss_items`.
   Theirs shows `VersusView` (`lib/ui/versus_view.dart`) above its type table: per
   pair, `hit(attacker, defender)` (best multiplier of the attacker's `attackTypes`
   against the defender's ability-aware `defense`), both ways, drawn as one line split
   at its midpoint (each half coloured by its attacker's hit; the owner chose this over
-  two parallel lines).
+  two parallel lines). Lines fan out from the tapped Pokémon like a `{`
+  (`VersusLinesPainter.shape`: an S-bend to the target's row within `fan` px, then
+  flat), with the split at the middle x so the bend stays in the tapped side's half.
+  Above each half's flat run (`VersusLinesPainter.flats`) a pill row
+  (`versus-via-<side>-<mine slot>-<their slot>`) shows `hitWith`: the attacks that
+  reach that hit, ties included. Holding/right-clicking a Versus sprite pushes that side's slot
+  editor (`_editRoute(member, team:)`) without switching the shown side. In Gen 9
+  each side has one Tera Orb (state local to `VersusView`): dropped on a member with
+  a Tera type, that member's lines use `resolveMember(..., terastallized: true)`
+  (defends as the Tera type alone, moves keep their types except Tera Blast, so unknown slots stay own-type STAB). Slot cards
+  drag with a mouse at once (`_MouseDraggable`) and with touch after a hold. A Tera
+  type is drawn as a `TypeBadge` with `prefix: 'Tera: '` (same static text colours
+  as every type pill), never as an icon.
+  Slot cards stay three across: at least `_SlotCard.wideWidth` wide they put the
+  Tera type, item and ability beside the sprite, narrower (phone) they stack them
+  under the types in reserved space, so every card's sprite and name line up.
 - Frecency (`lib/frecency/`) stores a decayed `(score, updated)` per id, with a 3-day
   half-life, in shared_preferences under `frecency.v1` (per game, like the team). A visit is credited to the
   entry opened from search (on page open), not to forms/evolutions swapped to after.

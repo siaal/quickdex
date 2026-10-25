@@ -1,6 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../data/ability_guard.dart';
 import '../data/defense.dart';
+import '../data/items.dart';
 import '../data/models.dart';
 import '../data/moves.dart';
 import '../search/search_index.dart';
@@ -10,6 +13,8 @@ import '../team/team.dart';
 import '../team/team_analysis.dart';
 import '../trace.dart';
 import 'art.dart';
+import 'defense_table.dart';
+import 'item_page.dart';
 import 'learnset_table.dart';
 import 'matchup_section.dart';
 import 'sidedeck_page.dart';
@@ -33,10 +38,15 @@ class TeamScreen extends StatefulWidget {
     required this.frecency,
     required this.moves,
     required this.moveFrecency,
+    this.items,
+    this.itemFrecency,
     this.onOpenType,
     this.onOpenPokemon,
     this.onDeckChanged,
-  });
+  }) : assert(
+         (items == null) == (itemFrecency == null),
+         'items and itemFrecency go together',
+       );
   final Pokedex dex;
   final TeamPlanner planner;
   final SearchIndex<PokemonEntry> index;
@@ -44,12 +54,16 @@ class TeamScreen extends StatefulWidget {
   final Future<MoveDex> moves;
   final FrecencyScores moveFrecency;
 
+  /// Held items to pick from; members have no item slot when null.
+  final Future<ItemDex>? items;
+  final FrecencyScores? itemFrecency;
+
   /// Long-press/right-click on a type pill: open it in the Type Chart (as a
   /// defender). Pills do nothing when null.
   final ValueChanged<String>? onOpenType;
 
-  /// Long-press/right-click on the slot editor's Pokemon: open its page (on
-  /// top of the editor, so back returns there). Does nothing when null.
+  /// Long-press/right-click on a filled slot or the slot editor's Pokemon:
+  /// open its page (on top, so back returns there). Does nothing when null.
   final ValueChanged<PokemonEntry>? onOpenPokemon;
 
   /// Lets the shell guard tab navigation for an overfull open sidedeck.
@@ -66,6 +80,19 @@ enum _Side { mine, theirs }
 
 class _TeamScreenState extends State<TeamScreen> {
   String? _expanded;
+
+  /// Once loaded: the slot cards show held items.
+  ItemDex? _items;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.items?.then((items) {
+      trace('team.items.loaded', {'count': items.items.length});
+      if (mounted) setState(() => _items = items);
+    });
+  }
+
   _Side _side = _Side.mine;
 
   TeamSide get _sideData => switch (_side) {
@@ -143,6 +170,19 @@ class _TeamScreenState extends State<TeamScreen> {
     return true;
   }
 
+  /// Long-press/right-click: a filled slot opens its Pokémon's page; an
+  /// empty one goes to the chooser, as a tap does.
+  void _holdSlot(int i) {
+    final s = _team[i];
+    if (s == null) {
+      trace('team.slot.hold.empty', {'slot': i});
+      _choose(i);
+      return;
+    }
+    trace('team.slot.hold.open_page', {'slot': i, 'pokemon': s.pokemon});
+    widget.onOpenPokemon?.call(widget.dex[s.pokemon]);
+  }
+
   Future<void> _tapSlot(int i) async {
     final nav = Navigator.of(context);
     if (_team[i] == null) {
@@ -157,16 +197,19 @@ class _TeamScreenState extends State<TeamScreen> {
     await nav.push(_editRoute(member));
   }
 
-  /// The editor for deck member [member].
-  Route<void> _editRoute(int member) => MaterialPageRoute<void>(
+  /// The editor for deck member [member] of [team] (the shown side's by
+  /// default).
+  Route<void> _editRoute(int member, {Team? team}) => MaterialPageRoute<void>(
     builder: (_) => TeamSlotPage(
       dex: widget.dex,
-      team: _team,
+      team: team ?? _team,
       member: member,
       index: widget.index,
       frecency: widget.frecency,
       moves: widget.moves,
       moveFrecency: widget.moveFrecency,
+      items: widget.items,
+      itemFrecency: widget.itemFrecency,
       onOpenPokemon: widget.onOpenPokemon,
     ),
   );
@@ -370,29 +413,41 @@ class _TeamScreenState extends State<TeamScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
           ),
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 0.9,
-          children: [
-            for (var i = 0; i < Team.size; i++)
-              _SlotCard(
-                key: Key('team-slot-$i'),
-                entry: switch (_team[i]) {
-                  final s? => widget.dex[s.pokemon],
-                  null => null,
-                },
-                onTap: () => _tapSlot(i),
-                onChoose: () {
-                  trace('team.slot.choose', {'slot': i});
-                  _choose(i);
-                },
-                onOpenType: _openType,
-              ),
-          ],
+        LayoutBuilder(
+          builder: (context, box) => GridView(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              mainAxisExtent: _SlotCard.heightFor((box.maxWidth - 16) / 3),
+            ),
+            children: [
+              for (var i = 0; i < Team.size; i++)
+                _SlotCard(
+                  key: Key('team-slot-$i'),
+                  slot: i,
+                  entry: switch (_team[i]) {
+                    final s? => widget.dex[s.pokemon],
+                    null => null,
+                  },
+                  item: switch (_team[i]?.item) {
+                    final id? => _items?.byId[id],
+                    null => null,
+                  },
+                  ability: switch (_team[i]?.ability) {
+                    final id? => widget.dex.abilities[id]?.name,
+                    null => null,
+                  },
+                  tera: widget.dex.game.gen == 9 ? _team[i]?.tera : null,
+                  onTap: () => _tapSlot(i),
+                  onHold: () => _holdSlot(i),
+                  onMove: (from) => _team.moveSlot(from, i),
+                  onOpenType: _openType,
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 16),
         if (_side == _Side.theirs && members.isNotEmpty)
@@ -403,6 +458,20 @@ class _TeamScreenState extends State<TeamScreen> {
           ..._matchups(context, members),
       ],
     );
+  }
+
+  /// Opens the editor of squad slot [slot] on Mine or Theirs, from Versus,
+  /// without switching the shown side.
+  void _openVersus({required bool mine, required int slot}) {
+    final team = (mine ? widget.planner.mine : widget.planner.theirs).team;
+    final member = team.lineup.squad[slot];
+    assert(member != null, 'Versus only shows filled slots');
+    if (member == null) {
+      trace('team.versus.open.empty', {'mine': mine, 'slot': slot});
+      return;
+    }
+    trace('team.versus.open', {'mine': mine, 'slot': slot, 'member': member});
+    Navigator.of(context).push(_editRoute(member, team: team));
   }
 
   /// Your team against [theirs], above their type table.
@@ -416,6 +485,14 @@ class _TeamScreenState extends State<TeamScreen> {
       for (var i = 0; i < Team.size; i++)
         if (mineTeam[i] case final s?) resolveMember(i, s, widget.dex, moves),
     ];
+    // Each side's Tera forms, for the Tera Orbs (Gen 9).
+    Map<int, TeamMember>? tera(Team team) => widget.dex.game.gen != 9
+        ? null
+        : {
+            for (var i = 0; i < Team.size; i++)
+              if (team[i] case final s? when s.tera != null)
+                i: resolveMember(i, s, widget.dex, moves, terastallized: true),
+          };
     final theme = Theme.of(context);
     return [
       Text('Versus', style: theme.textTheme.titleMedium),
@@ -423,7 +500,14 @@ class _TeamScreenState extends State<TeamScreen> {
       if (mine.isEmpty)
         const Text('Add Pokémon on Mine to compare', key: Key('versus-empty'))
       else
-        VersusView(key: const Key('versus'), mine: mine, theirs: theirs),
+        VersusView(
+          key: const Key('versus'),
+          mine: mine,
+          theirs: theirs,
+          onOpen: _openVersus,
+          mineTera: tera(mineTeam),
+          theirsTera: tera(widget.planner.theirs.team),
+        ),
       const SizedBox(height: 16),
     ];
   }
@@ -619,67 +703,286 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 }
 
+/// One squad slot. A filled slot can be held and dragged onto another slot
+/// to swap the two (or move into an empty one); held and let go in place, it
+/// calls [onHold], as a right-click does.
 class _SlotCard extends StatelessWidget {
   const _SlotCard({
     super.key,
+    required this.slot,
     required this.entry,
+    required this.item,
+    required this.ability,
+    required this.tera,
     required this.onTap,
-    required this.onChoose,
+    required this.onHold,
+    required this.onMove,
     required this.onOpenType,
   });
+  final int slot;
   final PokemonEntry? entry;
+
+  /// Its held item; null when unknown (or items aren't loaded yet).
+  final Item? item;
+
+  /// Its chosen ability's name; null when not chosen.
+  final String? ability;
+
+  /// Its Tera type; null when unknown or not a Gen 9 game.
+  final String? tera;
   final VoidCallback onTap;
 
-  /// Long-press/right-click: straight to the Pokemon chooser.
-  final VoidCallback onChoose;
+  /// Long-press (without dragging away) or right-click.
+  final VoidCallback onHold;
+
+  /// A slot's member was dropped here; called with that slot.
+  final ValueChanged<int> onMove;
   final VoidCallback? Function(String type, String from) onOpenType;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DragTarget<int>(
+    onAcceptWithDetails: (d) {
+      if (d.data == slot) {
+        trace('team.slot.drop.self', {'slot': slot});
+        onHold();
+      } else {
+        trace('team.slot.drop', {'from': d.data, 'to': slot});
+        onMove(d.data);
+      }
+    },
+    builder: (context, candidates, _) {
+      final card = _card(
+        context,
+        highlight: candidates.any((from) => from != slot),
+      );
+      if (entry == null) return card;
+      return LayoutBuilder(
+        builder: (context, box) {
+          final feedback = SizedBox(
+            width: box.maxWidth,
+            height: box.maxHeight,
+            child: Opacity(opacity: 0.85, child: _card(context)),
+          );
+          final dragging = Opacity(opacity: 0.3, child: card);
+          // A mouse drags straight away; touch holds first, so the page
+          // still scrolls.
+          return _MouseDraggable<int>(
+            data: slot,
+            onDragStarted: () => trace('team.slot.drag.mouse', {'slot': slot}),
+            feedback: feedback,
+            childWhenDragging: dragging,
+            child: LongPressDraggable<int>(
+              data: slot,
+              onDragStarted: () => trace('team.slot.drag', {'slot': slot}),
+              feedback: feedback,
+              childWhenDragging: dragging,
+              child: card,
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  Widget _card(BuildContext context, {bool highlight = false}) {
     final e = entry;
+    final scheme = Theme.of(context).colorScheme;
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
+      shape: highlight
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: scheme.primary, width: 2),
+            )
+          : null,
       child: InkWell(
         onTap: onTap,
-        onLongPress: onChoose,
-        onSecondaryTap: onChoose,
+        // A filled slot's hold is the drag (see build).
+        onLongPress: e == null ? onHold : null,
+        onSecondaryTap: onHold,
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: e == null
               ? const Center(child: Icon(Icons.add, size: 32))
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(child: Image.asset(thumbPath(e.id))),
-                    Text(
-                      e.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    const SizedBox(height: 2),
-                    Wrap(
-                      spacing: 2,
-                      children: [
-                        for (final t in e.types)
-                          TypeBadge(
-                            t,
-                            compact: true,
-                            key: Key('team-slot-type-$t'),
-                            onTap: onOpenType(t, 'slot'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
+              : _filled(context, e),
         ),
       ),
     );
   }
+
+  /// Cards at least this wide put the details beside the sprite; narrower
+  /// ones (three to a phone's width) stack them under the types.
+  static const wideWidth = 200.0;
+
+  /// A card's height for its [width]: wide ones grow with the width so the
+  /// sprite fills the card; narrow ones fit the stacked details.
+  static double heightFor(double width) =>
+      width >= wideWidth ? (width * 0.7).clamp(140, 240) : 210;
+
+  /// Room for the Tera type, item and ability under a narrow card's types,
+  /// kept even when some are missing so every card's name lines up.
+  static const _narrowDetails = 70.0;
+
+  Widget _filled(BuildContext context, PokemonEntry e) {
+    final small = Theme.of(context).textTheme.labelSmall;
+    final name = Text(
+      e.name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.labelMedium,
+    );
+    // One line: long pairs shrink rather than wrap, at a fixed height so a
+    // shrunk pair doesn't shift its card's sprite and name.
+    final types = SizedBox(
+      height: 20,
+      child: Row(
+        spacing: 2,
+        children: [
+          for (final t in e.types)
+            Flexible(
+              child: TypeBadge(
+                t,
+                compact: true,
+                key: Key('team-slot-type-$t'),
+                onTap: onOpenType(t, 'slot'),
+              ),
+            ),
+        ],
+      ),
+    );
+    // Display only: taps and holds go to the card.
+    final details = [
+      if (tera case final t?)
+        IgnorePointer(
+          child: TypeBadge(
+            t,
+            key: Key('team-slot-tera-$slot'),
+            compact: true,
+            prefix: 'Tera: ',
+          ),
+        ),
+      if (item case final item?)
+        IgnorePointer(
+          child: Row(
+            children: [
+              _croppedItem(item, key: Key('team-slot-item-$slot')),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: small,
+                ),
+              ),
+            ],
+          ),
+        ),
+      if (ability case final a?)
+        Text(
+          a,
+          key: Key('team-slot-ability-$slot'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: small,
+        ),
+    ];
+    // Flush left, so its edge lines up with the name below.
+    final sprite = Image.asset(
+      thumbPath(e.id),
+      fit: BoxFit.contain,
+      alignment: Alignment.centerLeft,
+    );
+    return LayoutBuilder(
+      builder: (context, box) {
+        final wide = box.maxWidth + 12 >= wideWidth;
+        if (!wide) {
+          trace('team.slot.layout.narrow', {'slot': slot});
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 2,
+            children: [
+              Expanded(child: sprite),
+              name,
+              types,
+              SizedBox(
+                height: _narrowDetails,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
+                  children: [const SizedBox(height: 2), ...details],
+                ),
+              ),
+            ],
+          );
+        }
+        trace('team.slot.layout.wide', {'slot': slot});
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          spacing: 2,
+          children: [
+            // The sprite fills the height above the name; the details sit
+            // beside it from the top, so they line up across cards.
+            Expanded(
+              child: Row(
+                children: [
+                  AspectRatio(aspectRatio: 1, child: sprite),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 4,
+                      children: [const SizedBox(height: 4), ...details],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            name,
+            types,
+          ],
+        );
+      },
+    );
+  }
 }
 
-/// Edit one slot: change the Pokémon, pick its ability and up to four moves
+/// [item]'s sprite without its transparent margin (about a fifth each
+/// side), so the item itself is [size] across.
+Widget _croppedItem(Item item, {Key? key, double size = 22}) => SizedBox.square(
+  key: key,
+  dimension: size,
+  child: ClipRect(
+    child: OverflowBox(
+      maxWidth: size / 0.62,
+      maxHeight: size / 0.62,
+      child: ItemSprite(item, size: size / 0.62),
+    ),
+  ),
+);
+
+/// A [Draggable] for mice only: they drag straight away, while touch keeps
+/// the long-press of the [LongPressDraggable] inside.
+class _MouseDraggable<T extends Object> extends Draggable<T> {
+  const _MouseDraggable({
+    required super.data,
+    required super.feedback,
+    required super.childWhenDragging,
+    required super.onDragStarted,
+    required super.child,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer(
+    GestureMultiDragStartCallback onStart,
+  ) => ImmediateMultiDragGestureRecognizer(
+    supportedDevices: {PointerDeviceKind.mouse},
+  )..onStart = onStart;
+}
+
+/// Edit one slot: change the Pokémon, pick its ability, held item
+/// (`team-item`, cleared with `team-item-clear`) and up to four moves
 /// (`team-move-<k>`, cleared with `team-move-clear-<k>`, left out of the
 /// analysis with `team-move-hide-<k>`), or remove it. Changing the Pokemon
 /// swaps in a new member ([Team.swap]) and edits that from then on.
@@ -693,6 +996,8 @@ class TeamSlotPage extends StatefulWidget {
     required this.frecency,
     required this.moves,
     required this.moveFrecency,
+    this.items,
+    this.itemFrecency,
     this.onOpenPokemon,
   });
   final Pokedex dex;
@@ -702,6 +1007,10 @@ class TeamSlotPage extends StatefulWidget {
   final FrecencyScores frecency;
   final Future<MoveDex> moves;
   final FrecencyScores moveFrecency;
+
+  /// No item section when null.
+  final Future<ItemDex>? items;
+  final FrecencyScores? itemFrecency;
 
   /// Long-press/right-click on the Pokemon (`team-pokemon`): its page.
   final ValueChanged<PokemonEntry>? onOpenPokemon;
@@ -722,6 +1031,8 @@ class _TeamSlotPageState extends State<TeamSlotPage> {
     frecency: widget.frecency,
     moves: widget.moves,
     moveFrecency: widget.moveFrecency,
+    items: widget.items,
+    itemFrecency: widget.itemFrecency,
     onSwapped: (d) => setState(() => _member = d),
     onOpenPokemon: widget.onOpenPokemon,
   );
@@ -736,6 +1047,8 @@ class _SlotEditor extends StatelessWidget {
     required this.frecency,
     required this.moves,
     required this.moveFrecency,
+    required this.items,
+    required this.itemFrecency,
     required this.onSwapped,
     required this.onOpenPokemon,
   });
@@ -746,6 +1059,8 @@ class _SlotEditor extends StatelessWidget {
   final FrecencyScores frecency;
   final Future<MoveDex> moves;
   final FrecencyScores moveFrecency;
+  final Future<ItemDex>? items;
+  final FrecencyScores? itemFrecency;
   final ValueChanged<int> onSwapped;
   final ValueChanged<PokemonEntry>? onOpenPokemon;
 
@@ -766,6 +1081,140 @@ class _SlotEditor extends StatelessWidget {
     }
     // The old member stays in the sidedeck, benched, with its ability and moves.
     onSwapped(team.swap(member, TeamSlot(e.id, ability: e.abilities.first)));
+  }
+
+  /// The Tera type, picked from a dialog of every type; Gen 9 only.
+  Widget _tera(BuildContext context, TeamSlot s) {
+    assert(dex.game.gen == 9, 'Tera types are Gen 9 only');
+    Future<void> pick() async {
+      final t = await showDialog<String>(
+        context: context,
+        builder: (context) => SimpleDialog(
+          title: const Text('Tera type'),
+          contentPadding: const EdgeInsets.all(16),
+          children: [
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final t in dex.types.order)
+                  TypeBadge(
+                    t,
+                    icon: true,
+                    key: Key('team-tera-pick-$t'),
+                    onTap: () => Navigator.of(context).pop(t),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      );
+      if (t == null) {
+        trace('team.tera.cancelled', {'member': member});
+        return;
+      }
+      if (member >= team.deck.length) return; // removed meanwhile
+      trace('team.tera.set', {'member': member, 'tera': t});
+      team.setMember(member, team.deck[member].withTera(t));
+    }
+
+    final tera = s.tera;
+    if (tera == null) {
+      // Not chosen yet: unknown; Versus can't terastallize it.
+      return ListTile(
+        key: const Key('team-tera'),
+        leading: const SizedBox(width: 48, child: Icon(Icons.question_mark)),
+        title: const Text('Unknown'),
+        onTap: pick,
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: ListTile(
+            key: const Key('team-tera'),
+            leading: SizedBox(
+              width: 48,
+              child: Center(
+                child: Image.asset(typeIconPath(tera), width: 32, height: 32),
+              ),
+            ),
+            title: Align(
+              alignment: Alignment.centerLeft,
+              child: TypeBadge(tera, prefix: 'Tera: ', onTap: pick),
+            ),
+            onTap: pick,
+          ),
+        ),
+        IconButton(
+          key: const Key('team-tera-clear'),
+          tooltip: 'Clear Tera type',
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            trace('team.tera.clear', {'member': member});
+            team.setMember(member, s.withTera(null));
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickItem(BuildContext context, ItemDex dexItems) async {
+    final i = await Navigator.of(context).push(
+      MaterialPageRoute<Item>(
+        builder: (_) => ItemPicker(items: dexItems, frecency: itemFrecency!),
+      ),
+    );
+    if (i == null) {
+      trace('team.item.cancelled', {'member': member});
+      return;
+    }
+    if (member >= team.deck.length) return; // removed meanwhile
+    trace('team.item.set', {'member': member, 'item': i.id});
+    team.setMember(member, team.deck[member].withItem(i.id));
+  }
+
+  Widget _item(BuildContext context, TeamSlot s, ItemDex? dexItems) {
+    if (dexItems == null) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: LinearProgressIndicator(),
+      );
+    }
+    final item = s.item == null ? null : dexItems.byId[s.item];
+    if (item == null) {
+      if (s.item != null) {
+        trace('team.item.not_in_game', {'member': member, 'item': s.item});
+      }
+      // Not chosen yet: unknown, not "no item".
+      return ListTile(
+        key: const Key('team-item'),
+        leading: const SizedBox(width: 48, child: Icon(Icons.question_mark)),
+        title: const Text('Unknown'),
+        onTap: () => _pickItem(context, dexItems),
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: ItemTile(
+            item,
+            key: const Key('team-item'),
+            onTap: () => _pickItem(context, dexItems),
+            onDetails: () => showItemDetails(context, item),
+          ),
+        ),
+        IconButton(
+          key: const Key('team-item-clear'),
+          tooltip: 'Clear item',
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            trace('team.item.clear', {'member': member});
+            team.setMember(member, s.withItem(null));
+          },
+        ),
+      ],
+    );
   }
 
   Future<void> _pickMove(BuildContext context, TeamSlot s, int k) async {
@@ -851,10 +1300,28 @@ class _SlotEditor extends StatelessWidget {
             ),
             _heading(context, 'Ability'),
             _abilities(context, s, e),
+            if (items case final items?) ...[
+              _heading(context, 'Item'),
+              FutureBuilder(
+                future: items,
+                builder: (context, snap) => _item(context, s, snap.data),
+              ),
+            ],
+            if (dex.game.gen == 9) ...[
+              _heading(context, 'Tera type'),
+              _tera(context, s),
+            ],
             _heading(context, 'Moves'),
             FutureBuilder(
               future: moves,
-              builder: (context, snap) => _moves(context, s, snap.data),
+              builder: (context, snap) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _moves(context, s, snap.data),
+                  _heading(context, 'Matchups'),
+                  _matchups(s, e, snap.data),
+                ],
+              ),
             ),
           ],
         ),
@@ -877,7 +1344,8 @@ class _SlotEditor extends StatelessWidget {
           Wrap(
             spacing: 6,
             children: [
-              for (final id in [...e.abilities, ?e.hidden])
+              // A boss's member can have an ability its species can't.
+              for (final id in {...e.abilities, ?e.hidden, ?s.ability})
                 ChoiceChip(
                   key: Key('team-ability-$id'),
                   label: Text(
@@ -894,6 +1362,39 @@ class _SlotEditor extends StatelessWidget {
           if (chosen != null)
             Text(chosen.effect, style: Theme.of(context).textTheme.bodySmall),
         ],
+      ),
+    );
+  }
+
+  /// Like the Pokémon page's table, plus 1× rows: defences count the
+  /// chosen ability's immunities (named, as a guard), strengths come from
+  /// the member's attacks as the team analysis sees them.
+  Widget _matchups(TeamSlot s, PokemonEntry e, MoveDex? dexMoves) {
+    final m = resolveMember(member, s, dex, dexMoves);
+    final blocked = [
+      for (final t in dex.types.order)
+        if (m.defense[t] == 0 && e.defense[t] != 0) t,
+    ];
+    final AbilityGuard? guard;
+    if (blocked.isEmpty) {
+      trace('team.slot.matchups.no_guard', {'member': member});
+      guard = null;
+    } else if (s.ability case final a?) {
+      trace('team.slot.matchups.ability_guard', {'member': member, 'a': a});
+      guard = AbilityGuard(dex.abilities[a]!.name, blocked);
+    } else {
+      trace('team.slot.matchups.entry_guard', {'member': member});
+      guard = e.guard;
+    }
+    return Padding(
+      key: const Key('team-matchups'),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: DefenseTable(
+        defense: e.defense,
+        coverage: coverageOf(m, dex.types),
+        order: dex.types.order,
+        guard: guard,
+        neutral: true,
       ),
     );
   }
@@ -966,14 +1467,15 @@ class _SlotEditor extends StatelessWidget {
               ],
             )
           else if (k >= s.moves.length)
-            // Not chosen yet: unknown (counts as STAB), not empty.
+            // Not chosen yet: unknown (counts as STAB), not empty. A boss's
+            // full moveset has no more: none.
             ListTile(
               key: Key('team-move-$k'),
-              leading: const SizedBox(
+              leading: SizedBox(
                 width: 48,
-                child: Icon(Icons.question_mark),
+                child: Icon(s.movesKnown ? Icons.remove : Icons.question_mark),
               ),
-              title: const Text('Unknown'),
+              title: Text(s.movesKnown ? 'None' : 'Unknown'),
               onTap: () => _pickMove(context, s, s.moves.length),
             ),
       ],
@@ -1292,6 +1794,27 @@ class PokemonPicker extends StatelessWidget {
     results: (q) => [for (final h in index.search(q, frecency)) h.entry],
     tile: (e, onTap) => PokemonTile(e, onTap: onTap),
   );
+}
+
+/// Pick a held item from the game's bag, ranked like search.
+class ItemPicker extends StatelessWidget {
+  const ItemPicker({super.key, required this.items, required this.frecency});
+  final ItemDex items;
+  final FrecencyScores frecency;
+
+  @override
+  Widget build(BuildContext context) {
+    final index = SearchIndex(items.items);
+    return _Picker<Item>(
+      title: 'Search items',
+      results: (q) => [for (final h in index.search(q, frecency)) h.entry],
+      tile: (i, onTap) => ItemTile(
+        i,
+        onTap: onTap,
+        onDetails: () => showItemDetails(context, i),
+      ),
+    );
+  }
 }
 
 /// Pick a move. With nothing typed, lists [pokemon]'s moves under a Level up |

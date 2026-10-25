@@ -13,6 +13,9 @@ import 'type_badge.dart';
 /// delete it (after `deck-delete-confirm`). Header actions sort (`deck-sort`)
 /// add (`deck-add`), or clear the whole deck (`deck-clear`, then
 /// `deck-clear-confirm`). Row order is frozen until entry or a sort selection.
+/// The sort menu's Hide duplicate types (`deck-hide-dupes`) collapses benched
+/// members sharing any type with the squad; while it's on, a member put into
+/// the squad moves up with the squad at once.
 /// The squad count shows top right (`deck-count`). Extra selections are allowed,
 /// but back navigation stays blocked until at most six remain.
 class SidedeckPage extends StatefulWidget {
@@ -33,6 +36,9 @@ class SidedeckPage extends StatefulWidget {
   @override
   State<SidedeckPage> createState() => _SidedeckPageState();
 }
+
+/// The sort menu's filter entry.
+const _hideDuplicates = 'hide-duplicates';
 
 class _SidedeckPageState extends State<SidedeckPage> {
   final _order = <int>[];
@@ -115,9 +121,31 @@ class _SidedeckPageState extends State<SidedeckPage> {
       );
   }
 
+  /// Benched members to hide: any of their types is already in the squad.
+  Set<int> _duplicates() {
+    if (!team.hideDuplicateTypes) return const {};
+    final deck = team.deck;
+    final squadTypes = {
+      for (var d = 0; d < deck.length; d++)
+        if (team.slotOf(d) != null) ...widget.dex[deck[d].pokemon].types,
+    };
+    final hidden = {
+      for (var d = 0; d < deck.length; d++)
+        if (team.slotOf(d) == null &&
+            widget.dex[deck[d].pokemon].types.any(squadTypes.contains))
+          d,
+    };
+    trace('deck.hide_duplicates', {
+      'squad_types': squadTypes.length,
+      'hidden': hidden.length,
+    });
+    return hidden;
+  }
+
   @override
   Widget build(BuildContext context) {
     final deck = team.deck;
+    final hidden = _duplicates();
     return PopScope<void>(
       canPop: team.isLegal,
       onPopInvokedWithResult: (didPop, _) {
@@ -148,13 +176,18 @@ class _SidedeckPageState extends State<SidedeckPage> {
               icon: const Icon(Icons.delete_outline),
               onPressed: team.deck.isEmpty ? null : () => _clear(context),
             ),
-            PopupMenuButton<SidedeckSort>(
+            PopupMenuButton<Object>(
               key: const Key('deck-sort'),
-              tooltip: 'Sort sidedeck',
+              tooltip: 'Sort and filter sidedeck',
               icon: const Icon(Icons.sort),
-              onSelected: (sort) {
-                team.sidedeckSort = sort;
-                setState(_sort);
+              onSelected: (choice) {
+                if (choice case final SidedeckSort sort) {
+                  team.sidedeckSort = sort;
+                  setState(_sort);
+                } else {
+                  assert(choice == _hideDuplicates);
+                  team.hideDuplicateTypes = !team.hideDuplicateTypes;
+                }
               },
               itemBuilder: (_) => [
                 for (final sort in SidedeckSort.values)
@@ -166,6 +199,13 @@ class _SidedeckPageState extends State<SidedeckPage> {
                       sort == SidedeckSort.recency ? 'Recency' : 'Name',
                     ),
                   ),
+                const PopupMenuDivider(),
+                CheckedPopupMenuItem(
+                  key: const Key('deck-hide-dupes'),
+                  value: _hideDuplicates,
+                  checked: team.hideDuplicateTypes,
+                  child: const Text('Hide duplicate types'),
+                ),
               ],
             ),
             IconButton(
@@ -192,7 +232,16 @@ class _SidedeckPageState extends State<SidedeckPage> {
                   ),
                 ),
               for (final id in _order)
-                _row(context, _members[id]!, deck[_members[id]!], snap.data),
+                _Collapse(
+                  key: ValueKey(id),
+                  hidden: hidden.contains(_members[id]),
+                  child: _row(
+                    context,
+                    _members[id]!,
+                    deck[_members[id]!],
+                    snap.data,
+                  ),
+                ),
             ],
           ),
         ),
@@ -265,6 +314,11 @@ class _SidedeckPageState extends State<SidedeckPage> {
             trace('deck.toggle', {'member': d, 'in_squad': inSquad});
             final changed = team.toggle(d, allowOverflow: true);
             assert(changed);
+            if (!inSquad && team.hideDuplicateTypes) {
+              // Up with the squad while its duplicates collapse.
+              trace('deck.toggle.lift', {'member': d});
+              setState(_sort);
+            }
           },
           onLongPress: () {
             trace('deck.edit', {'member': d});
@@ -350,7 +404,7 @@ class _SidedeckPageState extends State<SidedeckPage> {
                   ),
                 ),
               ),
-          for (var k = s.moves.length; k < TeamSlot.maxMoves; k++)
+          for (var k = s.moves.length; k < s.moves.length + s.unknownMoves; k++)
             SizedBox(
               key: Key('deck-unknown-${s.pokemon}-$k'),
               width: box.maxWidth / 2,
@@ -366,4 +420,35 @@ class _SidedeckPageState extends State<SidedeckPage> {
       ),
     );
   }
+}
+
+/// Shrinks [child] to nothing and fades it out when [hidden], animating both
+/// ways; a hidden child ignores taps and is left out of semantics.
+class _Collapse extends StatelessWidget {
+  const _Collapse({super.key, required this.hidden, required this.child});
+  final bool hidden;
+  final Widget child;
+
+  static const duration = Duration(milliseconds: 250);
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: hidden,
+    child: ExcludeSemantics(
+      excluding: hidden,
+      child: ClipRect(
+        child: AnimatedAlign(
+          alignment: Alignment.topCenter,
+          heightFactor: hidden ? 0 : 1,
+          duration: duration,
+          curve: Curves.easeInOut,
+          child: AnimatedOpacity(
+            opacity: hidden ? 0 : 1,
+            duration: duration,
+            child: child,
+          ),
+        ),
+      ),
+    ),
+  );
 }

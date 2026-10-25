@@ -4,16 +4,19 @@ import '../data/game.dart';
 import '../trace.dart';
 import 'game_scope.dart';
 
-/// Opened from the cog on the Search screen. Only the game for now; picking a
-/// different one reloads the app with that game's data (keys `game-<key>`).
+/// Opened from the cog on the Search screen. The game: picking a different
+/// one reloads the app with that game's data (keys `game-<key>`). And, given
+/// [themeMode], the theme: Day | Auto | Night (`theme-<light|system|dark>`).
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
     required this.games,
     required this.onGameChanged,
+    this.themeMode,
   });
   final List<GameInfo> games;
   final ValueChanged<GameInfo> onGameChanged;
+  final ValueNotifier<ThemeMode>? themeMode;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +49,45 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
+          if (themeMode case final mode?) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Theme',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ValueListenableBuilder(
+                valueListenable: mode,
+                builder: (_, m, _) => SegmentedButton<ThemeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      label: Text('Day', key: Key('theme-light')),
+                      icon: Icon(Icons.light_mode),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text('Auto', key: Key('theme-system')),
+                      icon: Icon(Icons.brightness_auto),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      label: Text('Night', key: Key('theme-dark')),
+                      icon: Icon(Icons.dark_mode),
+                    ),
+                  ],
+                  selected: {m},
+                  onSelectionChanged: (s) {
+                    trace('settings.theme.pick', {'mode': s.single.name});
+                    mode.value = s.single;
+                  },
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

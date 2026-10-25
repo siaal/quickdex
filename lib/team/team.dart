@@ -5,14 +5,18 @@ import 'package:flutter/foundation.dart';
 import '../data/models.dart';
 import '../trace.dart';
 
-/// One team member: a Pokémon entry, its chosen ability and up to four moves.
+/// One team member: a Pokémon entry, its chosen ability, held item and up to
+/// four moves.
 class TeamSlot {
   TeamSlot(
     this.pokemon, {
     this.ability,
+    this.item,
+    this.tera,
     this.moves = const [],
     this.hidden = const {},
     this.lastBenched = 0,
+    this.movesKnown = false,
   }) : assert(lastBenched >= 0),
        assert(moves.length <= maxMoves, 'at most $maxMoves moves: $moves'),
        assert(
@@ -28,6 +32,12 @@ class TeamSlot {
   /// Ability id; null means "not chosen" (only a guaranteed immunity counts).
   final int? ability;
 
+  /// Held item id (the game's items.json); null means "unknown", not "none".
+  final int? item;
+
+  /// Tera type (a chart type, Gen 9 only); null means unknown.
+  final String? tera;
+
   /// Move ids in slot order, no gaps.
   final List<int> moves;
 
@@ -37,6 +47,13 @@ class TeamSlot {
 
   /// Removal-order counter within this team; zero means never benched.
   final int lastBenched;
+
+  /// [moves] is the whole moveset (a boss's, from the game's data): its empty
+  /// move slots are "none", not "unknown", so they add no STAB.
+  final bool movesKnown;
+
+  /// How many move slots are unknown (not chosen yet).
+  int get unknownMoves => movesKnown ? 0 : maxMoves - moves.length;
 
   /// Replacing [moves] keeps only the hidden ids still among them.
   TeamSlot copyWith({
@@ -49,18 +66,48 @@ class TeamSlot {
     return TeamSlot(
       pokemon,
       ability: ability ?? this.ability,
+      item: item,
+      tera: tera,
       moves: m,
       hidden: (hidden ?? this.hidden).intersection(m.toSet()),
       lastBenched: lastBenched ?? this.lastBenched,
+      movesKnown: movesKnown,
     );
   }
+
+  /// This member holding [item] (null: unknown again).
+  TeamSlot withItem(int? item) => TeamSlot(
+    pokemon,
+    ability: ability,
+    item: item,
+    tera: tera,
+    moves: moves,
+    hidden: hidden,
+    lastBenched: lastBenched,
+    movesKnown: movesKnown,
+  );
+
+  /// This member with Tera type [tera] (null: unknown again).
+  TeamSlot withTera(String? tera) => TeamSlot(
+    pokemon,
+    ability: ability,
+    item: item,
+    tera: tera,
+    moves: moves,
+    hidden: hidden,
+    lastBenched: lastBenched,
+    movesKnown: movesKnown,
+  );
 
   Map<String, dynamic> toJson() => {
     'p': pokemon,
     if (ability != null) 'a': ability,
+    if (item != null) 'i': item,
+    if (tera != null) 't': tera,
     'm': moves,
     if (hidden.isNotEmpty) 'h': hidden.toList(),
     if (lastBenched > 0) 'b': lastBenched,
+    if (movesKnown) 'k': true,
   };
 }
 
@@ -167,7 +214,9 @@ class Team extends ChangeNotifier {
     this._name,
     this.onChanged, {
     SidedeckSort sort = SidedeckSort.recency,
+    bool hideDuplicateTypes = false,
   }) : _deck = List.of(l.deck),
+       _hideDuplicateTypes = hideDuplicateTypes,
        _squad = List.of(l.squad),
        _memberIds = List.generate(l.deck.length, (i) => i),
        _nextMemberId = l.deck.length,
@@ -205,6 +254,7 @@ class Team extends ChangeNotifier {
         sort: j is Map && j['sort'] == 'name'
             ? SidedeckSort.name
             : SidedeckSort.recency,
+        hideDuplicateTypes: j is Map && j['hd'] == true,
       );
     } catch (e) {
       trace('team.load.corrupt', {'error': e.runtimeType.toString()});
@@ -237,6 +287,11 @@ class Team extends ChangeNotifier {
       trace('team.load.unknown_ability', {'slot': i, 'ability': ability});
       ability = null;
     }
+    var tera = j['t'] as String?;
+    if (tera != null && !dex.types.order.contains(tera)) {
+      trace('team.load.unknown_tera', {'slot': i, 'tera': tera});
+      tera = null;
+    }
     final moves = (j['m'] as List).cast<int>().take(TeamSlot.maxMoves);
     final hidden = ((j['h'] as List?) ?? const []).cast<int>().toSet();
     if (!moves.toSet().containsAll(hidden)) {
@@ -245,12 +300,15 @@ class Team extends ChangeNotifier {
     return TeamSlot(
       e.id,
       ability: ability,
+      item: j['i'] as int?,
+      tera: tera,
       moves: moves.toList(),
       hidden: hidden.intersection(moves.toSet()),
       lastBenched: switch (j['b']) {
         final int b when b >= 0 => b,
         _ => 0,
       },
+      movesKnown: j['k'] == true,
     );
   }
 
@@ -263,6 +321,7 @@ class Team extends ChangeNotifier {
   final List<int> _memberIds;
   int _nextMemberId;
   SidedeckSort _sidedeckSort;
+  bool _hideDuplicateTypes;
   String? _name;
 
   /// Stable for this member's lifetime, even when edited or reindexed.
@@ -272,6 +331,14 @@ class Team extends ChangeNotifier {
   set sidedeckSort(SidedeckSort sort) {
     trace('team.deck.sort', {'sort': sort.name});
     _sidedeckSort = sort;
+    _changed();
+  }
+
+  /// Sidedeck filter: hide benched members sharing a type with the squad.
+  bool get hideDuplicateTypes => _hideDuplicateTypes;
+  set hideDuplicateTypes(bool hide) {
+    trace('team.deck.hide_duplicate_types', {'hide': hide});
+    _hideDuplicateTypes = hide;
     _changed();
   }
 
@@ -330,6 +397,21 @@ class Team extends ChangeNotifier {
       _memberIds.add(_nextMemberId++);
       _squad[i] = _deck.length - 1;
     }
+    _changed();
+  }
+
+  /// Swaps squad slots [from] and [to] (either may be empty, so this also
+  /// moves a member into an empty slot). The deck is untouched.
+  void moveSlot(int from, int to) {
+    assert(from >= 0 && from < size && to >= 0 && to < size, '$from -> $to');
+    if (from == to) {
+      trace('team.slot.move.same', {'slot': from});
+      return;
+    }
+    trace('team.slot.move', {'from': from, 'to': to});
+    final d = _squad[from];
+    _squad[from] = _squad[to];
+    _squad[to] = d;
     _changed();
   }
 
@@ -529,5 +611,6 @@ class Team extends ChangeNotifier {
     'n': ?_name,
     ...lineup.toJson(),
     if (_sidedeckSort != SidedeckSort.recency) 'sort': _sidedeckSort.name,
+    if (_hideDuplicateTypes) 'hd': true,
   });
 }
